@@ -96,6 +96,7 @@ struct TokenHttp {
     version: Option<reqwest::Version>,
     client: reqwest::Client,
     origin: Option<reqwest::header::HeaderValue>,
+    decode_response: Option<bool>,
 }
 impl<'c> oauth2::AsyncHttpClient<'c> for TokenHttp {
     type Error = io::Error;
@@ -114,6 +115,16 @@ impl<'c> oauth2::AsyncHttpClient<'c> for TokenHttp {
                     .headers_mut()
                     .insert(reqwest::header::ORIGIN, value.clone());
             }
+            if self.decode_response == Some(true)
+                && !outgoing
+                    .headers()
+                    .contains_key(reqwest::header::ACCEPT_ENCODING)
+            {
+                outgoing.headers_mut().insert(
+                    reqwest::header::ACCEPT_ENCODING,
+                    reqwest::header::HeaderValue::from_static("gzip, deflate, br"),
+                );
+            }
             let mut response = self.client.execute(outgoing).await.map_err(|e| {
                 io::Error::other(if e.is_timeout() {
                     "OAuth token request timed out."
@@ -121,6 +132,8 @@ impl<'c> oauth2::AsyncHttpClient<'c> for TokenHttp {
                     "OAuth token connection failed. Check endpoint, proxy and TLS settings."
                 })
             })?;
+            crate::http::compression::response(&mut response, self.decode_response)
+                .map_err(io::Error::other)?;
             if response.status().is_redirection() {
                 return Err(io::Error::other(
                     "Token endpoint redirects are not followed. Set its final URL explicitly.",
@@ -154,8 +167,9 @@ pub async fn exchange(
     url: &reqwest::Url,
     config: &OAuthConfig,
     version: Option<reqwest::Version>,
+    decode_response: Option<bool>,
 ) -> Result<OAuthToken, String> {
-    exchange_grant(client, url, config, None, version).await
+    exchange_grant(client, url, config, None, version, decode_response).await
 }
 
 pub async fn exchange_code(
@@ -164,8 +178,9 @@ pub async fn exchange_code(
     config: &OAuthConfig,
     grant: CodeGrant,
     version: Option<reqwest::Version>,
+    decode_response: Option<bool>,
 ) -> Result<OAuthToken, String> {
-    exchange_grant(client, url, config, Some(grant), version).await
+    exchange_grant(client, url, config, Some(grant), version, decode_response).await
 }
 
 async fn exchange_grant(
@@ -174,6 +189,7 @@ async fn exchange_grant(
     config: &OAuthConfig,
     code: Option<CodeGrant>,
     version: Option<reqwest::Version>,
+    decode_response: Option<bool>,
 ) -> Result<OAuthToken, String> {
     if !matches!(url.scheme(), "http" | "https")
         || !url.username().is_empty()
@@ -209,6 +225,7 @@ async fn exchange_grant(
         version,
         client: client.clone(),
         origin,
+        decode_response,
     };
     let scopes = || {
         config

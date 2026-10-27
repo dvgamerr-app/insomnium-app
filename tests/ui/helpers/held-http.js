@@ -3,8 +3,9 @@ import { createServer } from "node:http";
 
 /** Native cancellation fixture: /held stays open until its client disconnects.
  * Other paths return a finite response. Every scenario owns its server.
- * @param {{body?:string,headers?:Record<string,string>,initialChunk?:string}} [options] */
+ * @param {{body?:string|Uint8Array,headers?:Record<string,string|string[]>,initialChunk?:string|Uint8Array}} [options] */
 export async function heldHttp(options = {}) {
+  /** @type {{method:string|undefined,url:string|undefined,headers:import("node:http").IncomingHttpHeaders}[]} */ const requests = [];
   let held = 0;
   let cancelled = 0;
   let echoes = 0;
@@ -12,6 +13,7 @@ export async function heldHttp(options = {}) {
   /** @type {Set<import('node:http').ServerResponse>} */
   const pending = new Set();
   const server = createServer((request, response) => {
+    requests.push({ method: request.method, url: request.url, headers: { ...request.headers } });
     if (request.url === "/held") {
       held++;
       pending.add(response);
@@ -42,6 +44,7 @@ export async function heldHttp(options = {}) {
   assert.ok(address && typeof address === "object");
   return {
     port: address.port,
+    requests,
     get held() {
       return held;
     },

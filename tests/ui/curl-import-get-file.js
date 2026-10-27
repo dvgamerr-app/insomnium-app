@@ -6,15 +6,18 @@ import { preserveNativeProfile } from "./helpers/native-profile-preservation.js"
 import { withResourceProbePreserved, registerResourceProbeCollection } from "./helpers/resource-manager-cases.js";
 process.env.INSOMNIUM_UI_BUILD_STATE ||=
   "artifacts/native-curl-get-ui-probe/build-state.json";
+const methodToggles = process.env.INSOMNIUM_CURL_METHOD_TOGGLES === "1";
 /** @type {any[]} */ const received = [];
 const server = Bun.serve({
   hostname: "127.0.0.1",
   port: 0,
   async fetch(r) {
+    const bytes = new Uint8Array(await r.arrayBuffer());
     received.push({
       method: r.method,
       path: new URL(r.url).pathname + new URL(r.url).search,
-      bodyBytes: (await r.arrayBuffer()).byteLength,
+      bodyBytes: bytes.byteLength,
+      bodyBase64: Buffer.from(bytes).toString("base64"),
       type: r.headers.get("content-type"),
     });
     return new Response("", { status: 200 });
@@ -26,7 +29,15 @@ try {
     "curl-import-get-file",
     async ({ page, invoke, output }) => {
       const all = Buffer.from(Array.from({ length: 256 }, (_, i) => i));
-      const cases = [
+      const cases = methodToggles ? [
+        { name: "get-off", args: ["-G", "--no-get", "--data-binary", "@FILE", "-d", "tail=2", "--url-query", "keep=1"], bytes: all, method: "POST" },
+        { name: "get-on", args: ["--no-get", "-G", "--data-urlencode", "field@FILE", "-d", "tail=2", "--url-query", "ignored=1"], bytes: all, method: "GET" },
+        { name: "explicit-get", args: ["--no-head", "-G", "--data-urlencode", "field@FILE", "-d", "tail=2"], bytes: Buffer.from("space #value"), method: "GET" },
+        { name: "head-repeat", args: ["-I", "-I", "-G", "--data-urlencode", "field@FILE", "-d", "tail=2"], bytes: Buffer.from("space #value"), method: "HEAD" },
+        { name: "next-reset", args: ["--data-binary", "@FILE", "-d", "tail=2"], bytes: all, method: "POST" },
+        { name: "explicit-get-repeat", args: ["--no-head", "--no-head", "-G", "--no-get", "-G", "--data-urlencode", "field@FILE", "-d", "tail=2"], bytes: all, method: "GET" },
+        { name: "patch-body", args: ["-G", "--no-get", "-X", "PATCH", "--data-binary", "@FILE", "-d", "tail=2"], bytes: all, method: "PATCH" },
+      ] : [
         {
           name: "encoded",
           args: [
@@ -77,13 +88,32 @@ try {
         .getByRole("button", { name: "Import collection", exact: true })
         .click();
       const dialog = page.getByRole("dialog");
+      if (methodToggles) {
+        const refusalUpload = join(output, "refused-upload.bin");
+        await writeFile(refusalUpload, "owned upload");
+        const refused = [["-I", "--no-head"], ["--no-head", "-I"],
+          ["--no-head", "-d", "x=1"], ["--no-head", "-F", "x=1"],
+          ["--no-head", "-T", "missing.bin"]];
+        for (const args of refused) {
+          await dialog.getByLabel("Import collection or cURL commands", { exact: true })
+            .fill("curl " + args.map(value => "'" + value + "'").join(" ") + " '" + base + "/refused'");
+          await dialog.getByRole("button", { name: "Review import", exact: true }).click();
+          await dialog.getByRole("alert").filter({ hasText: /Conflicting cURL|cURL file uploads cannot/ }).waitFor();
+          assert.equal(await dialog.getByRole("button", { name: "Import", exact: true }).count(), 0);
+          assert.deepEqual((await invoke("load_workspace")).resources, before.resources);
+          const child = Bun.spawn(["curl.exe", "-q", "-sS", "--noproxy", "*", "--max-time", "2", ...args.map(value => value === "missing.bin" ? refusalUpload : value), base + "/refused"], { stdout: "pipe", stderr: "pipe" });
+          const [out, err, code] = await Promise.all([new Response(child.stdout).text(), new Response(child.stderr).text(), child.exited]);
+          assert.equal(code, 2, err || out);
+          assert.equal(received.length, 0, "Both import and curl refuse method conflicts before dispatch");
+        }
+      }
       await dialog
         .getByLabel("Import collection or cURL commands", { exact: true })
         .fill(
           cases
             .map(
-              (c) =>
-                "curl " +
+              (c, index) =>
+                (methodToggles && index ? "" : "curl ") +
                 c.args
                   .map((x) => "'" + x.replace("FILE", "missing.bin") + "'")
                   .join(" ") +
@@ -91,11 +121,12 @@ try {
                 urlFor(c.name) +
                 "'",
             )
-            .join("\n"),
+            .join(methodToggles ? " --next " : "\n"),
         );
       await dialog
         .getByRole("button", { name: "Review import", exact: true })
         .click();
+      await dialog.getByText(`${cases.length} requests`, { exact: true }).waitFor();
       assert.equal(received.length, 0);
       await dialog.getByRole("button", { name: "Import", exact: true }).click();
       await dialog.waitFor({ state: "detached" });
@@ -112,11 +143,13 @@ try {
         registerResourceProbeCollection(collection._id, collection.name);
       for (const c of cases) {
         const url = urlFor(c.name),
-          request = added.find((r) => r.url === url);
+          request = added.find((r) => r.url === (c.name === "get-off" ? url.replace("#fragment", "&keep=1#fragment") : url));
         assert.ok(request);
+        const savedUrl = request.url;
+        assert.equal(request.method, c.method);
         await page
           .getByRole("complementary", { name: "Collections" })
-          .getByRole("button", { name: c.method + " " + url, exact: true })
+          .getByRole("button", { name: c.method + " " + savedUrl, exact: true })
           .click();
         /** @type {number} */ const count = received.length;
         await page.getByRole("button", { name: "Send", exact: true }).click();
@@ -143,7 +176,7 @@ try {
         await page.reload();
         await page
           .getByRole("complementary", { name: "Collections" })
-          .getByRole("button", { name: c.method + " " + url, exact: true })
+          .getByRole("button", { name: c.method + " " + savedUrl, exact: true })
           .click();
         await page.getByRole("button", { name: "Send", exact: true }).click();
         if (c.name === "invalid") {
@@ -193,8 +226,11 @@ try {
           assert.equal(code, 0, err || out);
           assert.equal(received.length, count + 2);
           assert.deepEqual(received[count], received[count + 1]);
-          assert.equal(received[count].bodyBytes, 0);
-          assert.equal(received[count].type, null);
+          /** @type {boolean} */ const sendsBody = methodToggles && ["get-off", "next-reset", "patch-body"].includes(c.name);
+          /** @type {Buffer} */ const expectedBody = sendsBody ? Buffer.concat([c.bytes, Buffer.from("&tail=2")]) : Buffer.alloc(0);
+          assert.equal(received[count].bodyBytes, expectedBody.length);
+          assert.equal(received[count].bodyBase64, expectedBody.toString("base64"));
+          assert.equal(received[count].type, sendsBody ? "application/x-www-form-urlencoded" : null);
         }
         const persisted = (await invoke("load_workspace")).resources.find(
           /** @param {any} r */ (r) => r._id === request._id,
@@ -202,7 +238,7 @@ try {
         assert.equal(persisted.body.curlSegments[0].base64, encoded);
         assert.equal(
           persisted.url,
-          url,
+          savedUrl,
           "Send does not append query into saved source URL",
         );
       }
@@ -211,7 +247,11 @@ try {
         JSON.stringify(
           {
             status: "passed",
-            checks: [
+            focus: methodToggles ? "GET/HEAD reset flags" : "original GET-file cases",
+            checks: methodToggles ? ["GET last-wins and compatible HEAD/explicit GET selectors control actual native method and query/body bytes",
+              "--next resets both flag families", "Native file selection/reload and exact all256byte bodies match curl8.21.0",
+              "url-query retained only with GET disabled", "Explicit PATCH body preserved",
+              "Missing selections refuse before network; review/import never send", "Saved source URL/bytes unchanged"] : [
               "Missing file prevents network",
               "Mounted selection/reload/native Send matches curl",
               "URL-encoded all256byte file with literal and ignored url-query",

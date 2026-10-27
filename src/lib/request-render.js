@@ -12,6 +12,7 @@ import { checkTemplateValue } from "./template-object.js";
 import { applyDefaultRequestHeaders } from "./request-default-headers.js";
 import { isJsonBodyMediaType } from "./media-type.js";
 import { assertCurlHeaderFiles } from "./curl-headers.js";
+import { assertMultipartHeaderFiles } from "./multipart-headers.js";
 import { renderGraphqlTemplateBody } from "./graphql-template.js";
 import { withCookieTemplateSources, normalizeRenderedCookieSnapshot, checkCookieSnapshot, renderCookieSnapshot } from './cookie-template-sources.js';
 /** @typedef {import('./template-session.js').PluginRenderOptions} PluginRenderOptions */
@@ -37,6 +38,7 @@ async function requestCookieSnapshot(data, request, signal) {
 export async function renderRequestSnapshot(session, request, options = {}) {
   session.signal.throwIfAborted();
   assertCurlHeaderFiles(request.headers);
+  if (!options.skipBody) assertMultipartHeaderFiles(request.body);
   const uploads = separateRequestUploads(request);
   checkCookieSnapshot(options.cookieJar);
   const input = uploads.input;
@@ -75,7 +77,7 @@ export async function renderRequestSnapshot(session, request, options = {}) {
       blacklist:
         options.skipBody || input.settingDisableRenderRequestBody
           ? /^(?:body.*|_(?:postman|har|hoppscotch|curl|legacy)Source(?:\.|\[|$))/
-          : /^_(?:postman|har|hoppscotch|curl|legacy)Source(?:\.|\[|$)/,
+          : /(?:^_(?:postman|har|hoppscotch|curl|legacy)Source(?:\.|\[|$)|(?:^|\.)_curlPartHeaderSources(?:\.|\[|$))/,
     },
   );
   const rendered = result._request;

@@ -89,7 +89,8 @@ fn begin<C>(
                 }
                 Ok(response)
             }
-            Err(mut status) => {
+            Err(status) => {
+                let mut status = super::deadline_status(status, deadline);
                 for encoding in encodings {
                     status.metadata_mut().append("grpc-encoding", encoding);
                 }
@@ -210,7 +211,7 @@ where
                         if hedge.invalid_codes {
                             return Err(Status::internal("gRPC hedging nonFatalStatusCodes must be an array when processing a status."));
                         }
-                        if !hedge.codes.contains(&(status.code() as i32)) {
+                        if !super::status_matches(&hedge.codes, &status) {
                             if guard.0.claim_status(id) { return Err(status); }
                             continue;
                         }

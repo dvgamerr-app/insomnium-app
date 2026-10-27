@@ -1,7 +1,6 @@
 <script>
   import Button from "./ui/Button.svelte";
   import Icon from "./Icon.svelte";
-  import RequestTree from "./RequestTree.svelte";
   import { orderedChildren } from "../resources.js";
   import { protocolFor } from "../model.js";
   import { pinnedRequests, requestPinMeta } from "../request-meta.js";
@@ -19,11 +18,33 @@
     pinnedOnly = false,
   } = $props();
   const collapsed = $derived(new Set(resources.filter((r) => r._type === "request_group_meta" && r.collapsed === true).map((r) => r.parentId)));
-  const children = $derived(pinnedOnly ? pinnedRequests(resources, parentId) : orderedChildren(resources, parentId));
+  const rows = $derived.by(() => {
+    if (pinnedOnly) return pinnedRequests(resources, parentId).map(item => ({ item, depth }));
+    const byParent = new Map();
+    for (const item of resources) {
+      const siblings = byParent.get(item.parentId) || [];
+      siblings.push(item);
+      byParent.set(item.parentId, siblings);
+    }
+    const pending = orderedChildren(byParent.get(parentId) || [], parentId)
+      .map(item => ({ item, depth })).reverse();
+    const rows = [];
+    const visited = new Set([parentId]);
+    while (pending.length) {
+      const row = pending.pop();
+      if (!row || visited.has(row.item._id)) continue;
+      visited.add(row.item._id);
+      rows.push(row);
+      if (row.item._type !== "request_group" || (collapsed.has(row.item._id) && !search)) continue;
+      const children = orderedChildren(byParent.get(row.item._id) || [], row.item._id);
+      for (let index = children.length - 1; index >= 0; index--)
+        pending.push({ item: children[index], depth: row.depth + 1 });
+    }
+    return rows;
+  });
 </script>
 
-{#if depth < 30}
-  {#each children as item (item._id)}
+  {#each rows as { item, depth } (item._id)}
     {#if item._type === "request_group"}
       <div class="tree-folder" style:padding-left={`${12 + depth * 16}px`}>
         <Button
@@ -53,17 +74,6 @@
           ><Icon name="more" size={14} /></Button
         >
       </div>
-      {#if !collapsed.has(item._id) || search}<RequestTree
-          {resources}
-          parentId={item._id}
-          {selected}
-          {search}
-          {onselect}
-          {onfolder}
-          {onmanage}
-          {oncollapse}
-          depth={depth + 1}
-        />{/if}
     {:else if !search || `${item.name} ${item.url} ${item.method}`
         .toLowerCase()
         .includes(search.toLowerCase())}
@@ -100,4 +110,3 @@
       </div>
     {/if}
   {/each}
-{/if}

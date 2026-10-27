@@ -10,6 +10,7 @@ use tonic::transport::ConnectivityState;
 // grpc-js iterates its watcher Set in registration order, not UUID order.
 type Watchers = Arc<Mutex<Vec<(uuid::Uuid, (i32, weighted::Sink))>>>;
 pub(super) struct Producer {
+    generation: u64,
     watchers: Watchers,
     changed: watch::Sender<u64>,
     task: tokio::task::JoinHandle<()>,
@@ -37,11 +38,25 @@ impl Registration {
             .clone();
         let id = uuid::Uuid::new_v4();
         let mut producer = entry.orca.lock().unwrap_or_else(|e| e.into_inner());
+        // Sample under the producer lock: a delayed registration must not
+        // replace a newer producer using a generation read before waiting.
+        let generation = entry.connectivity.borrow().generation;
+        if producer
+            .as_ref()
+            .is_some_and(|current| current.generation != generation)
+        {
+            // All PickFirst wrappers lose their pick on physical READY loss.
+            // Independent policy tasks may coalesce that loss into new READY
+            // and overlap old/new registrations. Never retain their old call,
+            // unsupported flag or backoff across the replacement connection.
+            producer.take();
+        }
         let producer = producer.get_or_insert_with(|| {
             let watchers = Arc::new(Mutex::new(vec![(id, (interval, sink.clone()))]));
             let (changed, receiver) = watch::channel(0);
             let task = tokio::spawn(run(pool.clone(), watchers.clone(), receiver));
             Producer {
+                generation,
                 watchers,
                 changed,
                 task,
@@ -91,7 +106,11 @@ impl Drop for Registration {
         if let Some(current) = producer.as_ref() {
             let empty = {
                 let mut watchers = current.watchers.lock().unwrap_or_else(|e| e.into_inner());
-                watchers.retain(|(key, _)| *key != self.id);
+                let Some(index) = watchers.iter().position(|(key, _)| *key == self.id) else {
+                    // This registration belonged to a retired generation.
+                    return;
+                };
+                watchers.remove(index);
                 watchers.is_empty()
             };
             if empty {
@@ -111,6 +130,37 @@ impl Drop for Registration {
 struct Request {
     #[prost(message, optional, tag = "1")]
     report_interval: Option<prost_types::Duration>,
+}
+#[derive(Clone, Default)]
+struct MetricsCodec;
+struct MetricsDecoder;
+impl tonic::codec::Codec for MetricsCodec {
+    type Encode = Request;
+    type Decode = weighted::Report;
+    type Encoder = tonic_prost::ProstEncoder<Request>;
+    type Decoder = MetricsDecoder;
+    fn encoder(&mut self) -> Self::Encoder {
+        tonic_prost::ProstEncoder::default()
+    }
+    fn decoder(&mut self) -> Self::Decoder {
+        MetricsDecoder
+    }
+}
+impl tonic::codec::Decoder for MetricsDecoder {
+    type Item = weighted::Report;
+    type Error = tonic::Status;
+    fn decode(
+        &mut self,
+        source: &mut tonic::codec::DecodeBuf<'_>,
+    ) -> Result<Option<Self::Item>, Self::Error> {
+        use prost::bytes::Buf;
+        let bytes = source.copy_to_bytes(source.remaining());
+        weighted::Report::decode_legacy(&bytes)
+            .map(Some)
+            .map_err(|error| {
+                tonic::Status::internal(format!("Response message parsing error: {error}"))
+            })
+    }
 }
 async fn metrics(pool: Pool, interval: i32, watchers: Watchers) -> Result<(), tonic::Status> {
     let mut client = tonic::client::Grpc::new(pool)
@@ -132,7 +182,7 @@ async fn metrics(pool: Pool, interval: i32, watchers: Watchers) -> Result<(), to
             tonic::codegen::http::uri::PathAndQuery::from_static(
                 "/xds.service.orca.v3.OpenRcaService/StreamCoreMetrics",
             ),
-            tonic_prost::ProstCodec::<Request, weighted::Report>::default(),
+            MetricsCodec,
         )
         .await?
         .into_inner();

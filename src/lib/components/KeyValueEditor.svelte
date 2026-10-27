@@ -7,7 +7,7 @@
   import Checkbox from "./ui/Checkbox.svelte";
   import Input from "./ui/Input.svelte";
   import Textarea from "./ui/Textarea.svelte";
-  import { multipartEncodings } from "../multipart-headers.js";
+  import { multipartEncodings, readMultipartHeaderFile, resolveMultipartHeaderFile } from "../multipart-headers.js";
   import Select from "./ui/Select.svelte";
   import Button from "./ui/Button.svelte";
   import { onDestroy, tick } from "svelte";
@@ -28,7 +28,7 @@
   } = $props();
   const editorId = $props.id();
   let error = $state("");
-  let fileErrors = $state.raw(/** @type {{row:Record<string,any>,message:string}[]} */ ([]));
+  let fileErrors = $state.raw(/** @type {{row:Record<string,any>,message:string,source?:Record<string,any>}[]} */ ([]));
   let editor = $state(/** @type {HTMLDivElement|undefined} */ (undefined));
   let alive = true;
   const fileWork = createWorkspaceWorkScope();
@@ -50,7 +50,8 @@
     onchange(rows.map((r, i) => (i === index ? updated : r)));
     const accepted = rows[index];
     fileErrors = fileErrors.flatMap((failure) =>
-      failure.row !== original ? [failure] : accepted?.type === "file"
+      failure.row !== original ? [failure] : (failure.source
+        ? accepted?._curlPartHeaderSources?.includes(failure.source) : accepted?.type === "file")
         ? [{ ...failure, row: accepted }] : [],
     );
   }
@@ -75,30 +76,35 @@
   async function fileChanged(
     /** @type {number} */ index,
     /** @type {Event} */ event,
+    /** @type {number|undefined} */ headerIndex = undefined,
   ) {
     const file = /** @type {HTMLInputElement} */ (event.target).files?.[0];
     if (!file) return;
     const original = rows[index];
     if (!original) return;
+    const source = headerIndex === undefined ? undefined : original._curlPartHeaderSources?.[headerIndex];
+    if (headerIndex !== undefined && typeof source?.fileName !== "string") return;
+    const selected = source ?? original;
     const originalRows = rows;
     const selection = Symbol();
-    selections.set(original, selection);
+    selections.set(selected, selection);
     /** @type {import("../workspace.svelte.js").ScopedWorkspaceWork|undefined} */ let work;
     const current = () =>
       alive &&
       (!work || work.current()) &&
       rows[index] === original &&
       (!original._curlHeaderFile || rows === originalRows) &&
-      selections.get(original) === selection;
+      selections.get(selected) === selection;
     try {
       work = fileWork.begin();
       let upload;
       try {
-        upload = original._curlHeaderFile ? await readCurlHeaderFile(file) : await readUpload(file);
+        upload = source ? resolveMultipartHeaderFile(original,/** @type {number} */(headerIndex),await readMultipartHeaderFile(file))
+          : original._curlHeaderFile ? await readCurlHeaderFile(file) : await readUpload(file);
       } catch (cause) {
         if (current()) fileErrors = [
-          ...fileErrors.filter((failure) => failure.row !== original),
-          { row: original, message: String(cause) },
+          ...fileErrors.filter((failure) => failure.row !== original || failure.source !== source),
+          { row: original, source, message: String(cause) },
         ];
         return;
       }
@@ -106,9 +112,10 @@
         throw new Error(
           "The field changed while reading the file. Select it again.",
         );
-      if (original._curlHeaderFile) onchange(resolveCurlHeaderFile(rows, index, /** @type {Record<string,any>[]} */(upload)));
+      if (source) change(index,/** @type {Record<string,any>} */(upload));
+      else if (original._curlHeaderFile) onchange(resolveCurlHeaderFile(rows, index, /** @type {Record<string,any>[]} */(upload)));
       else change(index, { type: "file", ...upload, _legacyFileAsset: undefined, _legacyFileAssetError: undefined, _legacyFilePath: undefined });
-      fileErrors = fileErrors.filter((failure) => failure.row !== rows[index]);
+      fileErrors = fileErrors.filter((failure) => failure.row !== rows[index] || failure.source !== source);
       error = "";
     } catch (e) {
       if (current()) error = String(e);
@@ -148,7 +155,7 @@
       <div class="kv-value">
           {#if tree && row.type === "multipart"}<span class="kv-value-field">Multipart group</span>
           {:else if row._curlHeaderFile}<Field label="" class="kv-file-state"
-            error={fileErrors.find((failure) => failure.row === row)?.message || ""}>
+            error={fileErrors.find((failure) => failure.row === row && !failure.source)?.message || ""}>
             <FilePicker variant="inline" disabled={row.disabled}
               aria-label={`Select header file ${index + 1}`}
               onchange={(event) => fileChanged(index, event)}>{row._curlHeaderFile}</FilePicker>
@@ -156,7 +163,7 @@
           {:else if files && row.type === "file"}<Field
               label=""
               class="kv-file-state"
-              error={fileErrors.find((failure) => failure.row === row)?.message || ""}
+              error={fileErrors.find((failure) => failure.row === row && !failure.source)?.message || ""}
             ><div class="kv-value-field"><FilePicker
               class="file-picker"
               variant="inline"
@@ -171,7 +178,7 @@
               aria-describedby={[
                 row._openapiSerialization?.nullable ||
                 row._openapiSerialization?.formBody ||
-                ["content", "serialized"].includes(
+                ["content", "serialized", "swagger"].includes(
                   row._openapiSerialization?.style,
                 )
                   ? `${editorId}-value-${index}-help`
@@ -207,14 +214,16 @@
         onclick={(event) => remove(index, event)}
         ><Icon name="close" size={14} /></Button
       >
-      {#if row._openapiSerialization?.nullable || row._openapiSerialization?.formBody || row._openapiSerialization?.allowReserved || ["content", "serialized"].includes(row._openapiSerialization?.style)}
+      {#if row._openapiSerialization?.nullable || row._openapiSerialization?.formBody || row._openapiSerialization?.allowReserved || ["content", "serialized", "swagger"].includes(row._openapiSerialization?.style)}
         <div class="kv-help">
-          {#if row._openapiSerialization?.nullable || row._openapiSerialization?.formBody || ["content", "serialized"].includes(row._openapiSerialization?.style)}<Feedback
+          {#if row._openapiSerialization?.nullable || row._openapiSerialization?.formBody || ["content", "serialized", "swagger"].includes(row._openapiSerialization?.style)}<Feedback
               id={`${editorId}-value-${index}-help`}
               tone="hint"
               density="compact"
               >{row._openapiSerialization?.review
                 ? "Serialization requires review. Disable this row and supply a manually serialized value."
+                : row._openapiSerialization?.style === "swagger"
+                  ? `Enter a JSON array. Values use Swagger ${row._openapiSerialization.collectionFormat || "csv"} encoding.`
                 : row._openapiSerialization?.style === "serialized"
                   ? row._openapiSerialization.serializedLevel === "parameter"
                     ? `Already serialized ${row._openapiSerialization.serializedLocation} text is sent as written. ${["query", "cookie"].includes(row._openapiSerialization.serializedLocation) ? "The name is only a label; keep names and separators in the value." : "Keep any required escaping in the value."}`
@@ -283,9 +292,20 @@
             aria-label={`Part headers for ${row.name || index + 1}`}
             placeholder="X-Custom: value"
             value={row.partHeaders ?? ""}
+            readonly={!!row._curlPartHeaderSources}
             oninput={(event) => change(index, { partHeaders: event.currentTarget.value })}
           />
         </Field>
+        {#each row._curlPartHeaderSources ?? [] as source, sourceIndex}
+          {#if typeof source !== "string"}
+            <Field label="Part header file"
+              error={fileErrors.find(failure => failure.row === row && failure.source === source)?.message || ""}>
+              <FilePicker disabled={row.disabled}
+                aria-label={`Part header file for ${row.name || index + 1} ${sourceIndex + 1}`}
+                onchange={event => fileChanged(index,event,sourceIndex)}>{source.fileName}{source.text === undefined ? "" : " (selected)"}</FilePicker>
+            </Field>
+          {/if}
+        {/each}
         {#if row.type === "file"}<Field layout="inline"
             ><Checkbox
               checked={row.fileContent === true}

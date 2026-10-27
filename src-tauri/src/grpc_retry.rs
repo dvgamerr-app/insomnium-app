@@ -61,6 +61,24 @@ fn progress(status: &Status) -> Progress {
     Progress::Processed
 }
 
+/// Tonic's per-attempt grpc-timeout timer may win the logical-call timer.
+/// Preserve typed provenance; a peer CANCELLED with the same text is not expiry.
+pub(super) fn deadline_status(status: Status, deadline: Option<tokio::time::Instant>) -> Status {
+    if deadline.is_some() {
+        let mut source = std::error::Error::source(&status);
+        while let Some(error) = source {
+            if error.is::<tonic::TimeoutExpired>() {
+                let mut expired = Status::deadline_exceeded("gRPC deadline exceeded.");
+                *expired.metadata_mut() = status.metadata().clone();
+                expired.set_source(Arc::new(status));
+                return expired;
+            }
+            source = error.source();
+        }
+    }
+    status
+}
+
 fn readiness_error(error: super::lb_transport::Error) -> Status {
     // Preserve the selected policy/endpoint diagnostic and typed progress data.
     let mut status = Status::unavailable(error.to_string());
@@ -162,6 +180,12 @@ pub(super) const CODES: &[&str] = &[
     "DATA_LOSS",
     "UNAUTHENTICATED",
 ];
+pub(super) fn status_matches(codes: &[i32], status: &Status) -> bool {
+    codes
+        .iter()
+        .any(|code| *code as f64 == status.legacy_code())
+}
+
 pub(super) fn code(value: &Value) -> Option<i32> {
     if let Some(value) = value.as_f64() {
         return ((0.0..=16.0).contains(&value) && value.fract() == 0.0).then_some(value as i32);
@@ -478,7 +502,8 @@ where
                     },
                 });
             }
-            Err(mut status) => {
+            Err(status) => {
+                let mut status = deadline_status(status, deadline);
                 for encoding in &session
                     .headers
                     .lock()
@@ -512,10 +537,12 @@ where
                     }
                 }
                 if guard.0.committed()
-                    || !session
-                        .policy
-                        .as_ref()
-                        .is_some_and(|policy| policy.codes.contains(&(status.code() as i32)))
+                    || !session.policy.as_ref().is_some_and(|policy| {
+                        policy
+                            .codes
+                            .iter()
+                            .any(|code| *code as f64 == status.legacy_code())
+                    })
                 {
                     return Err(status);
                 }

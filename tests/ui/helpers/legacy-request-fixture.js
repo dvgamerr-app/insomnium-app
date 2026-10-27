@@ -13,7 +13,7 @@ export const requestFileGzip = Buffer.from(
 
 /** Shared literal source and independent actual-wire expectations.
  * @param {(token:string)=>string} target @param {Record<string,string>} paths
- * @param {{portable?:boolean,native?:boolean}} [options] */
+ * @param {{portable?:boolean,native?:boolean,sse?:boolean}} [options] */
 export function legacyRequestFixture(target, paths, options = {}) {
   const sourceName = "Owned legacy request files";
   const workspaceId = "wrk_legacy_request_files";
@@ -49,7 +49,7 @@ export function legacyRequestFixture(target, paths, options = {}) {
       bytes: Buffer.alloc(0),
       path: "",
     },
-  ];
+  ].filter(definition => !options.sse || ["raw", "multipart"].includes(definition.token));
   const asset = (/** @type {string} */ path, /** @type {Buffer} */ bytes) => ({
     fileName: path.split(/[\\/]/).at(-1),
     _legacyFilePath: path,
@@ -116,7 +116,8 @@ export function legacyRequestFixture(target, paths, options = {}) {
       method: "POST",
       url: target(definition.token),
       body,
-      headers: [],
+      headers: options.sse && definition.token === "raw" ? [{ name: "Accept", value: "text/event-stream" }] : [],
+      ...(options.sse && definition.token === "multipart" ? { isEventStreamRequest: true } : {}),
       parameters: [],
       authentication: {},
       settingSendCookies: false,

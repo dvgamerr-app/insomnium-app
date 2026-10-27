@@ -42,7 +42,14 @@ export function parseMultipart(base64,contentType) {
     let bytes=raw.slice(emptyHeaders?2:split+4);
     const transfer=headers.filter(row=>row[0].toLowerCase()==="content-transfer-encoding").at(-1);
     const encoding=transfer?transfer[1].toLowerCase():"binary";
-    if(encoding==="base64")bytes=Buffer.from(Buffer.from(bytes,"binary").toString("ascii"),"base64").toString("binary");
+    if(encoding==="base64")bytes=Buffer.from(bytes.replace(/[^A-Za-z0-9+/=]/g,""),"base64").toString("binary");
+    else if(encoding==="quoted-printable") {
+      // Strip transport padding before decoding so encoded whitespace survives.
+      bytes=bytes.replace(/[ \t]+/g,(padding,offset)=>{
+        const end=offset+padding.length;
+        return end===bytes.length||bytes.startsWith("\r\n",end)?"":padding;
+      }).replace(/=\r\n|=([\da-f]{2})/gi,(_match,hex)=>hex?String.fromCharCode(parseInt(hex,16)):"");
+    }
     else if(!["binary","7bit","8bit"].includes(encoding))throw new Error("Unknown multipart transfer encoding: "+encoding);
     const disposition=partHeader(headers,'content-disposition');
     parts.push({name:mimeParameter(disposition,'name')||`Part ${parts.length+1}`,

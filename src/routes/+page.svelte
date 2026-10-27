@@ -615,7 +615,7 @@
   function cancelSchedule() {
     const owner = scheduled;
     if (!owner) return;
-    const runId = owner.runId || (owner.current() ? app.running[owner.requestId]?.id : "");
+    const runId = owner.runId;
     owner.runId = "";
     owner.cancel();
     if (!runId || app.running[owner.requestId]?.id !== runId) return;
@@ -880,6 +880,9 @@
       void persist();
     }
   }
+  function preventFileNavigation(/** @type {DragEvent} */event){
+    if(event.dataTransfer?.types.includes('Files')&&!(event.target instanceof HTMLInputElement&&event.target.type==='file'&&!event.target.disabled))event.preventDefault();
+  }
   function captureKeyboard(/** @type {KeyboardEvent} */event){
     if(event.key === "AltGraph") altGraphDown = true;
     if(event.defaultPrevented)return;
@@ -895,6 +898,7 @@
 <TemplateFieldDialogHost />
 <PluginDomDialogHost />
 <svelte:window onkeydown={keyboard} onkeydowncapture={captureKeyboard}
+  ondragover={preventFileNavigation} ondrop={preventFileNavigation}
   onkeyup={event => { if(event.key === "AltGraph" || event.code === "AltRight") altGraphDown = false; }}
   onblur={() => { altGraphDown = false; }} />
 {#if switcher}<RequestSwitcher entries={switcher.entries} initialIndex={switcher.initialIndex} recent={switcher.recent}
@@ -908,7 +912,7 @@
 >
 <div class="app-shell" inert={editingBlocked} aria-busy={editingBlocked} style:zoom={!isTauri() ? windowZoom(app.data.settings.windowZoom) : undefined}>
   <header class="app-header" data-tauri-drag-region>
-    <div class="brand">
+    <div class="header-collections" data-tauri-drag-region><div class="brand">
       <img class="brand-mark" src="/app-icon.png" alt="" /><span>Insomnium</span
       >
     </div>
@@ -936,7 +940,7 @@
       disabled={!collection}
       onclick={() => manageResource(app.data.activeWorkspaceId)}
       ><Icon name="more" size={17} /></Button
-    ><Button
+    ></div><Button
       variant="ghost"
       class="header-search"
       aria-label="Search requests"
@@ -948,7 +952,7 @@
       ><Icon name="search" size={14} /><span>Search requests</span><kbd
         >Ctrl P</kbd
       ></Button
-    ><span class="spacer" data-tauri-drag-region></span><span
+    ><div class="header-tools" data-tauri-drag-region><span
       class="local-indicator"><i></i> Local workspace</span
     ><Button
       variant="ghost"
@@ -967,6 +971,7 @@
       /></Button
     >
     <WindowControls onerror={(error) => (app.error = String(error))} />
+    </div>
   </header>
   <nav class="activity-bar" aria-label="Main navigation">
     <Button

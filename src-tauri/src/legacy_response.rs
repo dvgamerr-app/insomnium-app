@@ -288,6 +288,9 @@ fn read_file(
     limit: usize,
     remaining: &mut usize,
 ) -> Result<Vec<u8>, Failure> {
+    if !scope(root) {
+        return Err(REFUSED);
+    }
     let path = confined_path(root, input)?;
     if !scope(&path) {
         return Err(REFUSED);
@@ -448,14 +451,20 @@ fn stream_ndjson(bytes: &[u8], is_timeline: bool) -> Result<Vec<Value>, Failure>
 #[tauri::command]
 pub async fn read_legacy_response_assets(
     window: tauri::WebviewWindow,
+    webview: tauri::Webview,
+    id: Option<String>,
+    on_started: Option<tauri::ipc::JavaScriptChannelId>,
     root: String,
     entries: Vec<LegacyResponseEntry>,
 ) -> Result<LegacyResponseResult, String> {
-    read_assets(window, root, entries, BODY_LIMIT).await
+    read_assets(window, webview, id, on_started, root, entries, BODY_LIMIT).await
 }
 
 async fn read_assets(
     window: tauri::WebviewWindow,
+    webview: tauri::Webview,
+    id: Option<String>,
+    on_started: Option<tauri::ipc::JavaScriptChannelId>,
     root: String,
     entries: Vec<LegacyResponseEntry>,
     body_limit: usize,
@@ -493,10 +502,17 @@ async fn read_assets(
     if !supplied_root.is_absolute() || supplied_root.as_os_str().len() > 4096 {
         return Err("Select and grant the legacy data folder before reading assets.".into());
     }
-    let lease = window
+    let id = id.unwrap_or_else(|| format!("legacy-assets_{}", uuid::Uuid::new_v4().simple()));
+    if !id.strip_prefix("legacy-assets_").is_some_and(|suffix| {
+        suffix.len() == 32 && suffix.bytes().all(|byte| byte.is_ascii_hexdigit())
+    }) {
+        return Err("Invalid legacy asset operation ID.".into());
+    }
+    let network = window
         .try_state::<crate::http::NetworkState>()
-        .ok_or("Native work registry is unavailable.")?
-        .retain_native_work(format!("legacy-assets:{}", uuid::Uuid::new_v4()))?;
+        .ok_or("Native work registry is unavailable.")?;
+    let lease = network.retain_native_work(id.clone())?;
+    network.publish_started(&id, on_started, webview)?;
     tauri::async_runtime::spawn_blocking(move || {
         if lease.cancelled() {
             return Err("Legacy asset reading was cancelled.".into());
@@ -734,6 +750,9 @@ pub struct LegacyRequestEntry {
 #[tauri::command]
 pub async fn read_legacy_request_assets(
     window: tauri::WebviewWindow,
+    webview: tauri::Webview,
+    id: Option<String>,
+    on_started: Option<tauri::ipc::JavaScriptChannelId>,
     root: String,
     entries: Vec<LegacyRequestEntry>,
 ) -> Result<LegacyResponseResult, String> {
@@ -754,13 +773,16 @@ pub async fn read_legacy_request_assets(
             body_compression: "raw".into(),
         })
         .collect();
-    read_legacy_response_assets(window, root, entries).await
+    read_legacy_response_assets(window, webview, id, on_started, root, entries).await
 }
 
 /// Certificate input exposes raw scoped bytes only, under the existing TLS cap.
 #[tauri::command]
 pub async fn read_legacy_certificate_assets(
     window: tauri::WebviewWindow,
+    webview: tauri::Webview,
+    id: Option<String>,
+    on_started: Option<tauri::ipc::JavaScriptChannelId>,
     root: String,
     entries: Vec<LegacyRequestEntry>,
 ) -> Result<LegacyResponseResult, String> {
@@ -781,12 +803,40 @@ pub async fn read_legacy_certificate_assets(
             body_compression: "raw".into(),
         })
         .collect();
-    read_assets(window, root, entries, 1024 * 1024).await
+    read_assets(window, webview, id, on_started, root, entries, 1024 * 1024).await
 }
 
 #[cfg(all(test, any(windows, target_os = "linux", target_os = "macos")))]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cancelled_read_refuses_before_resolving_the_next_path() {
+        let network = crate::http::NetworkState::default();
+        let id = format!("legacy-assets_{}", uuid::Uuid::new_v4().simple());
+        let lease = network.retain_native_work(id.clone()).unwrap();
+        network.cancel(&id).unwrap();
+        let root =
+            std::env::temp_dir().join(format!("insomnium-unopened-{}", uuid::Uuid::new_v4()));
+        let checks = std::cell::Cell::new(0);
+        let mut remaining = AGGREGATE_LIMIT;
+        let result = read_file(
+            &root,
+            "never-open.body",
+            &|path| {
+                assert_eq!(path, root);
+                checks.set(checks.get() + 1);
+                !lease.cancelled()
+            },
+            BODY_LIMIT,
+            &mut remaining,
+        );
+        assert_eq!(result.unwrap_err(), REFUSED);
+        assert_eq!(checks.get(), 1);
+        assert!(network.retain_native_work(id.clone()).is_err());
+        drop(lease);
+        assert!(network.retain_native_work(id).is_ok());
+    }
 
     #[test]
     fn missing_payloads_preserve_real_timelines_without_inventing_bytes() {

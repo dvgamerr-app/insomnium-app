@@ -16,6 +16,7 @@
   import AsapEditor from "../../../src/lib/components/AsapEditor.svelte";
   import MultipartFileComposition from "./multipart-file-composition.svelte";
   import { withWorkspaceRunsPaused, workspace } from "../../../src/lib/workspace.svelte.js";
+  workspace.ready = true;
   let selectionFeedback = $state(false);
   let selectionExtra = $state(false);
   let selectionValue = $state("first");

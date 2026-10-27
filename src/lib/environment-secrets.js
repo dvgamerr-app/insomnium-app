@@ -37,22 +37,44 @@ export function restoreSecretValues(edited, original, secretKeys) {
   return copy;
 }
 
-/** Blank secret values for files that leave this machine. Other resources pass through.
- * @param {Record<string, any>} resource */
-export function redactEnvironment(resource) {
-  if (resource._type !== "environment") return resource;
-  const keys = normalizeSecretKeys(resource.secretKeys);
+/** Blank secret values and their imported provenance for portable files.
+ * @param {Record<string, any>} resource @param {Record<string, any>[]} [resources] */
+export function redactEnvironment(resource, resources = []) {
+  const environment = resource._type === "environment" ? resource
+    : resource._type === "workspace" ? resources.find(row => row._type === "environment" && row.parentId === resource._id) : null;
+  if (!environment) return resource;
+  const keys = normalizeSecretKeys(environment.secretKeys);
   if (!keys.length) return resource;
+  const secretKeys = new Set(keys);
   /** @param {Record<string, any>} data */
   const blank = (data) => {
     const copy = { ...data };
     for (const key of keys) if (Object.hasOwn(copy, key)) copy[key] = "";
     return copy;
   };
+  /** @param {any} source */
+  const redactSource = (source) => {
+    if (!source || typeof source !== "object" || Array.isArray(source)) return source;
+    const copy = { ...source };
+    for (const field of resource._type === "workspace" ? ["variable"] : ["values", "variable"])
+      if (Array.isArray(source[field])) copy[field] = source[field].map((/** @type {any} */ row) => {
+        if (!row || typeof row !== "object" || Array.isArray(row)) return row;
+        const key = field === "values" ? row.key : row.key || row.id;
+        // Import normalizes collection variable aliases to object property keys.
+        return (field === "values" || key) && secretKeys.has(String(key)) && Object.hasOwn(row, "value")
+          ? { ...row, value: "" } : row;
+      });
+    return copy;
+  };
   const copy = { ...resource };
-  if (resource.data && typeof resource.data === "object") copy.data = blank(resource.data);
+  if (resource._type === "environment" && resource.data && typeof resource.data === "object") copy.data = blank(resource.data);
+  if (Object.hasOwn(resource, "_postmanSource")) copy._postmanSource = redactSource(resource._postmanSource);
   const record = resource._legacySource?.record;
-  if (record?.data && typeof record.data === "object")
-    copy._legacySource = { ...resource._legacySource, record: { ...record, data: blank(record.data) } };
+  if (record && typeof record === "object" && !Array.isArray(record)) {
+    const portableRecord = { ...record };
+    if (resource._type === "environment" && record.data && typeof record.data === "object") portableRecord.data = blank(record.data);
+    if (Object.hasOwn(record, "_postmanSource")) portableRecord._postmanSource = redactSource(record._postmanSource);
+    copy._legacySource = { ...resource._legacySource, record: portableRecord };
+  }
   return copy;
 }

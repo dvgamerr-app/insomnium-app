@@ -457,16 +457,24 @@
           }
         });
         editor.on("change", () => {
+          clearTimeout(hintTimer);
           if (!synchronizing) onchange(editor.getValue());
           if (semanticAnnotations) editor.performLint();
         });
         editor.on("inputRead", () => {
           clearTimeout(hintTimer);
-          if (!readOnly && Number(settings.autocompleteDelay ?? 150) > 0)
-            hintTimer = setTimeout(
-              () => complete(),
-              Math.min(2000, Number(settings.autocompleteDelay ?? 150)),
-            );
+          if (!readOnly && Number(settings.autocompleteDelay ?? 150) > 0) {
+            const ownerIdentity = identity, ownerMode = mode, ownerSchema = schema;
+            const ownerPaths = pathKey;
+            const ownerVariables = mode === "graphql-variables" ? variableToType : null;
+            hintTimer = setTimeout(() => {
+              if (cm !== editor || identity !== ownerIdentity || mode !== ownerMode ||
+                  schema !== ownerSchema || pathKey !== ownerPaths ||
+                  (mode === "graphql-variables" && variableToType !== ownerVariables) ||
+                  !(Number(settings.autocompleteDelay ?? 150) > 0)) return;
+              complete();
+            }, Math.min(2000, Number(settings.autocompleteDelay ?? 150)));
+          }
         });
         cm = editor;
         hover = attachGraphqlHover(editor, () =>

@@ -1,5 +1,5 @@
 import { requestTypes, validateTopology } from "./resources.js";
-import { validEnvironmentSelection, workspaceFor } from "./model.js";
+import { validEnvironmentSelection, indexWorkspaces } from "./model.js";
 
 /** Build the full durable candidate without normalizing away history, metadata or
  * settings. Only invalid request/environment selections and tabs are repaired.
@@ -7,6 +7,7 @@ import { validEnvironmentSelection, workspaceFor } from "./model.js";
 export function checkoutWorkspace(before, resources) {
   const result = JSON.parse(JSON.stringify({ ...before, resources }));
   validateTopology(result.resources);
+  const workspaces = indexWorkspaces(result.resources);
   const byId = new Map(
     result.resources.map((/** @type {Record<string,any>} */ r) => [r._id, r]),
   );
@@ -15,7 +16,7 @@ export function checkoutWorkspace(before, resources) {
   if (
     Object.hasOwn(result, "activeRequestId") &&
     (!requestTypes.includes(byId.get(result.activeRequestId)?._type) ||
-      workspaceFor(result.resources, result.activeRequestId) !==
+      workspaces.get(result.activeRequestId) !==
         result.activeWorkspaceId)
   )
     result.activeRequestId = "";
@@ -36,7 +37,7 @@ export function checkoutWorkspace(before, resources) {
     result.openTabs = result.openTabs.filter(
       (/** @type {string} */ id) =>
         requestTypes.includes(byId.get(id)?._type) &&
-        workspaceFor(result.resources, id),
+        workspaces.get(id),
     );
   }
   return result;

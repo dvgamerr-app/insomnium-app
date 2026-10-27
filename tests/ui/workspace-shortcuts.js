@@ -1,33 +1,30 @@
 import assert from "node:assert/strict";
 import {withPreview} from "./helpers/preview-app.js";
-import {initialData} from "../../src/lib/model.js";
-import {digestChallenge,digestProof} from './helpers/proxy-ntlm-fixture.js';
-import {assertSerializedSignature} from './helpers/serialized-signing.js';
-import {generateKeyPairSync} from 'node:crypto';
+import {withNativeApp,poll} from './helpers/native-app.js';
+import {preserveNativeProfile} from './helpers/native-profile-preservation.js';
+import {dirname,join} from 'node:path';
+import {initialData,newRequest,id} from "../../src/lib/model.js";
+import {addWideCollectionFixture} from './helpers/collection-actions-cases.js';
 
+const nativeNavigation=process.env.INSOMNIUM_NAVIGATION_NATIVE==='1';
 const shortcutData=initialData();
 const shortcutRequest=shortcutData.resources.find(row=>row._id===shortcutData.activeRequestId);
 assert.ok(shortcutRequest);
 shortcutRequest.headers=[{name:'X-Escape',value:'quote\'"\\tail'},{name:'__proto__',value:'literal-header'}];
 shortcutRequest.settingEncodeUrl=false;
 let generatedFetchRequests=0;
-let generatedDigestAttempts=0;
-const digestUser='owned-codegen-user',digestPassword="synthetic'\\:password",digestNonce='owned-codegen-digest';
-const asapRsa=generateKeyPairSync('rsa',{modulusLength:2048});
-const asapEc=generateKeyPairSync('ec',{namedCurve:'secp521r1'});
-// Execute only the owned fixture: JavaScript in Bun, or generated cURL in sh.
-/** @param {string} code @param {boolean} [shell] */
-async function runGeneratedSnippet(code,shell=false){
-  const child=Bun.spawn(shell?[process.platform==='win32'?'C:/Program Files/Git/bin/bash.exe':'/bin/sh','-s']:[process.execPath,'--eval',code],{stdout:'pipe',stderr:'pipe',...(shell?{stdin:Buffer.from(code+'\n')}:{} )});
+/** Execute only owned cURL fixtures using the installed shell. @param {string} code @param {string} platform */
+async function runGeneratedSnippet(code,platform){
+  const command=platform==='windows'?['powershell.exe','-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(code,'utf16le').toString('base64')]:[process.platform==='win32'?'C:/Program Files/Git/bin/bash.exe':'/bin/sh','-s'];
+  const child=Bun.spawn(command,{stdout:'pipe',stderr:'pipe',windowsHide:true,...(platform==='linux'?{stdin:Buffer.from(code+'\n')}:{})});
   const timer=setTimeout(()=>child.kill(),15000);
   try{
     const [stdout,stderr,exit]=await Promise.all([new Response(child.stdout).text(),new Response(child.stderr).text(),child.exited]);
-    assert.equal(exit,0,stderr);
-    return JSON.parse(stdout);
+    assert.equal(exit,0,stderr);return JSON.parse(stdout.replace(/^\uFEFF/,''));
   }finally{clearTimeout(timer);}
 }
 
-if(!process.argv.includes('--websocket-only')) await withPreview("workspace-shortcuts",async (page,output) => {
+if(!nativeNavigation&&!process.argv.includes('--websocket-only')) await withPreview("workspace-shortcuts",async (page,output) => {
   const url = page.getByRole("textbox",{name:"Request URL",exact:true});
   await url.waitFor();
   const originalUrl = await url.inputValue();
@@ -121,223 +118,55 @@ if(!process.argv.includes('--websocket-only')) await withPreview("workspace-shor
   const generatedCode=()=>generated.locator('.CodeMirror').evaluate(el=>/** @type {any} */(el).CodeMirror.getValue());
   assert.match(await generatedCode(),/curl/);
   assert.ok((await generatedCode()).includes('item=one&item=two'));
-  await generated.getByRole('combobox',{name:'Code language',exact:true}).selectOption('python');
-  await generated.getByRole('combobox',{name:'Code client',exact:true}).selectOption('requests');
-  await page.waitForFunction(()=>{const cm=/** @type {any} */(document.querySelector('dialog[open] .CodeMirror'))?.CodeMirror;return cm?.getValue().includes('import requests');});
-  assert.match(await generatedCode(),/9007199254740993/);
+  const platforms=generated.getByRole('combobox',{name:'cURL platform',exact:true});
+  assert.deepEqual(await platforms.locator('option').evaluateAll(rows=>rows.map(row=>/** @type {HTMLOptionElement} */(row).value)),['linux','windows']);
+  assert.equal(await generated.getByRole('combobox').count(),1);
   assert.equal(await generated.locator('.CodeMirror').evaluate(el=>/** @type {any} */(el).CodeMirror.getOption('readOnly')),true);
-  await generated.screenshot({path:output+'/code-generation.png'});
   await page.keyboard.press('Escape');await generated.waitFor({state:'detached'});
   await page.getByRole('combobox',{name:'HTTP method',exact:true}).selectOption('POST');
-  const fetchUrl=new URL("/owned-code-generation/it's?__proto__=value&item=one&constructor=literal&item=two",page.url()).href;
-  await url.fill(fetchUrl);await bodyEditor.evaluate(el=>/** @type {any} */(el).CodeMirror.focus());
-  await page.keyboard.press('Control+Shift+g');await generated.waitFor();
-  await generated.getByRole('combobox',{name:'Code language',exact:true}).selectOption('javascript');
-  await generated.getByRole('combobox',{name:'Code client',exact:true}).selectOption('fetch');
-  await page.waitForFunction(()=>/** @type {any} */(document.querySelector('dialog[open] .CodeMirror'))?.CodeMirror.getValue().includes('const response = await fetch('));
-  const fetchCode=await generatedCode();
-  const wire=await page.evaluate(code=>new Function('return (async()=>{'+code+';return JSON.parse(data);})()')(),fetchCode);
-  assert.equal(wire.url,fetchUrl);
-  assert.equal(wire.body,await bodyEditor.evaluate(el=>/** @type {any} */(el).CodeMirror.getValue()));
-  assert.equal(wire.escape,'quote\'"\\tail');assert.equal(wire.proto,'literal-header');
-  assert.equal(wire.count,1,'Generation must not dispatch the request before executing the snippet');
-  await Bun.write(output+'/generated-fetch-wire.json',JSON.stringify(wire,null,2));
-  await page.keyboard.press('Escape');await generated.waitFor({state:'detached'});
+  const curlUrl=new URL("/owned-code-generation/it's?item=one&item=two&literal=%24%28owned%29",page.url()).href;
+  await url.fill(curlUrl);
+  const body=await bodyEditor.evaluate(el=>/** @type {any} */(el).CodeMirror.getValue());
   const binary=Buffer.from([0,255,128,239,187,191,195,40,13,10,0,65]);
-  await page.getByRole('combobox',{name:'Body type',exact:true}).selectOption('application/octet-stream');
-  await page.locator('.binary-picker input[type="file"]').setInputFiles({name:'owned-codegen.bin',mimeType:'application/octet-stream',buffer:binary});
-  await page.waitForFunction(expected=>{const data=JSON.parse(localStorage.getItem('insomnium-tauri-preview-v1')||'{}');return data.resources?.find((/** @type {any} */row)=>row._id===data.activeRequestId)?.body?.base64===expected;},binary.toString('base64'));
-  await page.getByRole('button',{name:'Generate code',exact:true}).click();await generated.waitFor();
-  await page.waitForFunction(()=>/** @type {any} */(document.querySelector('dialog[open] .CodeMirror'))?.CodeMirror.getValue().includes('Uint8Array.from(atob('));
-  const binaryCode=await generatedCode();
-  const binaryWire=await page.evaluate(code=>new Function('return (async()=>{'+code+';return JSON.parse(data);})()')(),binaryCode);
-  assert.equal(binaryWire.bodyBase64,binary.toString('base64'));assert.equal(binaryWire.size,binary.length);
-  assert.equal(binaryWire.contentType,'application/octet-stream');assert.equal(binaryWire.count,2);
-  await Bun.write(output+'/generated-fetch-binary-wire.json',JSON.stringify(binaryWire,null,2));
-  await generated.getByRole('combobox',{name:'Code language',exact:true}).selectOption('node');
-  await generated.getByRole('combobox',{name:'Code client',exact:true}).selectOption('native');
-  await page.waitForFunction(()=>/** @type {any} */(document.querySelector('dialog[open] .CodeMirror'))?.CodeMirror.getValue().includes("import http from 'node:http'"));
-  const nodeBinaryWire=await runGeneratedSnippet(await generatedCode());
-  assert.equal(nodeBinaryWire.bodyBase64,binary.toString('base64'));assert.equal(nodeBinaryWire.size,binary.length);
-  assert.equal(nodeBinaryWire.count,3);assert.equal(nodeBinaryWire.url,fetchUrl);
-  await Bun.write(output+'/generated-node-binary-wire.json',JSON.stringify(nodeBinaryWire,null,2));
-  await generated.getByRole('combobox',{name:'Code language',exact:true}).selectOption('shell');
-  await generated.getByRole('combobox',{name:'Code client',exact:true}).selectOption('curl');
-  await page.waitForFunction(()=>/** @type {any} */(document.querySelector('dialog[open] .CodeMirror'))?.CodeMirror.getValue().includes('base64 -d'));
-  const curlBinaryWire=await runGeneratedSnippet(await generatedCode(),true);
-  assert.equal(curlBinaryWire.bodyBase64,binary.toString('base64'));assert.equal(curlBinaryWire.size,binary.length);
-  assert.equal(curlBinaryWire.count,4);assert.equal(curlBinaryWire.url,fetchUrl);
-  await Bun.write(output+'/generated-curl-binary-wire.json',JSON.stringify(curlBinaryWire,null,2));
-  await generated.getByRole('combobox',{name:'Code language',exact:true}).selectOption('javascript');
-  await generated.getByRole('combobox',{name:'Code client',exact:true}).selectOption('fetch');
-  await page.waitForFunction(()=>/** @type {any} */(document.querySelector('dialog[open] .CodeMirror'))?.CodeMirror.getValue().includes('const response = await fetch('));
-  await page.keyboard.press('Escape');await generated.waitFor({state:'detached'});
-  await page.getByRole('combobox',{name:'Body type',exact:true}).selectOption('multipart/form-data');
-  await page.getByRole('button',{name:'Add parameter',exact:true}).click();
-  await page.getByRole('textbox',{name:'Parameter 1',exact:true}).fill('upload');
-  await page.getByRole('combobox',{name:'Field type',exact:true}).first().selectOption('file');
-  await page.getByLabel('File value 1',{exact:true}).setInputFiles({name:'owned-codegen.bin',mimeType:'application/octet-stream',buffer:binary});
-  await page.getByRole('button',{name:'Generate code',exact:true}).click();await generated.waitFor();
-  await page.waitForFunction(()=>/** @type {any} */(document.querySelector('dialog[open] .CodeMirror'))?.CodeMirror.getValue().includes('new Blob(['));
-  const multipartWire=await page.evaluate(code=>new Function('return (async()=>{'+code+';return JSON.parse(data);})()')(),await generatedCode());
-  assert.deepEqual(multipartWire.parts,[{name:'upload',fileName:'owned-codegen.bin',contentType:'application/octet-stream',bodyBase64:binary.toString('base64')}]);
-  assert.equal(multipartWire.count,5,'Generating multipart code must not dispatch the request');
-  await Bun.write(output+'/generated-fetch-multipart-wire.json',JSON.stringify(multipartWire,null,2));
-  await page.keyboard.press('Escape');await generated.waitFor({state:'detached'});
-  await page.locator('.multipart-options summary').first().click();
-  await page.getByRole('checkbox',{name:'Send file contents without a filename',exact:true}).check();
-  await page.getByRole('combobox',{name:'Transfer encoding for upload',exact:true}).selectOption('base64');
-  await page.getByRole('textbox',{name:'Part headers for upload',exact:true}).fill('X-Part: one\nX-Part: two');
-  await page.getByRole('button',{name:'Add parameter',exact:true}).click();
-  await page.getByRole('textbox',{name:'Parameter 2',exact:true}).fill('note');
-  await page.getByRole('textbox',{name:'Value 2',exact:true}).fill('café = tail ');
-  await page.locator('.multipart-options summary').nth(1).click();
-  await page.getByRole('combobox',{name:'Transfer encoding for note',exact:true}).selectOption('quoted-printable');
-  await page.getByRole('textbox',{name:'Content-Type for note',exact:true}).fill('text/plain; charset=utf-8');
-  await page.getByRole('button',{name:'Generate code',exact:true}).click();await generated.waitFor();
-  await page.waitForFunction(()=>/** @type {any} */(document.querySelector('dialog[open] .CodeMirror'))?.CodeMirror.getValue().includes('content-transfer-encoding: quoted-printable'));
-  const customWire=await page.evaluate(code=>new Function('return (async()=>{'+code+';return JSON.parse(data);})()')(),await generatedCode());
-  const boundary=customWire.contentType.split('boundary=')[1];
-  const expectedCustom='--'+boundary+'\r\nContent-Disposition: form-data; name="upload"\r\nx-part: one\r\nx-part: two\r\ncontent-transfer-encoding: base64\r\n\r\nAP+A77u/wygNCgBB\r\n--'+boundary+'\r\nContent-Disposition: form-data; name="note"\r\nContent-Type: text/plain; charset=utf-8\r\ncontent-transfer-encoding: quoted-printable\r\n\r\ncaf=C3=A9 =3D tail=20\r\n--'+boundary+'--\r\n';
-  assert.equal(customWire.bodyBase64,Buffer.from(expectedCustom).toString('base64'));
-  assert.equal(customWire.count,6,'Generating custom multipart code must not dispatch the request');
-  await Bun.write(output+'/generated-fetch-custom-multipart-wire.json',JSON.stringify(customWire,null,2));
-  await generated.getByRole('combobox',{name:'Code language',exact:true}).selectOption('node');
-  await generated.getByRole('combobox',{name:'Code client',exact:true}).selectOption('native');
-  await page.waitForFunction(()=>/** @type {any} */(document.querySelector('dialog[open] .CodeMirror'))?.CodeMirror.getValue().includes("import http from 'node:http'"));
-  const nodeWire=await runGeneratedSnippet(await generatedCode());
-  const nodeBoundary=nodeWire.contentType.split('boundary=')[1];
-  assert.equal(nodeWire.bodyBase64,Buffer.from(expectedCustom.replaceAll(boundary,nodeBoundary)).toString('base64'));
-  assert.equal(nodeWire.count,7);assert.equal(nodeWire.url,fetchUrl);
-  assert.equal(nodeWire.escape,'quote\'"\\tail');assert.equal(nodeWire.proto,'literal-header');
-  await Bun.write(output+'/generated-node-custom-multipart-wire.json',JSON.stringify(nodeWire,null,2));
-  await generated.getByRole('combobox',{name:'Code language',exact:true}).selectOption('shell');
-  await generated.getByRole('combobox',{name:'Code client',exact:true}).selectOption('curl');
-  await page.waitForFunction(()=>/** @type {any} */(document.querySelector('dialog[open] .CodeMirror'))?.CodeMirror.getValue().includes('base64 -d'));
-  const curlWire=await runGeneratedSnippet(await generatedCode(),true);
-  const curlBoundary=curlWire.contentType.split('boundary=')[1];
-  assert.equal(curlWire.bodyBase64,Buffer.from(expectedCustom.replaceAll(boundary,curlBoundary)).toString('base64'));
-  assert.equal(curlWire.count,8);assert.equal(curlWire.url,fetchUrl);
-  assert.equal(curlWire.escape,'quote\'"\\tail');assert.equal(curlWire.proto,'literal-header');
-  await Bun.write(output+'/generated-curl-custom-multipart-wire.json',JSON.stringify(curlWire,null,2));
-  await page.keyboard.press('Escape');await generated.waitFor({state:'detached'});
-  await url.fill(new URL('/owned-code-generation/digest',page.url()).href);
-  await page.getByRole('tablist',{name:'Request editor',exact:true}).getByRole('tab',{name:'Auth',exact:true}).click();
-  await page.getByRole('combobox',{name:'Authentication',exact:true}).selectOption('digest');
-  await page.getByRole('textbox',{name:'Username',exact:true}).fill(digestUser);
-  await page.getByLabel('Password',{exact:true}).fill(digestPassword);
-  await page.getByRole('button',{name:'Generate code',exact:true}).click();await generated.waitFor();
-  await page.waitForFunction(()=>/** @type {any} */(document.querySelector('dialog[open] .CodeMirror'))?.CodeMirror.getValue().includes('--digest'));
-  // Keep the actual stronger challenge; curl documents this upstream limitation.
-  // This is retained negative evidence, not positive Digest acceptance.
-  assert.match(await generatedCode(),/cURL cannot handle Digest auth-int/);
-  if(process.platform==='win32'){
-    await assert.rejects(runGeneratedSnippet(await generatedCode(),true),/curl: \(94\) An authentication function returned an error/);
-    assert.equal(generatedDigestAttempts,1);assert.equal(generatedFetchRequests,8);
-    await Bun.write(output+'/generated-curl-digest-limitation.json',JSON.stringify({status:'known-client-limitation',curlExitCode:94,challenge:'SHA-256/auth-int',method:'POST',attempts:generatedDigestAttempts,successfulAuthenticatedRequests:0,positiveAcceptance:false},null,2));
+  const cases=[];
+  for(const kind of ['text','binary','multipart']){
+    if(kind==='binary'){
+      await page.getByRole('combobox',{name:'Body type',exact:true}).selectOption('application/octet-stream');
+      await page.locator('.binary-picker input[type="file"]').setInputFiles({name:'owned-codegen.bin',mimeType:'application/octet-stream',buffer:binary});
+      await page.waitForFunction(expected=>{const data=JSON.parse(localStorage.getItem('insomnium-tauri-preview-v1')||'{}');return data.resources?.find((/** @type {any} */row)=>row._id===data.activeRequestId)?.body?.base64===expected;},binary.toString('base64'));
+    }
+    if(kind==='multipart'){
+      await page.getByRole('combobox',{name:'Body type',exact:true}).selectOption('multipart/form-data');
+      await page.getByRole('button',{name:'Add parameter',exact:true}).click();
+      await page.getByRole('textbox',{name:'Parameter 1',exact:true}).fill('upload');
+      await page.getByRole('combobox',{name:'Field type',exact:true}).first().selectOption('file');
+      await page.getByLabel('File value 1',{exact:true}).setInputFiles({name:'owned-codegen.bin',mimeType:'application/octet-stream',buffer:binary});
+    }
+    await page.getByRole('button',{name:'Generate code',exact:true}).click();await generated.waitFor();
+    for(const platform of process.platform==='win32'?['linux','windows']:['linux']){
+      await platforms.selectOption(platform);
+      await page.waitForFunction(platform=>{const code=/** @type {any} */(document.querySelector('dialog[open] .CodeMirror'))?.CodeMirror.getValue();return platform==='windows'?code?.includes('& curl.exe'):code?.includes('curl --disable');},platform);
+      const before=generatedFetchRequests;
+      const code=await generatedCode();
+      assert.equal(generatedFetchRequests,before,'Generation must not dispatch the request');
+      const wire=await runGeneratedSnippet(code,platform);
+      assert.equal(wire.count,before+1);assert.equal(wire.url,curlUrl);
+      assert.equal(wire.escape,'quote\'"\\tail');assert.equal(wire.proto,'literal-header');
+      if(kind==='text')assert.equal(wire.body,body);
+      else if(kind==='binary')assert.equal(wire.bodyBase64,binary.toString('base64'));
+      else assert.deepEqual(wire.parts,[{name:'upload',fileName:'owned-codegen.bin',contentType:'application/octet-stream',bodyBase64:binary.toString('base64')}]);
+      await Bun.write(output+'/curl-'+platform+'-'+kind+'.json',JSON.stringify(wire,null,2));cases.push({platform,kind});
+    }
+    await generated.getByRole('button',{name:'Regenerate',exact:true}).click();
+    await generated.getByRole('button',{name:'Copy code',exact:true}).waitFor();
+    await page.keyboard.press('Escape');await generated.waitFor({state:'detached'});
   }
-  await generated.getByRole('combobox',{name:'Code language',exact:true}).selectOption('node');
-  await generated.getByRole('combobox',{name:'Code client',exact:true}).selectOption('native');
-  await page.waitForFunction(()=>/** @type {any} */(document.querySelector('dialog[open] .CodeMirror'))?.CodeMirror.getValue().includes('const credentials ='));
-  const priorDigestAttempts=generatedDigestAttempts;
-  const digestWire=await runGeneratedSnippet(await generatedCode());
-  assert.equal(digestWire.proofValid,true);assert.equal(digestWire.digestQop,'auth-int');
-  assert.equal(digestWire.digestAttempts,priorDigestAttempts+2);
-  const digestBoundary=digestWire.contentType.split('boundary=')[1];
-  assert.equal(digestWire.bodyBase64,Buffer.from(expectedCustom.replaceAll(boundary,digestBoundary)).toString('base64'));
-  assert.equal(digestWire.count,9,'Only explicit snippet execution may perform the Digest exchange');
-  await Bun.write(output+'/generated-node-digest-wire.json',JSON.stringify(digestWire,null,2));
-  await page.keyboard.press('Escape');await generated.waitFor({state:'detached'});
-  await url.fill(fetchUrl);
-  await page.getByRole('combobox',{name:'Authentication',exact:true}).selectOption('hawk');
-  await page.getByLabel('Auth ID',{exact:true}).fill('owned-codegen-hawk');
-  await page.getByLabel('Auth key',{exact:true}).fill('owned-signing-key');
-  await page.getByRole('combobox',{name:'Signing mode',exact:true}).selectOption('standard');
-  await page.getByRole('checkbox',{name:'Validate payload',exact:true}).check();
   await page.getByRole('button',{name:'Generate code',exact:true}).click();await generated.waitFor();
-  await page.waitForFunction(()=>/** @type {any} */(document.querySelector('dialog[open] .CodeMirror'))?.CodeMirror.getValue().includes('const hawkHeader ='));
-  const hawkWire=await runGeneratedSnippet(await generatedCode());
-  assertSerializedSignature(hawkWire,fetchUrl,'hawk');
-  const hawkBoundary=hawkWire.contentType.split('boundary=')[1];
-  assert.equal(hawkWire.bodyBase64,Buffer.from(expectedCustom.replaceAll(boundary,hawkBoundary)).toString('base64'));
-  assert.match(hawkWire.authorization,/^Hawk id="owned-codegen-hawk"/);
-  assert.equal(hawkWire.count,10,'Generation alone must not dispatch a signed request');
-  await Bun.write(output+'/generated-node-hawk-wire.json',JSON.stringify(hawkWire,null,2));
+  await page.waitForFunction(()=>/** @type {any} */(document.querySelector('dialog[open] .CodeMirror'))?.CodeMirror.getValue().includes('curl'));
+  assert.equal(await platforms.inputValue(),process.platform==='win32'?'windows':'linux');
+  await generated.screenshot({path:output+'/code-generation.png'});
   await page.keyboard.press('Escape');await generated.waitFor({state:'detached'});
-  await page.getByRole('combobox',{name:'Authentication',exact:true}).selectOption('oauth1');
-  await page.getByLabel('Consumer key',{exact:true}).fill('owned-consumer');
-  await page.getByLabel('Consumer secret',{exact:true}).fill('owned-consumer-secret');
-  await page.getByLabel('Token key',{exact:true}).fill('owned-token');
-  await page.getByLabel('Token secret',{exact:true}).fill('owned-token-secret');
-  await page.getByRole('combobox',{name:'Body signing',exact:true}).selectOption('standard');
-  await page.getByRole('checkbox',{name:'Hash body',exact:true}).check();
-  await page.getByRole('button',{name:'Generate code',exact:true}).click();await generated.waitFor();
-  await page.waitForFunction(()=>/** @type {any} */(document.querySelector('dialog[open] .CodeMirror'))?.CodeMirror.getValue().includes('const signed = oauth1Sign('));
-  const oauthWire=await runGeneratedSnippet(await generatedCode());
-  assertSerializedSignature(oauthWire,fetchUrl,'oauth1');
-  const oauthBoundary=oauthWire.contentType.split('boundary=')[1];
-  assert.equal(oauthWire.bodyBase64,Buffer.from(expectedCustom.replaceAll(boundary,oauthBoundary)).toString('base64'));
-  assert.equal(oauthWire.count,11,'Generating OAuth1 code must not send the request');
-  await Bun.write(output+'/generated-node-oauth1-wire.json',JSON.stringify(oauthWire,null,2));
-  await page.keyboard.press('Escape');await generated.waitFor({state:'detached'});
-  await page.getByRole('combobox',{name:'Authentication',exact:true}).selectOption('iam');
-  await page.getByLabel('Access key ID',{exact:true}).fill('OWNEDAWSKEY');
-  await page.getByLabel('Secret access key',{exact:true}).fill('owned-aws-secret');
-  await page.getByLabel('Region (blank infers from Host; defaults to us-east-1)',{exact:true}).fill('us-east-1');
-  await page.getByLabel('Service (blank infers from AWS Host)',{exact:true}).fill('s3');
-  await page.getByLabel('Session token (optional)',{exact:true}).fill('owned-session-token');
-  await page.getByRole('button',{name:'Generate code',exact:true}).click();await generated.waitFor();
-  await page.waitForFunction(()=>/** @type {any} */(document.querySelector('dialog[open] .CodeMirror'))?.CodeMirror.getValue().includes('const awsHeaders ='));
-  const awsWire=await runGeneratedSnippet(await generatedCode());
-  assertSerializedSignature(awsWire,fetchUrl,'aws');
-  assert.equal(awsWire.count,12);assert.equal(awsWire.url,fetchUrl);
-  const awsBoundary=awsWire.contentType.split('boundary=')[1];
-  assert.equal(awsWire.bodyBase64,Buffer.from(expectedCustom.replaceAll(boundary,awsBoundary)).toString('base64'));
-  await Bun.write(output+'/generated-node-aws-header-wire.json',JSON.stringify(awsWire,null,2));
-  await page.keyboard.press('Escape');await generated.waitFor({state:'detached'});
-  await page.getByRole('checkbox',{name:'Add authentication to query',exact:true}).check();
-  await page.getByRole('button',{name:'Generate code',exact:true}).click();await generated.waitFor();
-  await page.waitForFunction(()=>/** @type {any} */(document.querySelector('dialog[open] .CodeMirror'))?.CodeMirror.getValue().includes('const awsHeaders ='));
-  const awsQueryWire=await runGeneratedSnippet(await generatedCode());
-  assertSerializedSignature(awsQueryWire,fetchUrl,'aws');assert.equal(awsQueryWire.count,13);
-  const awsQueryBoundary=awsQueryWire.contentType.split('boundary=')[1];
-  assert.equal(awsQueryWire.bodyBase64,Buffer.from(expectedCustom.replaceAll(boundary,awsQueryBoundary)).toString('base64'));
-  await Bun.write(output+'/generated-node-aws-query-wire.json',JSON.stringify(awsQueryWire,null,2));
-  await page.keyboard.press('Escape');await generated.waitFor({state:'detached'});
-  await page.getByRole('combobox',{name:'Authentication',exact:true}).selectOption('asap');
-  await page.getByRole('combobox',{name:'Claims mode',exact:true}).selectOption('legacy');
-  await page.getByLabel('Issuer (iss)',{exact:true}).fill('owned-asap-issuer');
-  await page.getByLabel('Audience (aud; string or JSON array)',{exact:true}).fill('["owned-audience","second"]');
-  await page.getByLabel('Key ID (kid; blank uses data URI kid)',{exact:true}).fill('owned-asap-rsa');
-  await page.getByLabel('Additional claims (JSON)',{exact:true}).fill('{"large":9007199254740993}');
-  const asapKeyField=page.getByLabel('Private key (PEM, base64 DER/PEM or PKCS8 data URI)',{exact:true});
-  await asapKeyField.fill(asapRsa.privateKey.export({type:'pkcs8',format:'pem'}).toString());
-  await page.getByRole('button',{name:'Generate code',exact:true}).click();await generated.waitFor();
-  await page.waitForFunction(()=>/** @type {any} */(document.querySelector('dialog[open] .CodeMirror'))?.CodeMirror.getValue().includes("headers.push('Authorization', asapAuthorization("));
-  const asapWire=await runGeneratedSnippet(await generatedCode());
-  assertSerializedSignature(asapWire,fetchUrl,'asap',asapRsa.publicKey.export({type:'spki',format:'pem'}).toString());
-  const [asapHeader,asapPayload]=asapWire.authorization.slice(7).split('.').slice(0,2).map((/** @type {string} */value)=>JSON.parse(Buffer.from(value,'base64url').toString()));
-  assert.equal(asapHeader.alg,'RS256');assert.equal(asapHeader.typ,'JWT');assert.equal(asapPayload.exp-asapPayload.iat,600);assert.equal(asapPayload.nbf,asapPayload.iat);
-  assert.equal(asapWire.count,14);
-  const asapBoundary=asapWire.contentType.split('boundary=')[1];
-  assert.equal(asapWire.bodyBase64,Buffer.from(expectedCustom.replaceAll(boundary,asapBoundary)).toString('base64'));
-  await Bun.write(output+'/generated-node-asap-rsa-wire.json',JSON.stringify(asapWire,null,2));
-  await page.keyboard.press('Escape');await generated.waitFor({state:'detached'});
-  await page.getByRole('combobox',{name:'Claims mode',exact:true}).selectOption('postman');
-  await page.getByRole('combobox',{name:'Algorithm',exact:true}).selectOption('ES512');
-  await page.getByLabel('Expiry (seconds; default 3600)',{exact:true}).fill('120');
-  await page.getByLabel('Key ID (kid; blank uses data URI kid)',{exact:true}).fill('');
-  await asapKeyField.fill('data:application/pkcs8;kid=owned-asap-ec;base64,'+asapEc.privateKey.export({type:'pkcs8',format:'der'}).toString('base64'));
-  await page.getByRole('button',{name:'Generate code',exact:true}).click();await generated.waitFor();
-  await page.waitForFunction(()=>/** @type {any} */(document.querySelector('dialog[open] .CodeMirror'))?.CodeMirror.getValue().includes('"ES512"'));
-  const asapEcWire=await runGeneratedSnippet(await generatedCode());
-  assertSerializedSignature(asapEcWire,fetchUrl,'asap',asapEc.publicKey.export({type:'spki',format:'pem'}).toString());
-  const [ecHeader,ecPayload]=asapEcWire.authorization.slice(7).split('.').slice(0,2).map((/** @type {string} */value)=>JSON.parse(Buffer.from(value,'base64url').toString()));
-  assert.equal(ecHeader.kid,'owned-asap-ec');assert.equal(ecHeader.typ,undefined);assert.equal(ecPayload.nbf,undefined);assert.equal(ecPayload.exp-ecPayload.iat,120);assert.equal(asapEcWire.count,15);
-  const ecBoundary=asapEcWire.contentType.split('boundary=')[1];
-  assert.equal(asapEcWire.bodyBase64,Buffer.from(expectedCustom.replaceAll(boundary,ecBoundary)).toString('base64'));
-  await Bun.write(output+'/generated-node-asap-ec-wire.json',JSON.stringify(asapEcWire,null,2));
-  await page.keyboard.press('Escape');await generated.waitFor({state:'detached'});
+  await Bun.write(output+'/curl-acceptance.json',JSON.stringify({passed:true,headless:true,cases,onlyTwoPlatforms:true,preferenceRestored:true},null,2));
   for (const [chord,label] of [["Control+Shift+e","Active environment"],["Meta+Shift+l","HTTP method"]]) {
     await page.keyboard.press(chord);
     assert.equal(await page.getByRole("combobox",{name:label,exact:true}).evaluate((el) => el === document.activeElement || el.contains(document.activeElement)),true,label);
@@ -414,28 +243,21 @@ if(!process.argv.includes('--websocket-only')) await withPreview("workspace-shor
   await dialog.getByRole("button",{name:"Create",exact:true}).click();
   await dialog.waitFor({state:"detached"});
   await page.waitForFunction(() => JSON.parse(localStorage.getItem("insomnium-tauri-preview-v1") || "{}").resources.some((/** @type {any} */ r) => r._type === "request_group" && r.name === "Owned shortcut folder"));
-  await Bun.write(output + "/result.json",JSON.stringify({status:"passed",headless:true,shortcuts:5,modalGuard:true,repeatCompositionAltConsumedGuards:true,focusedHistoryDispatch:true,plainInputHistory:true,readOnlyHistoryGuard:true,generatedFetchWire:true,scope:"Actual built-app keyboard/focus/dialogs/history and generated fetch to an owned loopback peer; no native menu/provider"},null,2));
+  await Bun.write(output + "/result.json",JSON.stringify({status:"passed",headless:true,shortcuts:5,modalGuard:true,repeatCompositionAltConsumedGuards:true,focusedHistoryDispatch:true,plainInputHistory:true,readOnlyHistoryGuard:true,generatedCurlWire:true,scope:"Actual built-app keyboard/focus/dialogs/history and generated cURL to an owned loopback peer; no native menu/provider"},null,2));
 },{fetch:async (request) => {
   if(new URL(request.url).pathname.startsWith('/owned-code-generation/')){
-    const digest=new URL(request.url).pathname==='/owned-code-generation/digest';
-    if(digest){
-      generatedDigestAttempts++;
-      if(!request.headers.get('authorization'))return new Response(null,{status:401,headers:{'WWW-Authenticate':digestChallenge(digestNonce)}});
-    }
     const parts=[];
     if(request.headers.get('content-type')?.startsWith('multipart/form-data')){
       for(const [name,value] of await request.clone().formData())parts.push(typeof value==='string'?{name,value}:{name,fileName:value.name,contentType:value.type,bodyBase64:Buffer.from(await value.arrayBuffer()).toString('base64')});
     }
     const bytes=Buffer.from(await request.arrayBuffer());
-    const proof=digest?{...digestProof(request.headers.get('authorization')??'',request.method,new URL(request.url).pathname+new URL(request.url).search,bytes,digestNonce,digestUser,digestPassword),digestAttempts:generatedDigestAttempts}:{};
-    const authorization=request.headers.get('authorization')??'';
-    const hawk=/^(?:Hawk|OAuth|AWS4-HMAC-SHA256|Bearer) /.test(authorization)||new URL(request.url).searchParams.has('X-Amz-Signature')?{authorization,headers:[...request.headers],method:request.method,target:new URL(request.url).pathname+new URL(request.url).search,type:request.headers.get('content-type')}:{};
-    return Response.json({count:++generatedFetchRequests,url:request.url,parts,body:new TextDecoder().decode(bytes),bodyBase64:bytes.toString('base64'),size:bytes.length,contentType:request.headers.get('content-type'),escape:request.headers.get('x-escape'),proto:request.headers.get('__proto__'),...proof,...hawk});
+    return Response.json({count:++generatedFetchRequests,url:request.url,parts,body:new TextDecoder().decode(bytes),bodyBase64:bytes.toString('base64'),size:bytes.length,ownedHeader:request.headers.get('x-owned'),requestedWith:request.headers.get('x-requested-with'),contentType:request.headers.get('content-type'),escape:request.headers.get('x-escape'),proto:request.headers.get('__proto__')});
   }
   if (new URL(request.url).pathname === "/owned-editor-history.js")
     return new Response(await Bun.file("src/lib/editor-history.js").text(), {headers:{"Content-Type":"text/javascript"}});
 },beforeNavigate:async (page) => {
   await page.addInitScript((data) => {
+    localStorage.setItem("insomnium:generate-code",JSON.stringify({target:"removed-language",client:"native"}));
     if (!localStorage.getItem("insomnium-tauri-preview-v1"))
       localStorage.setItem("insomnium-tauri-preview-v1",JSON.stringify(data));
   },shortcutData);
@@ -447,7 +269,7 @@ assert.ok(websocket);
 Object.assign(websocket,{_type:"websocket_request",url:"ws://owned.invalid",activePayloadId:"wsp_shortcut"});
 websocketData.resources.push({_id:"wsp_shortcut",_type:"websocket_payload",parentId:websocket._id,name:"Owned invalid JSON",mode:"application/json",value:"{"});
 websocketData.resources.push({_id:"wsp_shortcut_other",_type:"websocket_payload",parentId:websocket._id,name:"Owned other payload",mode:"text/plain",value:"Other message"});
-await withPreview("websocket-message-shortcut",async (page,output) => {
+if(!nativeNavigation) await withPreview("websocket-message-shortcut",async (page,output) => {
   await page.getByRole("textbox",{name:"Request URL",exact:true}).waitFor();
   await page.keyboard.press("Control+Shift+Enter");
   await page.keyboard.press("Control+Enter");
@@ -467,3 +289,73 @@ await withPreview("websocket-message-shortcut",async (page,output) => {
 },{beforeNavigate:async (page) => {
   await page.addInitScript((data) => localStorage.setItem("insomnium-tauri-preview-v1",JSON.stringify(data)),websocketData);
 }});
+
+if(nativeNavigation){
+ assert.ok(process.env.INSOMNIUM_UI_BUILD_STATE,'Audited native candidate required');
+ await preserveNativeProfile(async({workspacePath})=>{
+  let peerRequests=0;
+  const peer=Bun.serve({hostname:'127.0.0.1',port:0,fetch:()=>{peerRequests++;return new Response('Unexpected navigation request',{status:500});}});
+  try{
+   const data=initialData(),foreign=initialData(),a=data.activeWorkspaceId,b=foreign.activeWorkspaceId,alpha=data.activeRequestId,other=foreign.activeRequestId,folder=id('fld');
+   const wide=addWideCollectionFixture(foreign);
+   const alphaRow=data.resources.find(row=>row._id===alpha),otherRow=foreign.resources.find(row=>row._id===other);assert.ok(alphaRow&&otherRow);
+   alphaRow.name='Alpha ไทย';alphaRow.parentId=folder;otherRow.name='Foreign ค้น';
+   const beta=newRequest(a,{name:'Beta root'}),socket=newRequest(a,{_type:'websocket_request',name:'Socket pinned'}),rpc=newRequest(folder,{_type:'grpc_request',name:'RPC pinned',metadata:[],protoFileId:'',protoMethodName:'',body:{text:'{}'},grpcJsonMode:'legacy'});
+   data.resources.push(...foreign.resources,{_id:folder,_type:'request_group',parentId:a,name:'Navigation folder'},beta,socket,rpc,
+    {_id:id('wrkm'),_type:'workspace_meta',parentId:a,activeRequestId:alpha,sidebarFilter:'',navigationCustom:'workspace'},
+    {_id:id('wrkm'),_type:'workspace_meta',parentId:b,activeRequestId:other,sidebarFilter:'Foreign ค้น'},
+    {_id:id('fldm'),_type:'request_group_meta',parentId:folder,collapsed:true,navigationCustom:'folder'},
+    ...[alpha,socket._id,rpc._id,other].map(parentId=>({_id:id('meta'),_type:parentId===rpc._id?'grpc_request_meta':'request_meta',parentId,pinned:parentId!==alpha,navigationCustom:parentId,responseFilter:'$.owned'})));
+   for(const row of data.resources)if(['request','websocket_request','grpc_request'].includes(row._type))row.url=(row._type==='websocket_request'?'ws:':'http:')+'//127.0.0.1:'+peer.port+'/never-send';
+   data.openTabs=[alpha,beta._id,alpha,folder,other,'req_owned_missing_tab',beta._id];
+   await Bun.write(workspacePath,JSON.stringify(data));await Bun.write(join(dirname(workspacePath),'workspace-v1.previous.json'),JSON.stringify(data));
+   await withNativeApp('collection-navigation',async({page,invoke,output})=>{
+    const errors=/** @type {string[]} */([]);page.on('pageerror',error=>errors.push(error.message));
+    const load=()=>invoke('load_workspace'),meta=(/** @type {any} */ value,/** @type {string} */ type,/** @type {string} */ parent)=>value.resources.find((/** @type {any} */ row)=>row._type===type&&row.parentId===parent);
+    const sidebar=page.getByRole('complementary',{name:'Collections',exact:true}),filter=sidebar.getByRole('textbox',{name:'Filter requests',exact:true}),collection=page.getByRole('combobox',{name:'Collection',exact:true}),folderButton=sidebar.getByRole('button',{name:'Navigation folder',exact:true}),pins=sidebar.getByRole('region',{name:'Pinned requests',exact:true});
+    const requestRow=(/** @type {string} */ name)=>sidebar.locator('.tree-request-row').filter({hasText:name}).first().locator('.tree-request');
+    const select=async(/** @type {string} */ name,/** @type {string} */ requestId)=>{await requestRow(name).click();await poll(async()=>(await load()).activeRequestId===requestId,'Native request selection persisted');};
+    const togglePin=async(/** @type {string} */ requestId,/** @type {boolean} */ pinned)=>{await page.keyboard.press('Control+Shift+p');await poll(async()=>meta(await load(),requestId===rpc._id?'grpc_request_meta':'request_meta',requestId)?.pinned===pinned,'Native keyboard pin persisted');};
+    await filter.waitFor();await folderButton.waitFor();assert.equal(await folderButton.getAttribute('aria-expanded'),'false');
+    assert.equal(await page.locator('.request-tabs .request-tab').count(),2,'Restored native tabs are unique requests');
+    assert.match(await pins.innerText(),/Socket pinned/);assert.match(await pins.innerText(),/RPC pinned/);assert.doesNotMatch(await pins.innerText(),/Foreign ค้น/);
+    await togglePin(alpha,true);assert.match(await pins.innerText(),/Alpha ไทย/);
+    assert.deepEqual((await load()).openTabs,[alpha,beta._id,other],'Native save retains foreign tabs and removes duplicate/non-request/missing IDs');
+    await filter.fill('Alpha ไทย');await poll(async()=>meta(await load(),'workspace_meta',a)?.sidebarFilter==='Alpha ไทย','Unicode filter saved');
+    assert.equal(await folderButton.getAttribute('aria-expanded'),'true');assert.equal(meta(await load(),'request_group_meta',folder).collapsed,true);
+    await filter.fill('');await poll(async()=>meta(await load(),'workspace_meta',a)?.sidebarFilter==='','Filter cleared');assert.equal(await folderButton.getAttribute('aria-expanded'),'false');
+    await select('Beta root',beta._id);await folderButton.click();await poll(async()=>meta(await load(),'request_group_meta',folder).collapsed===false,'Folder expansion saved');
+    await select('Alpha ไทย',alpha);await page.getByRole('button',{name:'Close Alpha ไทย',exact:true}).click();await poll(async()=>(await load()).activeRequestId===beta._id,'Closing active tab selects remaining request');
+    assert.equal(meta(await load(),'workspace_meta',a).activeRequestId,beta._id);
+    await filter.fill('Alpha ไทย');await folderButton.click();await poll(async()=>meta(await load(),'request_group_meta',folder).collapsed===true,'Stored collapse preserved beneath search');
+    await collection.selectOption(b);await poll(async()=>(await load()).activeRequestId===other,'Foreign collection selection restored');assert.equal(await filter.inputValue(),'Foreign ค้น');assert.match(await pins.innerText(),/Foreign ค้น/);assert.doesNotMatch(await pins.innerText(),/Alpha ไทย|Socket pinned|RPC pinned/);
+    await collection.selectOption(a);await poll(async()=>(await load()).activeRequestId===beta._id,'Collection remembers tab fallback');assert.equal(await filter.inputValue(),'Alpha ไทย');assert.equal(await folderButton.getAttribute('aria-expanded'),'true');
+    await filter.fill('');await select('Socket pinned',socket._id);await togglePin(socket._id,false);assert.doesNotMatch(await pins.innerText(),/Socket pinned/);
+    await select('RPC pinned',rpc._id);await togglePin(rpc._id,false);assert.doesNotMatch(await pins.innerText(),/RPC pinned/);
+    await select('Alpha ไทย',alpha);await togglePin(alpha,false);await pins.waitFor({state:'detached'});
+    await select('Beta root',beta._id);await filter.fill('Alpha ไทย');await poll(async()=>meta(await load(),'workspace_meta',a).sidebarFilter==='Alpha ไทย','Final filter persisted');
+    await page.reload();await folderButton.waitFor();assert.equal(await collection.inputValue(),a);assert.equal(await filter.inputValue(),'Alpha ไทย');assert.equal(await folderButton.getAttribute('aria-expanded'),'true');
+    const reloaded=await load();assert.equal(reloaded.activeRequestId,beta._id);assert.equal(meta(reloaded,'workspace_meta',a).activeRequestId,beta._id);assert.equal(meta(reloaded,'workspace_meta',b).activeRequestId,other);assert.equal(meta(reloaded,'workspace_meta',b).sidebarFilter,'Foreign ค้น');
+    for(const requestId of [alpha,socket._id,rpc._id]){const value=meta(reloaded,requestId===rpc._id?'grpc_request_meta':'request_meta',requestId);assert.equal(value.pinned,false);assert.equal(value.navigationCustom,requestId);assert.equal(value.responseFilter,'$.owned');}
+    assert.equal(meta(reloaded,'request_meta',other).pinned,true);assert.equal(meta(reloaded,'workspace_meta',a).navigationCustom,'workspace');assert.equal(meta(reloaded,'request_group_meta',folder).navigationCustom,'folder');assert.equal(meta(reloaded,'request_group_meta',folder).collapsed,true);
+    await filter.fill('');await poll(async()=>meta(await load(),'workspace_meta',a).sidebarFilter==='','Final clear saved');assert.equal(await folderButton.getAttribute('aria-expanded'),'false');
+    assert.equal(await pins.count(),0);assert.equal(peerRequests,0);assert.deepEqual((await load()).history,[]);assert.deepEqual(errors,[]);
+    const wideIds=new Set(wide.requests.map(row=>row._id));
+    assert.deepEqual(reloaded.resources.filter((/** @type {any} */row)=>wideIds.has(row._id)),wide.requests,'All background requests remain exact');
+    await Bun.write(output+'/wide-collection.json',JSON.stringify({passed:true,requests:wide.requests.length,resourcesUnchanged:true,selectionFilterPinsReload:true,peerRequests},null,2));
+    await Bun.write(output+'/acceptance.json',JSON.stringify({passed:true,renderingMode:'native-hidden',flows:['HTTP/WS/gRPC pin and unpin through keyboard with imported metadata retained','nested collapsed folder temporarily revealed by Unicode search without changing stored collapse','folder expansion/collapse persisted','active-tab close fallback remembered per collection','independent collection filters and foreign pins excluded','renderer reload retains selection/filter/pin/collapse/custom metadata'],peerRequests,historyEntries:0,limits:'Named Windows navigation and renderer reload; not physical keyboard/AT, OS restart/close, complete CRUD/import/export/provider/platform parity'},null,2));
+   });
+   await withNativeApp('collection-navigation-reopen',async({page,invoke,output})=>{
+    const sidebar=page.getByRole('complementary',{name:'Collections',exact:true}),folderButton=sidebar.getByRole('button',{name:'Navigation folder',exact:true}),collection=page.getByRole('combobox',{name:'Collection',exact:true}),filter=sidebar.getByRole('textbox',{name:'Filter requests',exact:true});
+    await folderButton.waitFor();assert.equal(await collection.inputValue(),a);assert.equal(await filter.inputValue(),'');assert.equal(await folderButton.getAttribute('aria-expanded'),'false');
+    const loaded=await invoke('load_workspace');assert.equal(loaded.activeRequestId,beta._id);
+    for(const requestId of [alpha,socket._id,rpc._id])assert.equal(loaded.resources.find((/** @type {any} */ row)=>row.parentId===requestId&&['request_meta','grpc_request_meta'].includes(row._type)).pinned,false);
+    assert.equal(await sidebar.getByRole('region',{name:'Pinned requests',exact:true}).count(),0);
+    await collection.selectOption(b);await poll(async()=>(await invoke('load_workspace')).activeRequestId===other,'Reopened foreign selection');assert.equal(await filter.inputValue(),'Foreign ค้น');assert.match(await sidebar.getByRole('region',{name:'Pinned requests',exact:true}).innerText(),/Foreign ค้น/);
+    await collection.selectOption(a);await poll(async()=>(await invoke('load_workspace')).activeRequestId===beta._id,'Reopened collection selection');assert.equal(await filter.inputValue(),'');assert.equal(await folderButton.getAttribute('aria-expanded'),'false');
+    assert.equal(peerRequests,0);assert.deepEqual((await invoke('load_workspace')).history,[]);
+    await Bun.write(output+'/acceptance.json',JSON.stringify({passed:true,renderingMode:'native-hidden',relaunched:true,selectionRetained:true,collectionFiltersIsolated:true,pinsRetained:true,collapseRetained:true,peerRequests,historyEntries:0,limits:'Actual new host after explicit destroy cleanup; not WM_CLOSE/OS restart/provider/platform acceptance'},null,2));
+   });
+  }finally{peer.stop(true);}
+ });
+}

@@ -4,6 +4,7 @@ import { join, resolve, dirname } from "node:path";
 import {validateSpectralArtifact} from './spectral-artifact.mjs';
 import {elfAbi} from './linux-elf-inputs.mjs';
 import {normalizeRpmArchiveSize} from './normalize-rpm-archive-size.mjs';
+import {prepareVendor} from './prepare-vendor.mjs';
 
 export function linuxOptions(args) {
   const bundleArgs = [];
@@ -143,6 +144,7 @@ async function run(args, captureBinary = false, onLine) {
 
 export async function main(args = Bun.argv.slice(2)) {
   process.chdir(resolve(import.meta.dir, ".."));
+  await prepareVendor();
   const cli = [process.execPath, "x", "--bun", "tauri"];
   if (
     process.platform !== "linux" ||

@@ -8,7 +8,8 @@ import assert from "node:assert/strict";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { buildSchema, introspectionFromSchema } from "graphql";
-import { withNativeApp, poll } from "./helpers/native-app.js";
+import { preserveNativeProfile } from "./helpers/native-profile-preservation.js";
+import { withNativeApp, poll, selectedNativeProbeIdentifier, integrationProbeIdentifier } from "./helpers/native-app.js";
 import {withComponentFixture} from './helpers/component-fixture.js';
 
 if(process.env.INSOMNIUM_GRAPHQL_NAVIGATION==='1'){
@@ -31,6 +32,47 @@ if(process.env.INSOMNIUM_GRAPHQL_NAVIGATION==='1'){
       return !!editor.fixtureCompletion && editor.state.completionActive===editor.fixtureCompletion;
     }),'Variables-only edit retains the original completion session without automatic reopening');
     await page.keyboard.press('Escape');
+    const jumpErrors=/** @type {string[]} */([]);page.on('pageerror',error=>jumpErrors.push(String(error)));
+    const physicalQuery=page.locator('.shared-code-editor').filter({has:page.locator('textarea[aria-label="GraphQL query"]')}).locator('.CodeMirror');
+    const authoredQuery=await physicalQuery.evaluate(element=>/** @type {any} */(element).CodeMirror.getValue());
+    await page.evaluate(()=>/** @type {any} */(window).setNavigationCompletionDelay(250));
+    await physicalQuery.evaluate(element=>{const cm=/** @type {any} */(element).CodeMirror;cm.setValue('query { u');cm.focus();cm.setCursor(cm.posFromIndex(cm.getValue().length));});
+    await page.keyboard.type('s');
+    await page.evaluate(()=>/** @type {any} */(window).refreshNavigationSchema());
+    await page.waitForTimeout(400);assert.equal(await page.locator('.CodeMirror-hints').count(),0,'Retired schema input timer must not reopen completion');
+    await page.keyboard.type('e');await page.locator('.CodeMirror-hints').waitFor();assert.match(await page.locator('.CodeMirror-hints').innerText(),/user/);await page.keyboard.press('Escape');
+    await physicalQuery.evaluate(element=>{const cm=/** @type {any} */(element).CodeMirror;cm.setValue('query { u');cm.focus();cm.setCursor(cm.posFromIndex(cm.getValue().length));});
+    await page.keyboard.type('s');
+    await page.evaluate(()=>/** @type {any} */(window).setNavigationCompletionDelay(0));
+    await page.waitForTimeout(400);assert.equal(await page.locator('.CodeMirror-hints').count(),0,'Disabling automatic completion retires a queued input timer');
+    await page.evaluate(()=>/** @type {any} */(window).setNavigationCompletionDelay(250));
+    await physicalQuery.evaluate(element=>{const cm=/** @type {any} */(element).CodeMirror;cm.setValue('query { u');cm.focus();cm.setCursor(cm.posFromIndex(cm.getValue().length));});
+    await page.keyboard.type('s');
+    await physicalQuery.evaluate(element=>{const cm=/** @type {any} */(element).CodeMirror;cm.setValue('query { u');cm.setCursor(cm.posFromIndex(cm.getValue().length));});
+    await page.waitForTimeout(400);assert.equal(await page.locator('.CodeMirror-hints').count(),0,'Programmatic body replacement cancels pending input completion');
+    await page.keyboard.type('s');await page.locator('.CodeMirror-hints').waitFor();assert.match(await page.locator('.CodeMirror-hints').innerText(),/user/);await page.keyboard.press('Escape');
+    await page.evaluate(()=>/** @type {any} */(window).setNavigationCompletionDelay(0));
+    await physicalQuery.evaluate((element,value)=>{/** @type {any} */(element).CodeMirror.setValue(value);},authoredQuery);
+    await physicalQuery.locator('span.cm-property').filter({hasText:/^user$/}).hover();
+    await page.keyboard.down('Control');
+    try{
+      await physicalQuery.locator('.CodeMirror-jump-token').waitFor();
+      await physicalQuery.locator('.CodeMirror-jump-token').click();
+      await page.locator('.schema-member-reference').waitFor();
+    }finally{await page.keyboard.up('Control');}
+    await page.waitForTimeout(50);assert.deepEqual(jumpErrors,[],'Ctrl-click navigation/unmount then modifier release must not retain document callbacks');
+    await page.getByRole('button',{name:'Back in schema navigation'}).click();
+    await physicalQuery.locator('span.cm-property').filter({hasText:/^user$/}).hover();
+    await page.keyboard.down('Control');
+    try{
+      await physicalQuery.locator('.CodeMirror-jump-token').waitFor();
+      await physicalQuery.evaluate(element=>{const cm=/** @type {any} */(element).CodeMirror;cm.fixtureOldJump=cm.state.jump;});
+      await page.evaluate(()=>/** @type {any} */(window).refreshNavigationSchema());
+      await poll(async()=>physicalQuery.evaluate(element=>{const cm=/** @type {any} */(element).CodeMirror;return cm.state.jump!==cm.fixtureOldJump;}),'Schema refresh retires active gesture owner');
+      assert.ok(await physicalQuery.evaluate(element=>{const cm=/** @type {any} */(element).CodeMirror;return !cm.fixtureOldJump.marker&&!cm.fixtureOldJump.destination;}),'Retired schema gesture releases its mark/reference');
+    }finally{await page.keyboard.up('Control');}
+    await page.waitForTimeout(50);assert.deepEqual(jumpErrors,[],'Schema replacement during Ctrl hold leaves no retired key-up callback');
+    assert.equal(await physicalQuery.evaluate(element=>/** @type {any} */(element).CodeMirror.getValue()),'query Find($id: ID) { user(id: $id) { id } }','Jump gestures preserve authored query');
     for(const [kind,expected] of [['field','user'],['argument','id'],['enum','ADMIN'],['directiveArgument','level']]){
       await page.getByRole('button',{name:'Query',exact:true}).click();
       const query=page.locator('.shared-code-editor').filter({has:page.locator('textarea[aria-label="GraphQL query"]')}).locator('.CodeMirror');
@@ -109,11 +151,17 @@ if(process.env.INSOMNIUM_GRAPHQL_NAVIGATION==='1'){
         assert.equal(await page.getByRole('alert').count(),0,'Retired fetch must not publish stale errors');
       }finally{await pending?.abort().catch(()=>{});await page.unroute('**/held-schema');}
     }
-    await Bun.write(output+'/result.json',JSON.stringify({status:'passed',headless:true,checks:['variables-only typing preserves completion session with automatic completion disabled','reference navigation','Back restores search and definition','keyboard Back restores search focus','schema replacement clears history','held fetch success/failure preserve replacement schema'],limits:'Real component/workflow/preview transport with held Playwright route; no native IPC or external server'},null,2));
+    assert.deepEqual(jumpErrors,[],'No jump lifecycle page errors across navigation/replacement/fetch flows');
+    await Bun.write(output+'/result.json',JSON.stringify({status:'passed',headless:true,checks:['queued completion rejects retired schema, disabled autocomplete or replaced text; new input still completes','schema replacement while Ctrl held retires marker/reference/listeners','physical Ctrl-click survives query-editor unmount and modifier release','variables-only typing preserves completion session with automatic completion disabled','reference navigation','Back restores search and definition','keyboard Back restores search focus','schema replacement clears history','held fetch success/failure preserve replacement schema'],limits:'Real component/workflow/preview transport with held Playwright route; no native IPC or external server'},null,2));
   });
   process.exit(0);
 }
 
+const completionNative=process.env.INSOMNIUM_GRAPHQL_COMPLETION_OWNER_NATIVE==='1';
+const jumpNative=process.env.INSOMNIUM_GRAPHQL_JUMP_NATIVE==='1';
+assert.ok(!completionNative||!jumpNative,'Native focuses are exclusive');
+const focusedNative=completionNative||jumpNative;
+if(focusedNative){assert.equal(selectedNativeProbeIdentifier(),integrationProbeIdentifier);assert.ok(process.env.INSOMNIUM_UI_BUILD_STATE,'Explicit native build required');}
 process.env.INSOMNIUM_UI_BUILD_STATE ||=
   "artifacts/native-nocturne-controls-probe/build-state.json";
 const sdl = `
@@ -145,9 +193,10 @@ const server = Bun.serve({
     );
   },
 });
-await withResourceProbePreserved(async () => {
+const runNative=()=>withResourceProbePreserved(async () => {
   try {
-    await withNativeApp("graphql-editor", async ({ page, invoke, output }) => {
+    await withNativeApp(completionNative?"graphql-completion-owner":jumpNative?"graphql-jump":"graphql-editor", async ({ page, invoke, output }) => {
+      if(completionNative){const data=await invoke('load_workspace');data.settings.autocompleteDelay=1000;await invoke('save_workspace',{data});await page.reload();await page.locator('.app-shell').waitFor();}
       const name = "GraphQL editor " + Date.now();
       const original = {
         query,
@@ -220,7 +269,7 @@ await withResourceProbePreserved(async () => {
       );
       const panel = page.locator(".graphql-panel");
       await panel.waitFor();
-      await Bun.write(
+      if(!focusedNative)await Bun.write(
         output + "/graphql-segmented.json",
         JSON.stringify(await assertGraphqlSegmented(page, panel), null, 2),
       );
@@ -233,12 +282,60 @@ await withResourceProbePreserved(async () => {
         .getByRole("button", { name: "Fetch schema", exact: true })
         .click();
       await panel.getByLabel("Schema types", { exact: true }).waitFor();
-      await exerciseSplit(page, "Schema types and documentation size");
+      if(!jumpNative)await exerciseSplit(page, "Schema types and documentation size");
       assert.equal(events.length, 1);
       assert.equal(events[0].method, "POST");
       assert.equal(events[0].body.operationName, "IntrospectionQuery");
       assert.equal(events[0].authorization, "Bearer graphql-fixture");
       assert.deepEqual(JSON.parse((await saved()).body.text), original);
+      if(completionNative){
+        const errors=/** @type {string[]} */([]);page.on('pageerror',error=>errors.push(String(error)));
+        const before=await invoke('load_workspace');await panel.getByRole('button',{name:'Query',exact:true}).click();
+        const cm=panel.locator('.shared-code-editor').filter({has:page.locator('textarea[aria-label="GraphQL query"]')}).locator('.CodeMirror');await cm.waitFor();
+        await cm.evaluate(element=>{const editor=/** @type {any} */(element).CodeMirror;editor.focus();editor.setCursor(editor.posFromIndex(editor.getValue().length));});
+        await page.keyboard.type(' ');await page.keyboard.press('Control+Shift+F');
+        await poll(async()=>cm.evaluate(element=>/** @type {any} */(element).CodeMirror.getValue().includes('\n')),'Actual GraphQL format shortcut replaced text');
+        const formatted=await cm.evaluate(element=>{const editor=/** @type {any} */(element).CodeMirror,value=editor.getValue();editor.setCursor(editor.posFromIndex(value.indexOf('users')+1));editor.focus();return value;});
+        await page.waitForTimeout(1250);assert.equal(await page.locator('.CodeMirror-hints').count(),0,'Native format retires queued automatic completion');
+        await cm.evaluate(element=>{const editor=/** @type {any} */(element).CodeMirror,index=editor.getValue().indexOf('users');editor.setSelection(editor.posFromIndex(index),editor.posFromIndex(index+5));});
+        await page.keyboard.type('us');await page.locator('.CodeMirror-hints').waitFor();assert.match(await page.locator('.CodeMirror-hints').innerText(),/users/);await page.keyboard.press('Escape');
+        await cm.evaluate((element,value)=>{/** @type {any} */(element).CodeMirror.setValue(value);},formatted);
+        await poll(async()=>JSON.parse((await saved()).body.text).query===formatted,'Formatted query persisted');
+        const body=JSON.parse((await saved()).body.text);assert.deepEqual(body.variables,original.variables);assert.equal(body.operationName,original.operationName);assert.equal(events.length,1);assert.deepEqual((await invoke('load_workspace')).history,before.history);
+        const resource=await saved();await page.reload();await select();await panel.waitFor();assert.deepEqual(await saved(),resource);assert.equal(events.length,1);assert.deepEqual((await invoke('load_workspace')).history,before.history);assert.deepEqual(errors,[]);
+        await Bun.write(join(output,'acceptance.json'),JSON.stringify({passed:true,checks:['native real typing schedules delayed completion','Format shortcut replaces query and retires queued timer','no delayed popup after1250ms','new typing still opens automatic completion','variables/operation preserved','one authenticated introspection only','history/reload without resend'],events,errors,resource,formatted,delayMs:1000,quietMs:1250,limits:'Windows hidden WebView2 Format/document-change timer cancellation and new-input control only; schema/request/mode/environment/disabled-setting ownership variants retain separate browser or open native gates.'},null,2));return;
+      }
+      if(jumpNative){
+        const errors=/** @type {string[]} */([]);page.on('pageerror',error=>errors.push(String(error)));
+        const before=await invoke('load_workspace');
+        const cm=panel.locator('.shared-code-editor').filter({has:page.locator('textarea[aria-label="GraphQL query"]')}).locator('.CodeMirror');
+        for(const refresh of [false,true]){
+          await panel.getByRole('button',{name:'Query',exact:true}).click();
+          await cm.locator('span.cm-property').filter({hasText:/^users$/}).hover();
+          await page.keyboard.down('Control');
+          try{
+            await cm.locator('.CodeMirror-jump-token').waitFor();
+            if(refresh){
+              await panel.getByRole('button',{name:'Fetch schema',exact:true}).click();
+              await poll(async()=>events.length===2,'Second native introspection');
+              await panel.getByLabel('Schema types',{exact:true}).waitFor();
+            }else{
+              await cm.locator('.CodeMirror-jump-token').click();
+              await panel.locator('.schema-member-reference').waitFor();
+              assert.equal(await panel.locator('.schema-member-reference').innerText(),'users');
+              await panel.getByRole('button',{name:'Back in schema navigation'}).waitFor();
+            }
+          }finally{await page.keyboard.up('Control');}
+          await page.waitForTimeout(50);assert.deepEqual(errors,[],'Native modifier release after editor unmount');
+          if(!refresh)await panel.getByRole('button',{name:'Back in schema navigation'}).click();
+          assert.deepEqual(JSON.parse((await saved()).body.text),original);
+        }
+        assert.equal(events.length,2);assert.ok(events.every(e=>e.body.operationName==='IntrospectionQuery'&&e.authorization==='Bearer graphql-fixture'));
+        assert.deepEqual((await invoke('load_workspace')).history,before.history,'Schema/jump actions never dispatch the user query');
+        const resource=await saved();await page.reload();await select();await panel.waitFor();assert.deepEqual(await saved(),resource);assert.equal(events.length,2,'Reload does not fetch or execute');assert.deepEqual((await invoke('load_workspace')).history,before.history);assert.deepEqual(errors,[]);
+        await Bun.write(join(output,'acceptance.json'),JSON.stringify({passed:true,checks:['native physical Ctrl-click/unmount/release','native schema refresh while Ctrl held','query variables operation preserved','two authenticated introspections only','history/reload without resend'],events,errors,resource,limits:'Windows hidden WebView2 physical keyboard/mouse via saved scenario; not real OS modifier/window-blur or full GraphQL acceptance.'},null,2));
+        return;
+      }
       await panel
         .getByLabel("Schema types", { exact: true })
         .selectOption("User");
@@ -573,4 +670,5 @@ await withResourceProbePreserved(async () => {
   } finally {
     server.stop(true);
   }
-});
+}, {expectedIdentifier:selectedNativeProbeIdentifier()});
+if(focusedNative)await preserveNativeProfile(runNative);else await runNative();

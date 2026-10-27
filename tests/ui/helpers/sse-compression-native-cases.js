@@ -7,12 +7,16 @@ import {
   withNativeApp,
   poll,
   resourceCrudProbeIdentifier,
+  integrationProbeIdentifier, selectedNativeProbeIdentifier,
 } from "./native-app.js";
 import {
   withResourceProbePreserved,
   registerResourceProbeCollection,
   resourceSaved,
 } from "./resource-manager-cases.js";
+import { preserveNativeProfile } from "./native-profile-preservation.js";
+import { heldHttp } from "./held-http.js";
+import { prepareRequest } from "../../../src/lib/transport.js";
 import { createSseRuntimeFixture } from "./sse-runtime-fixture.js";
 import { respondToOwnedSaveDialog } from "./windows-save-dialog.js";
 
@@ -34,10 +38,11 @@ const sha = (bytes) => createHash("sha256").update(bytes).digest("hex");
 export async function runSseCompressionNativeCases() {
   assert.equal(process.platform, "win32");
   const marker = process.env.INSOMNIUM_UI_PROFILE_OWNERSHIP;
-  assert.ok(marker && process.env.INSOMNIUM_UI_BUILD_STATE);
-  const options = {
-    expectedIdentifier: resourceCrudProbeIdentifier,
-    profileOwnershipPath: marker,
+  const integration = selectedNativeProbeIdentifier() === integrationProbeIdentifier;
+  const stacked = process.env.INSOMNIUM_STACKED_COMPRESSION_NATIVE === "1";
+  assert.ok(process.env.INSOMNIUM_UI_BUILD_STATE && (integration || marker));
+  const options = integration ? { expectedIdentifier: integrationProbeIdentifier } : {
+    expectedIdentifier: resourceCrudProbeIdentifier, profileOwnershipPath: marker,
   };
   const fixture = await createSseRuntimeFixture();
   /** @type {unknown[]} */ const failures = [];
@@ -45,7 +50,7 @@ export async function runSseCompressionNativeCases() {
   /** @type {string[]} */ const pageErrors = [];
   /** @type {string|undefined} */ let evidence;
   try {
-    await withResourceProbePreserved(
+    const run = () => withResourceProbePreserved(
       async (capture) => {
         await withNativeApp(
           "sse-compression-native",
@@ -54,7 +59,7 @@ export async function runSseCompressionNativeCases() {
             page.setDefaultTimeout(60000);
             page.on("pageerror", (error) => pageErrors.push(String(error)));
             await resourceSaved(page);
-            await capture();
+            if (!integration) await capture();
             const original = await invoke("load_workspace");
             assert.ok(
               Buffer.byteLength(JSON.stringify(original.history)) < 8 * MiB,
@@ -67,6 +72,7 @@ export async function runSseCompressionNativeCases() {
               _id: "req_sse_bounds_" + suffix,
               name: "Owned SSE compression request " + suffix,
               responseMode: "sse",
+              ...(stacked ? { settingDecodeResponse: true } : {}),
               url: fixture.target("initial-" + suffix),
               headers: [{ name: "Accept", value: "text/event-stream" }],
             });
@@ -134,15 +140,26 @@ export async function runSseCompressionNativeCases() {
               ["deflate", deflateSync],
               ["br", brotliCompressSync],
             ]);
-            for (const [encoding, encode] of codecs) {
-              for (const mode of [
+            /** @type {[string,(bytes:Uint8Array)=>Buffer][]} */
+            const stacks = stacked ? [
+              ["gzip, br", bytes => brotliCompressSync(gzipSync(bytes))],
+              ["br, gzip", bytes => gzipSync(brotliCompressSync(bytes))],
+              ["gzip, deflate, br", bytes => brotliCompressSync(deflateSync(gzipSync(bytes)))],
+              ["gzip, gzip", bytes => gzipSync(gzipSync(bytes))],
+              ["GZiP, identity, BR", bytes => brotliCompressSync(gzipSync(bytes))],
+              ["gzip, gzip, gzip, gzip, gzip", bytes => gzipSync(gzipSync(gzipSync(gzipSync(gzipSync(bytes)))))],
+            ] : [];
+            for (const [encoding, encode] of [...codecs, ...stacks]) {
+              for (const mode of encoding.includes(",")
+                ? (encoding === "gzip, br" ? ["valid", "corrupt", "inner-corrupt"] : ["valid"])
+                : [
                 "valid",
                 "corrupt",
                 "flush",
                 "truncated",
                 ...(encoding === "gzip" ? ["multi", "multibad"] : []),
               ]) {
-                const invalid = mode === "corrupt";
+                const invalid = mode === "corrupt" || mode === "inner-corrupt";
                 const partial = mode === "flush" || mode === "truncated";
                 const token = encoding + "-" + mode + "-" + suffix;
                 const url = fixture.target(token, "stream", encoding);
@@ -157,7 +174,7 @@ export async function runSseCompressionNativeCases() {
                   "Compression URL persisted",
                 );
                 await page
-                  .getByRole("button", { name: "Connect", exact: true })
+                  .getByRole("button", { name: /^(Connect|Reconnect)$/, exact: true })
                   .click();
                 await poll(
                   () => Promise.resolve(!!record(token)?.streaming),
@@ -170,9 +187,8 @@ export async function runSseCompressionNativeCases() {
                     "\r\n\r\n",
                 );
                 const encoded = encode(decoded);
-                let sent = invalid
-                  ? Buffer.from("invalid compressed stream " + encoding)
-                  : encoded;
+                let sent = mode === "inner-corrupt" ? brotliCompressSync(Buffer.from("invalid inner gzip"))
+                  : invalid ? Buffer.from("invalid compressed stream " + encoding) : encoded;
                 if (mode === "multi" || mode === "multibad") {
                   fixture.push(token, gzipSync(decoded));
                   await mounted(data);
@@ -292,7 +308,7 @@ export async function runSseCompressionNativeCases() {
                   "Compressed terminal state",
                 );
                 const connect = page.getByRole("button", {
-                  name: "Connect",
+                  name: /^(Connect|Reconnect)$/,
                   exact: true,
                 });
                 await poll(
@@ -303,9 +319,10 @@ export async function runSseCompressionNativeCases() {
                 await resourceSaved(page);
                 const entry = (await load()).history.find(
                   (/** @type {any} */ r) =>
-                    r.requestId === request._id && r.url === url,
+                    r.requestId === request._id && r.url === record(token)?.url,
                 );
                 assert.ok(entry);
+                assert.equal((await load()).resources.find((/** @type {any} */ row) => row._id === request._id)?.url, url, "Send preserves the authored source URL");
                 assert.equal(entry.connectionState, expectedState);
                 assert.deepEqual(
                   wire(token),
@@ -370,7 +387,7 @@ export async function runSseCompressionNativeCases() {
                   assert.equal(entry.rawReceivedBytes, decoded.length);
                   const destination = join(
                     output,
-                    encoding + "-" + mode + "-decoded.bin",
+                    encoding.replace(/[^a-zA-Z0-9-]/g, "_") + "-" + mode + "-decoded.bin",
                   );
                   const saving = respondToOwnedSaveDialog(
                     pid,
@@ -478,6 +495,87 @@ export async function runSseCompressionNativeCases() {
               ),
               httpEntry,
             );
+            if (stacked) {
+              const binary = Buffer.from(Array.from({ length: 256 }, (_, index) => index));
+              const chain = (/** @type {Uint8Array} */ bytes) => brotliCompressSync(gzipSync(bytes));
+              const emptyMember = gzipSync(Buffer.alloc(0));
+              const intermediate = Buffer.alloc(Math.ceil(21 * MiB / emptyMember.length) * emptyMember.length);
+              intermediate.fill(emptyMember);
+              /** @type {{name:string,coding:string|string[],policy:'on'|'off'|'default',plain:Buffer,wire:Buffer,error?:RegExp,tail?:Buffer}[]} */
+              const cases = [
+                { name: "stack-binary", coding: "gzip, br", policy: "on", plain: binary, wire: chain(binary) },
+                { name: "stack-split-fields", coding: ["gzip", "br"], policy: "on", plain: binary, wire: chain(binary) },
+                { name: "stack-raw", coding: "gzip, br", policy: "off", plain: binary, wire: chain(binary) },
+                { name: "legacy-single", coding: "gzip", policy: "default", plain: binary, wire: gzipSync(binary) },
+                { name: "stack-empty-members", coding: "gzip, gzip", policy: "on", plain: Buffer.alloc(0), wire: gzipSync(intermediate) },
+                { name: "stack-size", coding: "gzip, br", policy: "on", plain: Buffer.alloc(20 * MiB + 1, 88), wire: Buffer.alloc(0), error: /20 MiB/ },
+                { name: "stack-unknown", coding: "gzip, zstd", policy: "on", plain: binary, wire: chain(binary), error: /Unsupported compressed/ },
+                { name: "stack-depth", coding: Array(6).fill("gzip").join(", "), policy: "on", plain: binary, wire: binary, error: /five-layer/ },
+                { name: "stack-truncated", coding: "gzip, br", policy: "on", plain: binary, wire: chain(binary).subarray(0, -1), error: /body|decod/i },
+                { name: "stack-trailing", coding: "gzip, deflate", policy: "on", plain: binary, wire: deflateSync(gzipSync(binary)), tail: Buffer.from("invalid trailing bytes"), error: /body|decod/i },
+              ];
+              cases[5].wire = chain(cases[5].plain);
+              for (const item of cases) {
+                const peer = await heldHttp({ body: item.tail ?? item.wire,
+                  ...(item.tail ? { initialChunk: item.wire } : {}),
+                  headers: { "Content-Encoding": item.coding, Connection: "close" } });
+                try {
+                  const target = "http://127.0.0.1:" + peer.port + (item.tail ? "/held" : "/" + item.name);
+                  await page.getByRole("tab", { name: "Settings", exact: true }).click();
+                  await page.getByLabel("Response decompression", { exact: true }).selectOption(item.policy);
+                  const expectedPolicy = item.policy === "default" ? null : item.policy === "on";
+                  await poll(async () => ((await load()).resources.find((/** @type {any} */ row) => row._id === request._id)?.settingDecodeResponse ?? null) === expectedPolicy, "Decompression setting persisted");
+                  await page.getByLabel("Request URL", { exact: true }).fill(target);
+                  await page.getByLabel("Request URL", { exact: true }).press("Tab");
+                  await poll(async () => (await load()).resources.find((/** @type {any} */ row) => row._id === request._id)?.url === target, "Stacked HTTP URL persisted");
+                  await page.reload(); await resourceSaved(page);
+                  const previous = new Set((await load()).history.map((/** @type {any} */ row) => row._id));
+                  await page.getByRole("button", { name: "Send", exact: true }).click();
+                  if (item.tail) {
+                    await poll(() => Promise.resolve(peer.held === 1), "Encoded body arrives before trailing frame");
+                    assert.equal(peer.completeHeld(), 1);
+                  }
+                  /** @type {any} */ let entry;
+                  await poll(async () => { entry = (await load()).history.find((/** @type {any} */ row) => row.requestId === request._id && row.url === target && !previous.has(row._id)); return !!entry; }, "Stacked HTTP terminal history saved", 60000);
+                  await poll(async () => (await page.getByRole("button", { name: "Cancel", exact: true }).count()) === 0, "Stacked HTTP invocation retired");
+                  assert.equal(peer.requests.length, 1);
+                  if (item.policy === "on") assert.equal(peer.requests[0].headers["accept-encoding"], "gzip, deflate, br");
+                  if (item.policy === "off") assert.equal(peer.requests[0].headers["accept-encoding"], undefined);
+                  if (item.error) {
+                    assert.equal(entry.status, 0); assert.match(String(entry.error), item.error);
+                    assert.ok(!entry.bodyBase64); assert.equal(entry.size ?? 0, 0);
+                  } else {
+                    const expected = item.policy === "off" ? item.wire : item.plain;
+                    assert.equal(entry.status, 200); assert.equal(entry.url, target);
+                    assert.equal(entry.bodyBase64, expected.toString("base64"));
+                    assert.equal(entry.size, expected.length); assert.equal(entry.bytesRead, item.wire.length);
+                    const codingHeaders = entry.headers.filter((/** @type {[string,string]} */ [name]) => name.toLowerCase() === "content-encoding").map((/** @type {[string,string]} */ [,value]) => value);
+                    assert.deepEqual(codingHeaders, item.policy === "default" ? [] : Array.isArray(item.coding) ? item.coding : [item.coding]);
+                  }
+                  await resourceSaved(page); await page.reload(); await resourceSaved(page);
+                  assert.deepEqual((await load()).history.find((/** @type {any} */ row) => row._id === entry._id), entry);
+                  checks.push({ mode: item.name, encoding: item.coding, policy: item.policy, error: !!item.error, wireBytes: item.wire.length,
+                    expectedDecodedBytes: item.plain.length, status: entry.status, wireSHA256: sha(item.wire), exactReload: true,
+                    intermediateBytes: item.name === "stack-empty-members" ? intermediate.length : undefined });
+                } finally { await peer.close(); }
+              }
+              for (const kind of ["valid", "limit"]) {
+                const json = Buffer.from(JSON.stringify({ access_token: "owned-compressed-token", token_type: "bearer", ...(kind === "limit" ? { padding: "X".repeat(MiB) } : {}) }));
+                const peer = await heldHttp({ body: chain(json), headers: { "Content-Type": "application/json", "Content-Encoding": ["gzip", "br"], Connection: "close" } });
+                try {
+                  const data = await load(), source = data.resources.find((/** @type {any} */ row) => row._id === request._id);
+                  const payload = prepareRequest(data, { ...source, url: "http://127.0.0.1:" + peer.port + "/token", headers: [], authentication: {}, settingDecodeResponse: true }, "oauth-stacked_" + crypto.randomUUID().replaceAll("-", ""));
+                  const operation = invoke("fetch_oauth_token", { request: payload, config: { grantType: "client_credentials", clientId: "owned-client", clientSecret: "owned-secret", credentialsInBody: true, username: "", password: "", scope: "", audience: "", resource: "", origin: "", refreshToken: "" } });
+                  if (kind === "limit") await assert.rejects(() => operation, /1 MiB/);
+                  else assert.equal((await operation).accessToken, "owned-compressed-token");
+                  assert.equal(peer.requests.length, 1); assert.equal(peer.requests[0].headers["accept-encoding"], "gzip, deflate, br");
+                  checks.push({ mode: "oauth-stacked-" + kind, decodedBytes: json.length, nativeTokenTransport: true, noBrowserProviderClaim: true });
+                } finally { await peer.close(); }
+              }
+              await page.getByRole("tab", { name: "Settings", exact: true }).click();
+              await page.getByLabel("Response decompression", { exact: true }).selectOption("on");
+              await resourceSaved(page);
+            }
             await modeInput.selectOption("sse");
             await stream.waitFor();
             await resourceSaved(page);
@@ -491,7 +589,7 @@ export async function runSseCompressionNativeCases() {
 
             // Independent terminal cases clear only owned histories after exact reload,
             // preserving original data and avoiding an artificial aggregate-history limit.
-            for (const [encoding, encode] of codecs) {
+            for (const [encoding, encode] of [...codecs, ...stacks.slice(0, 1)]) {
               for (const kind of ["cancel", "line-limit", "event-limit"]) {
                 const token = encoding + "-" + kind + "-" + suffix;
                 const url = fixture.target(token, "stream", encoding);
@@ -506,7 +604,7 @@ export async function runSseCompressionNativeCases() {
                   "Compressed bounds URL persisted",
                 );
                 await page
-                  .getByRole("button", { name: "Connect", exact: true })
+                  .getByRole("button", { name: /^(Connect|Reconnect)$/, exact: true })
                   .click();
                 await poll(
                   () => Promise.resolve(!!record(token)?.streaming),
@@ -516,6 +614,13 @@ export async function runSseCompressionNativeCases() {
                 let encoded;
                 if (kind === "cancel") {
                   decoded = Buffer.from("data: cancel " + encoding + "\n\n");
+                  if (encoding.includes(",")) {
+                    encoded = encode(decoded);
+                    fixture.push(token, encoded);
+                    await mounted("cancel " + encoding);
+                    await page.getByRole("button", { name: "Disconnect", exact: true }).click();
+                    await poll(() => Promise.resolve(!!record(token)?.closed && !!record(token)?.aborted), "Cancelled stacked body retires");
+                  } else {
                   const compressor =
                     encoding === "gzip"
                       ? createGzip()
@@ -554,6 +659,7 @@ export async function runSseCompressionNativeCases() {
                     );
                   } finally {
                     compressor.destroy();
+                  }
                   }
                 } else {
                   decoded =
@@ -607,7 +713,7 @@ export async function runSseCompressionNativeCases() {
                   300000,
                 );
                 const connect = page.getByRole("button", {
-                  name: "Connect",
+                  name: /^(Connect|Reconnect)$/,
                   exact: true,
                 });
                 await poll(
@@ -619,9 +725,10 @@ export async function runSseCompressionNativeCases() {
                 await resourceSaved(page);
                 const entry = (await load()).history.find(
                   (/** @type {any} */ r) =>
-                    r.requestId === request._id && r.url === url,
+                    r.requestId === request._id && r.url === record(token)?.url,
                 );
                 assert.ok(entry);
+                assert.equal((await load()).resources.find((/** @type {any} */ row) => row._id === request._id)?.url, url, "Send preserves the authored source URL");
                 assert.equal(entry.connectionState, expectedState);
                 const parsed = entry.events.filter(
                   (/** @type {any} */ e) => e.kind === "sse",
@@ -730,8 +837,10 @@ export async function runSseCompressionNativeCases() {
           options,
         );
       },
-      { ...options, lazyCapture: true },
+      { ...options, lazyCapture: !integration },
     );
+    if (integration) await preserveNativeProfile(run);
+    else await run();
   } catch (error) {
     failures.push(error);
   }

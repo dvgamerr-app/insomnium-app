@@ -220,13 +220,16 @@ export function validateData(value) {
        ![Object.prototype,null].includes(Object.getPrototypeOf(data.responseSelections)) ||
        Object.values(data.responseSelections).some(value => typeof value !== "string")))
     throw new Error("Invalid saved response selections");
+  const requestIds = new Set(data.resources
+    .filter(r => ["request", "websocket_request", "grpc_request"].includes(r._type))
+    .map(r => r._id));
   const result = {
     ...defaults,
     ...data,
     resources: data.resources.map((r) =>
       r._type === "workspace_meta" ? { ...r } : r,
     ),
-    openTabs: (data.openTabs || []).filter((tab) => ids.has(tab)),
+    openTabs: [...new Set(data.openTabs || [])].filter((tab) => requestIds.has(tab)),
     // Branch switching may temporarily remove a request. Preserve its local history.
     history: assignRecordIds(data.history || [],"res").map(entry => {
       if (["websocket", "sse", "grpc"].includes(entry.protocol) &&
@@ -247,7 +250,7 @@ export function validateData(value) {
   if (
     workspaceFor(result.resources, result.activeRequestId) !==
     result.activeWorkspaceId ||
-    !result.resources.some((r) => r._id === result.activeRequestId && ["request", "websocket_request", "grpc_request"].includes(r._type))
+    !requestIds.has(result.activeRequestId)
   )
     result.activeRequestId = selectedRequestFor(result, result.activeWorkspaceId);
   rememberRequest(result, result.activeWorkspaceId, result.activeRequestId);
@@ -343,6 +346,7 @@ export function selectedWebSocketHistory(data, requestId, environmentId) {
  * @param {Record<string,any>} data @param {string} requestId @param {"websocket"|"sse"|"grpc"} protocol @param {string|null} environmentId */
 export function selectedStreamHistory(data, requestId, protocol, environmentId) {
   const history = data.history.filter((/** @type {Resource} */ entry) => entry.requestId === requestId && entry.protocol === protocol && historyMatchesEnvironment(entry,data.settings,environmentId));
+  if (!history.length) return;
   const selected = data.responseSelections?.[requestId] ?? data.resources.find((/** @type {Resource} */ resource) => resource._type === "request_meta" && resource.parentId === requestId)?.activeResponseId;
   return history.find((/** @type {Resource} */ entry) => entry._id === selected) || history[0];
 }
@@ -351,6 +355,7 @@ export function selectedStreamHistory(data, requestId, protocol, environmentId) 
  * @param {Record<string,any>} data @param {string} requestId @param {string|null} environmentId */
 export function selectedHttpHistory(data, requestId, environmentId) {
   const history = data.history.filter((/** @type {Resource} */ entry) => entry.requestId === requestId && !entry.protocol && historyMatchesEnvironment(entry,data.settings,environmentId));
+  if (!history.length) return;
   const explicit = Object.hasOwn(data.responseSelections || {},requestId);
   const selectedId = explicit ? data.responseSelections[requestId] : data.resources.find((/** @type {Resource} */ entry) => entry._type === "request_meta" && entry.parentId === requestId)?.activeResponseId;
   return history.find((/** @type {Resource} */ entry) => entry._id === selectedId) || history[0];
@@ -358,11 +363,19 @@ export function selectedHttpHistory(data, requestId, environmentId) {
 /** @param {Resource[]} resources @param {string} resourceId */
 export function workspaceFor(resources, resourceId) {
   const visited = new Set();
-  let current = resources.find((r) => r._id === resourceId);
+  let current = resources.find((r) => r._id === resourceId),byId;
   while (current && !visited.has(current._id)) {
     if (current._type === "workspace") return current._id;
     visited.add(current._id);
-    current = resources.find((r) => r._id === current?.parentId);
+    if (byId) current = byId.get(current.parentId);
+    else {
+      current = resources.find((r) => r._id === current?.parentId);
+      if (current && current._type !== 'workspace') {
+        byId = new Map();
+        for (const resource of resources)
+          if (!byId.has(resource._id)) byId.set(resource._id,resource);
+      }
+    }
   }
   return "";
 }
@@ -529,8 +542,9 @@ export function selectedRequestFor(data, workspaceId) {
     ? meta.activeRequestId
     : workspaceId === data.activeWorkspaceId ? data.activeRequestId : undefined;
   if (selection === "") return "";
+  const workspaces = indexWorkspaces(data.resources);
   const requests = data.resources.filter((r) =>
-    ["request", "websocket_request", "grpc_request"].includes(r._type) && workspaceFor(data.resources, r._id) === workspaceId);
+    ["request", "websocket_request", "grpc_request"].includes(r._type) && workspaces.get(r._id) === workspaceId);
   return requests.find((r) => r._id === selection)?._id || requests[0]?._id || "";
 }
 /** @param {ReturnType<typeof initialData>} data @param {string} workspaceId @param {string} requestId */

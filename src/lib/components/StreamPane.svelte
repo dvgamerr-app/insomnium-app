@@ -134,7 +134,6 @@
   const eventStart = $derived(response?.created ?? events[0]?.created);
   const firstMessage = $derived(events.find(event => ["message", "sse"].includes(event.kind)));
   const lastEvent = $derived(events.at(-1));
-  const streamBytes = $derived(events.reduce((sum, event) => sum + (typeof event.data === "string" ? event.data.length : 0), 0));
   /** @param {number} ms */
   const duration = ms => ms < 1000 ? Math.round(ms) + " ms" : (ms / 1000).toFixed(2) + " s";
   /** @param {number} n */
@@ -230,8 +229,8 @@
     {#if response?.status}<span class="metric">HTTP {response.status}</span
       >{/if}
     <span class="metric">{visible.length === events.length ? events.length : `${visible.length} of ${events.length}`} events</span>
-    {#if events.length}<span class="metric" title="Time to first message / total time / received size"
-      >{firstMessage && eventStart ? "TTFB " + duration(Number(firstMessage.created) - Number(eventStart)) + " · " : ""}{lastEvent && eventStart ? duration(Number(lastEvent.created) - Number(eventStart)) + " · " : ""}{size(streamBytes)}</span
+    {#if events.length}<span class="metric" title="Time to first message / total time / transferred payload size"
+      >{firstMessage && eventStart ? "TTFB " + duration(Number(firstMessage.created) - Number(eventStart)) + " · " : ""}{lastEvent && eventStart ? duration(Number(lastEvent.created) - Number(eventStart)) + " · " : ""}{size(response?.size ?? 0)}</span
     >{/if}
     <span class="spacer"></span>
     {#if history.length}<Select

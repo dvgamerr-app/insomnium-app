@@ -1,5 +1,5 @@
 <script>
-  import { indexWorkspaces, workspaceFor } from "../../../src/lib/model.js";
+  import { indexWorkspaces, workspaceFor, selectedRequestFor } from "../../../src/lib/model.js";
   const seed = () => [
     {
       _id: "nested",
@@ -115,14 +115,20 @@
     }));
     const started = performance.now();
     const deepIndex = indexWorkspaces(deep);
+    const indexedReads = reads;
+    reads = 0;
+    const lookup = workspaceFor(deep,"deep-0"),lookupReads=reads;
+    reads = 0;
+    const selected = selectedRequestFor(/** @type {any} */({resources:[...deep,{_id:'deep-request',_type:'request',parentId:'deep-0'}],activeWorkspaceId:'deep-19999',activeRequestId:'deep-request'}),'deep-19999');
     rows.push({
       name: "deep-chain",
       actual: deepIndex.get("deep-0"),
       expected: "deep-19999",
       count,
       size: deepIndex.size,
-      reads,
+      reads: indexedReads,
       readLimit: count * 5,
+      lookup,lookupReads,selected,selectionReads:reads,selectionReadLimit:count*10,
       elapsedMs: performance.now() - started,
     });
     return rows;

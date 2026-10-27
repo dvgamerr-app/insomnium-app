@@ -1,24 +1,47 @@
 import assert from "node:assert/strict";
-import { writeFile } from "node:fs/promises";
-import { join } from "node:path";
-import { withNativeApp, poll } from "./helpers/native-app.js";
+import { writeFile, readFile, readdir, lstat, realpath, mkdtemp, rename, rmdir } from "node:fs/promises";
+import { join, resolve, sep, basename, parse } from "node:path";
+import { tmpdir } from "node:os";
+import { createHash } from "node:crypto";
+import { withNativeApp, poll, integrationProbeIdentifier, selectedNativeProbeIdentifier } from "./helpers/native-app.js";
+import { preserveNativeProfile } from "./helpers/native-profile-preservation.js";
+import { withResourceProbePreserved, registerResourceProbeCollection } from "./helpers/resource-manager-cases.js";
 import { gitCollection } from "./helpers/git-fixture.js";
 import { openGitBranches } from "./helpers/git-panel.js";
 import { withGitStreamErrors } from "./helpers/git-stream-error-history.js";
 
-process.env.INSOMNIUM_UI_BUILD_STATE ||=
-  "artifacts/native-recovery-copy-probe/build-state.json";
+assert.equal(selectedNativeProbeIdentifier(), integrationProbeIdentifier);
+assert.ok(process.env.INSOMNIUM_UI_BUILD_STATE, "Explicit audited native build required");
 
+await preserveNativeProfile(async ({ profile, workspacePath }) => withResourceProbePreserved(async () => {
+const baseline=JSON.parse(await readFile(workspacePath,"utf8"));
+for(const key of ["caPem","identityHost","identityPem"])assert.ok(!baseline.settings[key],"Git history fixture requires empty synthetic TLS settings");
+const gitRoot=join(profile,"git-v1"),originalGitRoot=await lstat(gitRoot).then(()=>true,error=>{if(error.code!=="ENOENT")throw error;return false;});
+const archiveRoot=await mkdtemp(join(tmpdir(),"insomnium-git-snapshot-"));
+assert.equal((await realpath(archiveRoot)).toLowerCase(),resolve(archiveRoot).toLowerCase());
+let ownedRepository="",scenarioOutput="";
+try {
 await withNativeApp(
   "git-create-and-switch",
   async ({ page, output, invoke }) => {
+    scenarioOutput=output;
     const commands = /** @type {string[]} */ ([]);
     page.on("request", (request) => {
       const url = new URL(request.url());
       if (url.hostname === "ipc.localhost")
         commands.push(decodeURIComponent(url.pathname.slice(1)));
     });
-    const fixture = await gitCollection({ page, invoke });
+    const fixture = await gitCollection({ page, invoke:async(command,args={})=>{
+      if(command==="git_repository_init"){
+        assert.equal(ownedRepository,"");assert.match(args.repositoryId,/^git_pw_\d+_[0-9a-f]{8}$/);
+        const path=resolve(gitRoot,"repo-"+args.repositoryId);assert.ok(path.startsWith(resolve(gitRoot)+sep));
+        assert.equal(await lstat(path).then(()=>true,error=>{if(error.code!=="ENOENT")throw error;return false;}),false,"Only a newly absent fixture repository may be archived");
+        ownedRepository=path;
+      }
+      return invoke(command,args);
+    } });
+    const collection=fixture.data.resources.find((/** @type {any} */ row)=>row._id===fixture.workspaceId);assert.ok(collection);
+    registerResourceProbeCollection(fixture.workspaceId,collection.name);
     await withGitStreamErrors(
       { page, invoke, output },
       fixture,
@@ -115,3 +138,22 @@ await withNativeApp(
     );
   },
 );
+} finally {
+  if(ownedRepository&&await lstat(ownedRepository).then(()=>true,error=>{if(error.code!=="ENOENT")throw error;return false;})){
+    const inventory=async(/** @type {string} */ root)=>{
+      const rows=/** @type {Record<string,string>} */({});
+      const visit=async(/** @type {string} */ path,relative="")=>{
+        const info=await lstat(path);assert.ok(!info.isSymbolicLink());assert.equal((await realpath(path)).toLowerCase(),resolve(path).toLowerCase());
+        if(info.isDirectory()){rows[relative]="directory";for(const name of(await readdir(path)).sort())await visit(join(path,name),relative?relative+"/"+name:name);}
+        else{assert.ok(info.isFile()&&info.size<=16*1024*1024);rows[relative]=createHash("sha256").update(await readFile(path)).digest("hex");}
+      };await visit(root);return rows;
+    };
+    assert.ok(ownedRepository.startsWith(resolve(gitRoot)+sep));
+    const target=resolve(archiveRoot,basename(ownedRepository));assert.ok(target.startsWith(resolve(archiveRoot)+sep));assert.equal(parse(target).root.toLowerCase(),parse(ownedRepository).root.toLowerCase());
+    assert.equal(await lstat(target).then(()=>true,error=>{if(error.code!=="ENOENT")throw error;return false;}),false,"Never replace an existing archive");
+    const before=await inventory(ownedRepository);await rename(ownedRepository,target);assert.deepEqual(await inventory(target),before,"Retain every owned Git fixture byte after the host exits");
+    await writeFile(join(scenarioOutput,"owned-git-archive.json"),JSON.stringify({retained:true,source:ownedRepository,target,entries:Object.keys(before).length,files:before,hostExitAwaited:true},null,2));
+  }
+  if(!originalGitRoot)await rmdir(gitRoot).catch(error=>{if(error.code!=="ENOENT")throw error;});
+}
+}, { expectedIdentifier: integrationProbeIdentifier }));

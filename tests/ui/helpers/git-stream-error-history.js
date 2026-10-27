@@ -152,7 +152,7 @@ export async function withGitStreamErrors(
         assert.equal(await badge.innerText(), "error");
         assert.equal(
           await page
-            .getByRole("button", { name: "Connect", exact: true })
+            .getByRole("button", { name: "Reconnect", exact: true })
             .isEnabled(),
           true,
         );

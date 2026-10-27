@@ -1,8 +1,23 @@
 import assert from "node:assert/strict";
 import { dlopen, ptr } from "bun:ffi";
-import { realpath } from "node:fs/promises";
+import { realpath, lstat } from "node:fs/promises";
 import { resolve, sep } from "node:path";
-import { probeIdentifier } from "./native-app.js";
+import { probeIdentifier, integrationProbeIdentifier } from "./native-app.js";
+
+/** Deny replacement only of the existing native download scenario sentinel.
+ * @param {string} output @param {string} selectedPath */
+export async function lockScenarioDownloadReplacement(output, selectedPath) {
+  assert.equal(process.platform, "win32");
+  const root = resolve(output), expected = resolve(root, "downloads", "owned-download.bin");
+  assert.match(root, /response-download-native-\d+$/);
+  assert.ok(root.toLowerCase().startsWith((resolve("artifacts/playwright") + sep).toLowerCase()));
+  assert.equal((await realpath(root)).toLowerCase(), root.toLowerCase());
+  assert.equal(resolve(selectedPath).toLowerCase(), expected.toLowerCase());
+  assert.equal((await realpath(expected)).toLowerCase(), expected.toLowerCase());
+  const info = await lstat(expected);
+  assert.ok(info.isFile() && !info.isSymbolicLink());
+  return openReadLock(expected, 3);
+}
 
 /** Deny atomic replacement of this isolated probe's existing PluginData file.
  * Allows reads/writes, never creates/truncates/deletes. Release in finally. */
@@ -16,13 +31,15 @@ export async function lockProbePluginStoreReplacement() {
 }
 
 /** Allows reads/writes but denies replacement of the existing probe workspace.
- * Release in finally. Never creates/truncates/deletes a file. */
-export async function lockProbeWorkspaceReplacement() {
+ * Release in finally. Never creates/truncates/deletes a file.
+ * @param {string} [identifier] */
+export async function lockProbeWorkspaceReplacement(identifier = probeIdentifier) {
   assert.equal(process.platform, "win32");
   assert.ok(process.env.APPDATA);
+  assert.ok([probeIdentifier, integrationProbeIdentifier].includes(identifier));
   const expected = resolve(
     process.env.APPDATA,
-    probeIdentifier,
+    identifier,
     "workspace-v1.json",
   );
   const path = await realpath(expected);

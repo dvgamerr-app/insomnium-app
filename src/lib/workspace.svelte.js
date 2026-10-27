@@ -235,6 +235,7 @@ let persistenceFailure = "";
 /** @type {Map<string, Promise<void>>} */
 const completions = new Map();
 const schemaRevisions = new Map(/** @type {[string,symbol][]} */ ([]));
+let schemaLoadOrder = 0;
 /** @type {Map<symbol,{controller:AbortController,completion:Promise<void>}>} */
 const componentWork = new Map();
 /** Register component/file/native work before its first await.
@@ -312,15 +313,14 @@ const runDrain = createRunDrain({
   },
 });
 
-/** Apply an authoritative Git transition without retaining stale protocol state.
+/** Apply an authoritative snapshot without retaining stale protocol state.
  * @param {any} data */
-function applyGitWorkspace(data) {
+function applyWorkspace(data) {
   workspace.data = data;
   workspace.responses = {};
   for (const response of [...data.history].reverse()) {
-    const restored = { ...response };
-    if (restored.protocol && !["closed", "error"].includes(restored.connectionState)) restored.connectionState = "closed";
-    workspace.responses[restored.requestId] = restored;
+    if (response.protocol && !["closed", "error"].includes(response.connectionState)) response.connectionState = "closed";
+    workspace.responses[response.requestId] = response;
   }
   refreshHttpResponses();
   workspace.schemas = {};
@@ -335,7 +335,7 @@ function applyGitWorkspace(data) {
 }
 const checkoutGitWorkspace = createGitCheckout({
   getData: () => workspace.data,
-  apply: applyGitWorkspace,
+  apply: applyWorkspace,
   quiesce: withWorkspaceRunsPaused,
   save: saveData,
   transition: runWorkspaceTransition,
@@ -345,7 +345,7 @@ const checkoutGitWorkspace = createGitCheckout({
   invoke,
   operationId: () => id("checkout"),
 });
-const cloneGitWorkspace = createGitClone({ getData: () => workspace.data, apply: applyGitWorkspace,
+const cloneGitWorkspace = createGitClone({ getData: () => workspace.data, apply: applyWorkspace,
   quiesce: withWorkspaceRunsPaused, save: saveData, transition: runWorkspaceTransition,
   recover: recoverWorkspaceTransition, load: loadData, invoke });
 /** @param {any} preview @param {Parameters<ReturnType<typeof createGitClone>['review']>[1]} input */
@@ -360,7 +360,7 @@ export async function confirmGitClone(review) {
 }
 const restoreGitWorkspace = createGitRestore({
   getData: () => workspace.data,
-  apply: applyGitWorkspace,
+  apply: applyWorkspace,
   quiesce: withWorkspaceRunsPaused,
   save: saveData,
   transition: (operation) => {
@@ -398,7 +398,7 @@ export function cancelGitRestore(review) {
   restoreGitWorkspace.cancel(review);
 }
 const mergeGitWorkspace = createGitMerge({
-  getData: () => workspace.data, apply: applyGitWorkspace,
+  getData: () => workspace.data, apply: applyWorkspace,
   quiesce: withWorkspaceRunsPaused, save: saveData,
   transition: (operation) => {
     workspace.gitRecoveryKind = "merge";
@@ -599,6 +599,7 @@ export function withWorkspaceRunsPaused(operation) {
 /** User/resource edits are refused while accepted work is being drained.
  * Background completion cleanup still runs before the drain callback starts. */
 export function canEditWorkspace() {
+  if (!workspace.ready) return false;
   if (workspacePersistencePhase() !== "idle") {
     workspace.notice =
       "Workspace transition or recovery is active. Editing is paused.";
@@ -689,6 +690,10 @@ export function updateSettings(patch) {
   void persist();
 }
 function acceptWorkspaceRun() {
+  if (!workspace.ready) {
+    workspace.notice = "Workspace is not ready. Load or recover it before starting operations.";
+    return false;
+  }
   if (workspacePersistencePhase() !== "idle") {
     workspace.notice =
       "Workspace transition or recovery is active. New operations are paused.";
@@ -712,14 +717,10 @@ export function runnerRunOwner(resourceId) {
   return null;
 }
 export async function initialize() {
+  workspace.ready = false;
   try {
     const data = await loadData();
-    if (data) workspace.data = data;
-    for (const response of [...workspace.data.history].reverse()) {
-      if (response.protocol && !["closed", "error"].includes(response.connectionState)) response.connectionState = "closed";
-      workspace.responses[response.requestId] = response;
-    }
-    refreshHttpResponses();
+    applyWorkspace(data || workspace.data);
     workspace.ready = true;
   } catch (error) {
     workspace.error = `Could not load workspace: ${error}`;
@@ -1865,6 +1866,7 @@ export async function executeGrpc(requestId, discoveryOnly = false) {
         resolvedContext,
         schemaBytes,
         loadedAt: Date.now(),
+        loadOrder: ++schemaLoadOrder,
       };
     }
     const cacheBudget = 20 * 1024 * 1024;
@@ -1889,7 +1891,7 @@ export async function executeGrpc(requestId, discoveryOnly = false) {
     cached.bytes = bytes;
     const entries = Object.entries(workspace.grpcSchemas)
       .filter(([key]) => key !== requestId)
-      .sort(([, a], [, b]) => a.loadedAt - b.loadedAt);
+      .sort(([, a], [, b]) => a.loadOrder - b.loadOrder);
     while (entries.length && (entries.length >= 3 ||
       entries.reduce((n, [, value]) => n + value.bytes, bytes) > cacheBudget)) {
       const [key] = /** @type {[string,any]} */ (entries.shift());
@@ -2018,6 +2020,14 @@ export async function executeGrpc(requestId, discoveryOnly = false) {
     if (response?._id === runId) {
       response.connectionState = controller.signal.aborted ? "closed" : "error";
       appendStreamEvent(response, { kind: "error", message: String(error) });
+      // Native preparation can reject before its first Channel packet. Preserve
+      // user cancellation as a durable terminal without inventing one for errors.
+      if (controller.signal.aborted && !response.events.some((/** @type {Record<string,any>} */ event) => event.kind === "status")) {
+        response.status = 1;
+        response.statusText = "gRPC call cancelled.";
+        response.trailers = [];
+        appendStreamEvent(response, { kind: "status", code: 1, details: response.statusText, trailers: [] });
+      }
       remember(response);
       await persist();
     }
@@ -2651,7 +2661,7 @@ export function cacheSchema(requestId, result, context, source) {
   let total = bytes;
   let count = 1;
   for (const [key, entry] of Object.entries(workspace.schemas).sort(
-    (a, b) => b[1].loadedAt - a[1].loadedAt,
+    (a, b) => b[1].loadOrder - a[1].loadOrder,
   )) {
     if (count >= 3 || total + entry.bytes > schemaLimit)
       clearSchema(key);
@@ -2665,6 +2675,7 @@ export function cacheSchema(requestId, result, context, source) {
     context,
     source,
     loadedAt: Date.now(),
+    loadOrder: ++schemaLoadOrder,
     bytes,
   };
   workspace.schemaErrors[requestId] = "";
@@ -2718,10 +2729,13 @@ export function selectStreamHistory(requestId, entry) {
 }
 /** @param {string} [onlyRequestId] */
 function refreshStreamResponses(onlyRequestId) {
+  const workspaces=indexWorkspaces(workspace.data.resources),environments=new Map();
   for (const request of workspace.data.resources) {
     const protocol = protocolFor(request);
     if ((protocol !== "websocket" && protocol !== "sse" && protocol !== "grpc") || workspace.running[request._id] || (onlyRequestId && request._id !== onlyRequestId)) continue;
-    const environmentId = selectedEnvironmentFor(workspace.data,workspaceFor(workspace.data.resources,request._id) || "");
+    const collectionId=workspaces.get(request._id)||'';
+    if(!environments.has(collectionId))environments.set(collectionId,selectedEnvironmentFor(workspace.data,collectionId));
+    const environmentId=environments.get(collectionId);
     const saved = selectedStreamHistory(workspace.data,request._id,protocol,environmentId);
     if (saved) workspace.responses[request._id] = saved;
     else delete workspace.responses[request._id];
@@ -2731,9 +2745,12 @@ function refreshStreamResponses(onlyRequestId) {
  * SSE/WebSocket saved choices refresh under the same environment policy; live runs are untouched. */
 /** @param {string} [onlyRequestId] */
 export function refreshHttpResponses(onlyRequestId) {
+  const workspaces=indexWorkspaces(workspace.data.resources),environments=new Map();
   for (const request of workspace.data.resources) {
     if (request._type !== "request" || protocolFor(request) !== "http" || workspace.running[request._id] || (onlyRequestId && request._id !== onlyRequestId)) continue;
-    const environmentId = selectedEnvironmentFor(workspace.data, workspaceFor(workspace.data.resources, request._id) || "");
+    const collectionId=workspaces.get(request._id)||'';
+    if(!environments.has(collectionId))environments.set(collectionId,selectedEnvironmentFor(workspace.data,collectionId));
+    const environmentId=environments.get(collectionId);
     const response = selectedHttpHistory(workspace.data, request._id, environmentId);
     if (response) workspace.responses[request._id] = response;
     else delete workspace.responses[request._id];

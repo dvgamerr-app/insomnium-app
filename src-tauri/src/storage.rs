@@ -1,4 +1,5 @@
 use crate::http::NetworkState;
+#[cfg(not(any(windows, unix)))]
 use atomic_write_file::AtomicWriteFile;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -176,6 +177,414 @@ pub(crate) fn ensure_no_pending_transition(directory: &Path) -> Result<(), Strin
     }
 }
 
+#[cfg(windows)]
+pub(crate) fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), String> {
+    use std::os::windows::{
+        ffi::OsStrExt,
+        fs::{MetadataExt, OpenOptionsExt},
+        io::{AsRawHandle, FromRawHandle},
+    };
+    use windows::{
+        core::PCWSTR,
+        Win32::{
+            Foundation::{LocalFree, GENERIC_WRITE, HANDLE, HLOCAL},
+            Security::{
+                Authorization::{GetSecurityInfo, SE_FILE_OBJECT},
+                DACL_SECURITY_INFORMATION, GROUP_SECURITY_INFORMATION, OWNER_SECURITY_INFORMATION,
+                PSECURITY_DESCRIPTOR, SECURITY_ATTRIBUTES,
+            },
+            Storage::FileSystem::{
+                CreateFileW, MoveFileExW, ReplaceFileW, CREATE_NEW, FILE_ATTRIBUTE_ENCRYPTED,
+                FILE_ATTRIBUTE_NORMAL, FILE_FLAGS_AND_ATTRIBUTES, FILE_READ_ATTRIBUTES,
+                FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE, MOVE_FILE_FLAGS,
+                READ_CONTROL, REPLACE_FILE_FLAGS,
+            },
+        },
+    };
+    let wide = |path: &Path| {
+        path.as_os_str()
+            .encode_wide()
+            .chain(Some(0))
+            .collect::<Vec<_>>()
+    };
+    let error_text = |error: windows::core::Error| {
+        std::io::Error::from_raw_os_error(error.code().0 & 0xffff).to_string()
+    };
+    let directory = path
+        .parent()
+        .ok_or("Missing atomic write directory")?
+        .canonicalize()
+        .map_err(|error| error.to_string())?;
+    let path = directory.join(path.file_name().ok_or("Missing atomic write filename")?);
+    let path = path.as_path();
+    let original = match fs::OpenOptions::new()
+        .access_mode(READ_CONTROL.0 | FILE_READ_ATTRIBUTES.0)
+        .share_mode(FILE_SHARE_READ.0 | FILE_SHARE_WRITE.0 | FILE_SHARE_DELETE.0)
+        .open(path)
+    {
+        Ok(file) => Some(file),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+        Err(error) => return Err(error.to_string()),
+    };
+    let flags = match &original {
+        Some(file) => FILE_FLAGS_AND_ATTRIBUTES(
+            file.metadata()
+                .map_err(|error| error.to_string())?
+                .file_attributes()
+                & FILE_ATTRIBUTE_ENCRYPTED.0,
+        ),
+        None => FILE_ATTRIBUTE_NORMAL,
+    };
+    let mut descriptor = PSECURITY_DESCRIPTOR::default();
+    if let Some(original) = &original {
+        unsafe {
+            GetSecurityInfo(
+                HANDLE(original.as_raw_handle()),
+                SE_FILE_OBJECT,
+                OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION,
+                None,
+                None,
+                None,
+                None,
+                Some(&mut descriptor),
+            )
+        }
+        .ok()
+        .map_err(error_text)?;
+    }
+    // The pinned Windows writer retains failed commits and overflows long NTFS basenames.
+    let opened = loop {
+        let temporary = directory.join(format!(".insomnium-write-{}.tmp", uuid::Uuid::new_v4()));
+        let attributes = SECURITY_ATTRIBUTES {
+            nLength: size_of::<SECURITY_ATTRIBUTES>() as u32,
+            lpSecurityDescriptor: descriptor.0,
+            bInheritHandle: false.into(),
+        };
+        // Apply the old ACL before any payload exists in the staging file.
+        let created = unsafe {
+            CreateFileW(
+                PCWSTR(wide(&temporary).as_ptr()),
+                GENERIC_WRITE.0,
+                Default::default(),
+                Some(&attributes),
+                CREATE_NEW,
+                flags,
+                None,
+            )
+        };
+        match created {
+            Ok(handle) => break Ok((temporary, unsafe { fs::File::from_raw_handle(handle.0) })),
+            Err(error) if matches!(error.code().0 as u32 & 0xffff, 80 | 183) => continue,
+            Err(error) => break Err(error_text(error)),
+        }
+    };
+    if !descriptor.0.is_null() {
+        unsafe {
+            let _ = LocalFree(Some(HLOCAL(descriptor.0)));
+        }
+    }
+    let (temporary, mut file) = opened?;
+    let prepared = file.write_all(bytes).and_then(|()| file.sync_all());
+    drop(file);
+    let replacing = original.is_some();
+    drop(original);
+    let result = prepared.map_err(|error| error.to_string()).and_then(|()| {
+        let target = wide(path);
+        let staged = wide(&temporary);
+        if !replacing {
+            // Do not overwrite a file that appeared after destination selection.
+            return unsafe {
+                MoveFileExW(
+                    PCWSTR(staged.as_ptr()),
+                    PCWSTR(target.as_ptr()),
+                    MOVE_FILE_FLAGS(0),
+                )
+            }
+            .map_err(error_text);
+        }
+        let backup = directory.join(format!(".insomnium-backup-{}.tmp", uuid::Uuid::new_v4()));
+        let backup_name = wide(&backup);
+        // ReplaceFile preserves ACLs, creation time, encryption and named streams.
+        match unsafe {
+            ReplaceFileW(
+                PCWSTR(target.as_ptr()),
+                PCWSTR(staged.as_ptr()),
+                PCWSTR(backup_name.as_ptr()),
+                REPLACE_FILE_FLAGS(0),
+                None,
+                None,
+            )
+        } {
+            Ok(()) => fs::remove_file(&backup).map_err(|error| {
+                format!(
+                    "File saved; previous file retained at {}: {error}",
+                    backup.display()
+                )
+            }),
+            Err(error) => {
+                // 1177 moves the original to backup even though replacement failed.
+                if error.code().0 as u32 & 0xffff == 1177 {
+                    unsafe {
+                        MoveFileExW(
+                            PCWSTR(backup_name.as_ptr()),
+                            PCWSTR(target.as_ptr()),
+                            MOVE_FILE_FLAGS(0),
+                        )
+                    }
+                    .map_err(|restore| {
+                        format!(
+                            "{error}; original retained at {}: {restore}",
+                            backup.display()
+                        )
+                    })?;
+                }
+                Err(error_text(error))
+            }
+        }
+    });
+    if let Err(error) = result {
+        return match fs::remove_file(&temporary) {
+            Ok(()) => Err(error),
+            Err(cleanup) if cleanup.kind() == std::io::ErrorKind::NotFound => Err(error),
+            Err(cleanup) => Err(format!(
+                "{error}; temporary write retained at {}: {cleanup}",
+                temporary.display()
+            )),
+        };
+    }
+    Ok(())
+}
+
+#[cfg(unix)]
+pub(crate) fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), String> {
+    let name = path.file_name().ok_or("Missing atomic write filename")?;
+    let parent = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    let directory = fs::File::open(parent).map_err(|error| error.to_string())?;
+    atomic_write_in(&directory, name, bytes)
+}
+
+#[cfg(unix)]
+pub(crate) fn atomic_write_in(
+    directory: &fs::File,
+    name: &std::ffi::OsStr,
+    bytes: &[u8],
+) -> Result<(), String> {
+    use nix::{
+        errno::Errno,
+        fcntl::{openat, renameat, AtFlags, OFlag},
+        sys::stat::{fstatat, Mode, SFlag},
+        unistd::{unlinkat, UnlinkatFlags},
+    };
+    use std::io::Write;
+    let error_text = |error: Errno| std::io::Error::from(error).to_string();
+    if Path::new(name).file_name() != Some(name) {
+        return Err("Atomic write requires a filename without directories".into());
+    }
+    let original = match fstatat(directory, name, AtFlags::AT_SYMLINK_NOFOLLOW) {
+        Ok(info) if SFlag::from_bits_truncate(info.st_mode) & SFlag::S_IFMT != SFlag::S_IFREG => {
+            return Err("Save requires an ordinary file".into());
+        }
+        Ok(_) => {
+            let file = fs::File::from(
+                openat(
+                    directory,
+                    name,
+                    OFlag::O_WRONLY | OFlag::O_NONBLOCK | OFlag::O_NOFOLLOW | OFlag::O_CLOEXEC,
+                    Mode::empty(),
+                )
+                .map_err(error_text)?,
+            );
+            if !file.metadata().map_err(|e| e.to_string())?.is_file() {
+                return Err("Save requires an ordinary file".into());
+            }
+            Some(file)
+        }
+        Err(Errno::ENOENT) => None,
+        Err(error) => return Err(error_text(error)),
+    };
+    let (temporary, mut file) = loop {
+        let temporary = format!(".insomnium-write-{}.tmp", uuid::Uuid::new_v4());
+        // A fixed short basename also fits a255-byte destination name.
+        match openat(
+            directory,
+            temporary.as_str(),
+            OFlag::O_WRONLY | OFlag::O_CREAT | OFlag::O_EXCL | OFlag::O_CLOEXEC,
+            Mode::from_bits_truncate(if original.is_some() { 0o600 } else { 0o666 }),
+        ) {
+            Ok(file) => break (temporary, fs::File::from(file)),
+            Err(Errno::EEXIST) => continue,
+            Err(error) => return Err(error_text(error)),
+        }
+    };
+    let result = (|| {
+        if let Some(original) = &original {
+            copy_download_metadata(original, &file).map_err(|e| e.to_string())?;
+        }
+        file.write_all(bytes)
+            .and_then(|()| file.sync_all())
+            .map_err(|e| e.to_string())?;
+        renameat(directory, temporary.as_str(), directory, name).map_err(error_text)
+    })();
+    drop(file);
+    if let Err(error) = result {
+        return match unlinkat(directory, temporary.as_str(), UnlinkatFlags::NoRemoveDir) {
+            Ok(()) | Err(Errno::ENOENT) => Err(error),
+            Err(cleanup) => Err(format!(
+                "{error}; temporary download retained at {}: {}",
+                temporary,
+                error_text(cleanup)
+            )),
+        };
+    }
+    Ok(())
+}
+
+#[cfg(unix)]
+fn copy_download_metadata(source: &fs::File, destination: &fs::File) -> std::io::Result<()> {
+    use std::os::unix::fs::{fchown, MetadataExt};
+    let original = source.metadata()?;
+    let staged = destination.metadata()?;
+    if (original.uid(), original.gid()) != (staged.uid(), staged.gid()) {
+        fchown(destination, Some(original.uid()), Some(original.gid()))?;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        use std::os::fd::AsRawFd;
+        unsafe extern "C" {
+            fn fcopyfile(from: i32, to: i32, state: *mut std::ffi::c_void, flags: u32) -> i32;
+        }
+        // Install ACLs before STAT can widen mode bits; payload writes still clear privilege bits.
+        for flags in [5, 2] {
+            // COPYFILE_ACL | COPYFILE_XATTR, then COPYFILE_STAT.
+            if unsafe {
+                fcopyfile(
+                    source.as_raw_fd(),
+                    destination.as_raw_fd(),
+                    std::ptr::null_mut(),
+                    flags,
+                )
+            } != 0
+            {
+                return Err(std::io::Error::last_os_error());
+            }
+        }
+    }
+    #[cfg(target_os = "linux")]
+    copy_download_xattrs(source, destination)?;
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+    return Err(std::io::Error::new(
+        std::io::ErrorKind::Unsupported,
+        "File ACL preservation is unavailable on this platform",
+    ));
+    destination.set_permissions(original.permissions())?;
+    let staged = destination.metadata()?;
+    if (original.uid(), original.gid(), original.mode() & 0o7777)
+        != (staged.uid(), staged.gid(), staged.mode() & 0o7777)
+    {
+        return Err(std::io::Error::other(
+            "Could not preserve file ownership and permissions",
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+unsafe extern "C" {
+    fn flistxattr(fd: i32, list: *mut std::ffi::c_char, size: usize) -> isize;
+    pub(crate) fn fgetxattr(
+        fd: i32,
+        name: *const std::ffi::c_char,
+        value: *mut std::ffi::c_void,
+        size: usize,
+    ) -> isize;
+    pub(crate) fn fsetxattr(
+        fd: i32,
+        name: *const std::ffi::c_char,
+        value: *const std::ffi::c_void,
+        size: usize,
+        flags: i32,
+    ) -> i32;
+    pub(crate) fn fremovexattr(fd: i32, name: *const std::ffi::c_char) -> i32;
+}
+
+#[cfg(target_os = "linux")]
+fn copy_download_xattrs(source: &fs::File, destination: &fs::File) -> std::io::Result<()> {
+    use std::{ffi::CString, io, os::fd::AsRawFd};
+    fn names(fd: i32) -> io::Result<Vec<CString>> {
+        let length = unsafe { flistxattr(fd, std::ptr::null_mut(), 0) };
+        if length < 0 {
+            let error = io::Error::last_os_error();
+            return if error.kind() == io::ErrorKind::Unsupported {
+                Ok(Vec::new())
+            } else {
+                Err(error)
+            };
+        }
+        if length == 0 {
+            return Ok(Vec::new());
+        }
+        let mut bytes = vec![0u8; length as usize];
+        let length = unsafe { flistxattr(fd, bytes.as_mut_ptr().cast(), bytes.len()) };
+        if length < 0 {
+            return Err(io::Error::last_os_error());
+        }
+        bytes.truncate(length as usize);
+        bytes
+            .split_inclusive(|byte| *byte == 0)
+            .map(|name| {
+                CString::from_vec_with_nul(name.to_vec())
+                    .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))
+            })
+            .collect()
+    }
+    let source = source.as_raw_fd();
+    let destination = destination.as_raw_fd();
+    let original = names(source)?;
+    for name in names(destination)? {
+        if !original.contains(&name) && unsafe { fremovexattr(destination, name.as_ptr()) } != 0 {
+            return Err(io::Error::last_os_error());
+        }
+    }
+    for name in original {
+        let length = unsafe { fgetxattr(source, name.as_ptr(), std::ptr::null_mut(), 0) };
+        if length < 0 {
+            return Err(io::Error::last_os_error());
+        }
+        let mut value = vec![0u8; length as usize];
+        let length = unsafe {
+            fgetxattr(
+                source,
+                name.as_ptr(),
+                value.as_mut_ptr().cast(),
+                value.len(),
+            )
+        };
+        if length < 0 {
+            return Err(io::Error::last_os_error());
+        }
+        if length as usize > value.len() {
+            return Err(io::Error::other("File metadata changed while copying"));
+        }
+        if unsafe {
+            fsetxattr(
+                destination,
+                name.as_ptr(),
+                value.as_ptr().cast(),
+                length as usize,
+                0,
+            )
+        } != 0
+        {
+            return Err(io::Error::last_os_error());
+        }
+    }
+    Ok(())
+}
+
+#[cfg(not(any(windows, unix)))]
 pub(crate) fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), String> {
     let mut file = AtomicWriteFile::options()
         .open(path)
@@ -407,11 +816,13 @@ impl Session {
         fs::create_dir_all(directory).map_err(|e| e.to_string())?;
         if !self.backed_up {
             match fs::read(directory.join(WORKSPACE_FILE)) {
-                Ok(bytes) => atomic_write(&directory.join(PREVIOUS_WORKSPACE_FILE), &bytes)?,
+                Ok(bytes) => {
+                    atomic_write(&directory.join(PREVIOUS_WORKSPACE_FILE), &bytes)?;
+                    self.backed_up = true;
+                }
                 Err(error) if error.kind() == std::io::ErrorKind::NotFound => (),
                 Err(error) => return Err(error.to_string()),
             }
-            self.backed_up = true;
         }
         Ok(())
     }
@@ -629,6 +1040,31 @@ mod tests {
         let mut fresh = Session::default();
         assert_eq!(fresh.load(&directory.0).unwrap(), None);
         assert!(fresh.require_loaded().is_ok());
+        fresh.save(&directory.0, &workspace()).unwrap();
+        let first = fs::read(directory.0.join(WORKSPACE_FILE)).unwrap();
+        assert!(
+            !fresh.backed_up,
+            "No original file was backed up on the first write"
+        );
+        assert!(!directory.0.join(PREVIOUS_WORKSPACE_FILE).exists());
+        let mut changed = workspace();
+        changed["resources"][0]["name"] = json!("Changed after first save");
+        fs::create_dir(directory.0.join(PREVIOUS_WORKSPACE_FILE)).unwrap();
+        assert!(fresh.save(&directory.0, &changed).is_err());
+        assert_eq!(fs::read(directory.0.join(WORKSPACE_FILE)).unwrap(), first);
+        assert!(!fresh.backed_up);
+        fs::remove_dir(directory.0.join(PREVIOUS_WORKSPACE_FILE)).unwrap();
+        fresh.save(&directory.0, &changed).unwrap();
+        assert_eq!(
+            fs::read(directory.0.join(PREVIOUS_WORKSPACE_FILE)).unwrap(),
+            first
+        );
+        changed["resources"][0]["name"] = json!("Third save");
+        fresh.save(&directory.0, &changed).unwrap();
+        assert_eq!(
+            fs::read(directory.0.join(PREVIOUS_WORKSPACE_FILE)).unwrap(),
+            first
+        );
         fs::write(directory.0.join(WORKSPACE_FILE), b"new corruption").unwrap();
         assert!(fresh.load(&directory.0).is_err());
         assert!(fresh.require_loaded().is_err());

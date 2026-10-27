@@ -1,3 +1,4 @@
+import { swaggerArrayValues } from "./openapi-swagger-array.js";
 import {decodeResponseBytes,responseBodyText} from "./response-text.js";
 import { serializeOpenApiCookie } from "./openapi-cookie.js";
 import { serializeOpenApiSerialized } from "./openapi-serialized-example.js";
@@ -12,7 +13,7 @@ import {
   joinUrlAndQueryString,
 } from "./template-url.js";
 import { composeCurlBody, appendCurlFileQuery, appendCurlUploadName } from "./curl-body.js";
-import { multipartHeaders, multipartEncodings } from "./multipart-headers.js";
+import { multipartHeaders, multipartEncodings, assertMultipartHeaderFiles } from "./multipart-headers.js";
 import { curlMultipart, curlFileContentType } from "./curl-multipart.js";
 import { serializeOpenApiQuery } from "./openapi-query.js";
 import { serializeOpenApiHeader } from "./openapi-header.js";
@@ -489,6 +490,7 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
   let multipartContentType = null;
   let bodyBase64 = null;
   const mime = protocol === "websocket" ? "" : body.mimeType || "";
+  if (mime === "multipart/form-data") assertMultipartHeaderFiles(body);
   if (mime && body._openapiSerialization?.style === "serialized") {
     text = serializeOpenApiSerialized(
       "body",
@@ -577,7 +579,7 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
         if (++partCount > 10000) throw new Error("Multipart exceeds part limits.");
         const common = {
           name: p.name == null ? null : resolve(p.name),
-          headers: multipartHeaders(resolve(p.partHeaders ?? ""), true),
+          headers: resolve(p.partHeaders ?? ""),
           contentType: p.contentTypeOverride ? resolve(p.contentTypeOverride) : null,
         };
         if (p.type === "multipart") {
@@ -597,7 +599,7 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
           value: file ? p.base64 : resolve(p.value ?? ""),
           valueBase64: file,
           fileName,
-          contentType: common.contentType ?? (common.headers.some(([name]) => name.toLowerCase() === "content-type") ? null : inferredType ?? (file && p.fileContent !== true ? "application/octet-stream" : null)),
+          contentType: common.contentType ?? (multipartHeaders(common.headers,true).some(([name]) => name.toLowerCase() === "content-type") ? null : inferredType ?? (file && p.fileContent !== true ? "application/octet-stream" : null)),
           transferEncoding: p.transferEncoding ?? null,
         };
       });
@@ -614,6 +616,10 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
     multipart = (body.params ?? [])
       .filter((/** @type {any} */ p) => !p.disabled && (p._harExplicitPart === true || (body._legacyMultipart === true
         ? p.name || p.value || p.fileName || p._legacyFilePath || (p.type === "file" && typeof p.base64 === "string") : p.name)))
+      .flatMap((/** @type {any} */ p) => p._openapiSerialization?.style === "swagger"
+        ? swaggerArrayValues(resolve(p.name || ""), resolve(p.value || ""), p._openapiSerialization, "formData")
+            .map(value => ({...p, value, _openapiSerialization: undefined}))
+        : [p])
       .map((/** @type {any} */ p) => {
         const file = p.type === "file" && !(body._legacyMultipart === true && !p.fileName && !p._legacyFilePath && typeof p.base64 !== "string");
         if (file && p._legacyFileAssetError) throw new Error(`Imported file for multipart field “${p.name || ""}” is invalid. Select the file again.`);

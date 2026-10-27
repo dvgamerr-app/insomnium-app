@@ -1,5 +1,4 @@
 import { parseCurlForm, parseCurlForms } from "./curl-form.js";
-import { multipartHeaders } from "./multipart-headers.js";
 import { expandCurlUrl } from "./curl-url-glob.js";
 import { curlConfigWords } from "./curl-config.js";
 import { curlProxyUrl } from "./request-proxy.js";
@@ -289,7 +288,9 @@ const flags = new Set([
   "ntlm",
   "next",
   "get",
+  "no-get",
   "head",
+  "no-head",
   "location",
   "no-location",
   "globoff",
@@ -418,6 +419,10 @@ function requestsFor(words, workspaceId, entries, uploadFiles = []) {
     entries.some((e) => e.name === name);
   const last = (/** @type {string} */ name) => all(name).at(-1);
   const urls = all("url");
+  const useGet = entries.filter(e => ["get", "no-get"].includes(e.name)).at(-1)?.name === "get";
+  const useHead = has("head"), explicitGet = has("no-head");
+  if (useHead && explicitGet)
+    throw new Error("Conflicting cURL HEAD and explicit GET method options.");
   const requestTimeout = curlTimeout(last("max-time"), 0);
   const connectTimeout = curlTimeout(last("connect-timeout"), 300000) || 300000;
   const proxy = last("proxy");
@@ -569,8 +574,8 @@ function requestsFor(words, workspaceId, entries, uploadFiles = []) {
   );
   const forms = entries.filter((e) => ["form", "form-string"].includes(e.name));
   if (
-    (forms.length && (data.length || has("get") || has("head"))) ||
-    (data.length && has("head") && !has("get"))
+    (forms.length && (data.length || useGet || useHead || explicitGet)) ||
+    (data.length && (useHead || explicitGet) && !useGet)
   )
     throw new Error("Conflicting cURL body/method options.");
   const fileInputs = data.filter((e) =>
@@ -580,13 +585,13 @@ function requestsFor(words, workspaceId, entries, uploadFiles = []) {
   );
   let fileBody = null;
   if (fileInputs.length) {
-    if (data.length > 1 || has("get")) {
+    if (data.length > 1 || useGet) {
       fileBody = {
         mimeType: "application/octet-stream",
         text: "",
         params: [],
         curlJoin: has("json") ? "json" : "form",
-        curlQuery: has("get"),
+        curlQuery: useGet,
         curlSegments: data.map((entry) => {
           if (!fileInputs.includes(entry))
             return {
@@ -651,7 +656,7 @@ function requestsFor(words, workspaceId, entries, uploadFiles = []) {
   );
   /** @type {Record<string, any>} */
   let body = { mimeType: "", text: "", params: [] };
-  if (data.length && !has("get")) {
+  if (data.length && !useGet) {
     const contentType = headers.find(
       (h) => h.name.toLowerCase() === "content-type",
     );
@@ -685,31 +690,31 @@ function requestsFor(words, workspaceId, entries, uploadFiles = []) {
     const tree = parseCurlForms(forms);
     const formEscape = entries.filter(e => ["form-escape", "no-form-escape"].includes(e.name)).at(-1)?.name === "form-escape";
     const nested = formEscape || tree.some(part => part.type === "multipart" || part.name === null ||
-      multipartHeaders(part.partHeaders ?? "", true).some(([name]) => ["content-type", "content-disposition", "content-transfer-encoding", "content-length"].includes(name.toLowerCase())));
+      part.partHeaders || part._curlPartHeaderSources);
     const params = nested ? tree : forms.map(({ name, value }) =>
       parseCurlForm(value, name === "form-string"),
     );
     body = { mimeType: "multipart/form-data", text: "", params, ...(nested ? {_curlMultipart: true} : {}), ...(formEscape ? {_curlFormEscape: true} : {}) };
   }
-  if (uploadFiles.some(file => file !== undefined) && (data.length || forms.length || has("head") || has("get")))
+  if (uploadFiles.some(file => file !== undefined) && (data.length || forms.length || useHead || useGet || explicitGet))
     throw new Error("cURL file uploads cannot be combined with data, form, head or get options.");
   const method =
     last("request") ??
-    (has("head")
+    (useHead
       ? "HEAD"
-      : has("get")
+      : useGet
         ? "GET"
         : data.length || forms.length
           ? "POST"
           : "GET");
   if (!/^[!#$%&'*+\-.^_\x60|~\da-zA-Z]+$/.test(method))
     throw new Error("Invalid cURL HTTP method.");
-  if (has("head") && method !== "HEAD")
+  if (useHead && method !== "HEAD")
     throw new Error(
       "cURL --head combined with a different --request method is not supported.",
     );
   if (awsSigv4 !== undefined && (forms.length || fileBody || uploadFiles.some(file => file !== undefined) ||
-      (data.length && !has("get") && method !== "POST")))
+      (data.length && !useGet && method !== "POST")))
     throw new Error("cURL AWS signing currently supports buffered POST data or requests without a body.");
   if (last("max-redirs") === "") throw new Error("cURL --max-redirs requires a whole number.");
   const maxRedirects = redirectLimit(last("max-redirs") ?? 50);
@@ -721,14 +726,14 @@ function requestsFor(words, workspaceId, entries, uploadFiles = []) {
     throw new Error("cURL --proto-default requires http or https.");
   return urls.map((url, index) => {
     url = curlUrl(url, protocol);
-    if (has("get") && data.length && !fileBody) url = appendQuery(url, text);
+    if (useGet && data.length && !fileBody) url = appendQuery(url, text);
     // curl replaces the accumulated --url-query when --get has data, even empty.
-    for (const query of has("get") && data.length ? [] : all("url-query"))
+    for (const query of useGet && data.length ? [] : all("url-query"))
       url = appendQuery(
         url,
         query.startsWith("+") ? query.slice(1) : encodedData(query),
       );
-    const rangeUpload = !forms.length && (uploadFiles[index] !== undefined || (data.length > 0 && !has("get")));
+    const rangeUpload = !forms.length && (uploadFiles[index] !== undefined || (data.length > 0 && !useGet));
     const rangeHeaders = range !== undefined && !forms.length && !rangeUpload && !headers.some(h => h.name.toLowerCase() === "range")
       ? [...headers, optionHeader({name:"Range",value:"bytes="+range,disabled:false})] : headers;
     return newRequest(workspaceId, {

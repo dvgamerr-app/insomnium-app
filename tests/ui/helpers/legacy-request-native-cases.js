@@ -5,7 +5,10 @@ import {
   withNativeApp,
   poll,
   resourceCrudProbeIdentifier,
+  integrationProbeIdentifier,
+  selectedNativeProbeIdentifier,
 } from "./native-app.js";
+import { preserveNativeProfile } from "./native-profile-preservation.js";
 import {
   withResourceProbePreserved,
   registerResourceProbeCollection,
@@ -26,29 +29,36 @@ import {
  * and six actual wire sends. No native invoke replacement or fake asset reply. */
 export async function runLegacyRequestNativeCases() {
   assert.equal(process.platform, "win32");
+  const integration = selectedNativeProbeIdentifier() === integrationProbeIdentifier;
+  const sse = process.env.INSOMNIUM_LEGACY_REQUEST_SSE_NATIVE === "1";
   const ownershipPath = process.env.INSOMNIUM_UI_PROFILE_OWNERSHIP;
-  assert.ok(ownershipPath);
+  if (!integration) assert.ok(ownershipPath);
   assert.ok(process.env.INSOMNIUM_UI_BUILD_STATE);
-  const options = {
+  const options = integration ? { expectedIdentifier: integrationProbeIdentifier } : {
     expectedIdentifier: resourceCrudProbeIdentifier,
     profileOwnershipPath: ownershipPath,
   };
-  let fixture = await createManualHttpFixture();
+  const fixture = await createManualHttpFixture(sse ? {
+    reply: record => ({ body: Buffer.from(`event: imported\ndata: ${record.token}\n\n`), contentType: "text/event-stream" }),
+  } : {});
+  const portableCount = sse ? 4 : 8;
   let scenarioOutput = "";
   /** @type {unknown[]} */ const failures = [];
   try {
-    await withResourceProbePreserved(
+    const run = () => withResourceProbePreserved(
       async (capture) => {
         await withNativeApp(
           "legacy-request-import-native",
           async ({ page, invoke, output, pid }) => {
             scenarioOutput = output;
-            const marker = await Bun.file(ownershipPath).json();
-            assert.equal(marker.identifier, resourceCrudProbeIdentifier);
-            assert.equal(marker.launches.at(-1)?.pid, pid);
-            assert.equal(marker.launches.at(-1)?.directoryAbsentAtBind, false);
-            await resourceSaved(page);
-            await capture();
+            if (!integration) {
+              const marker = await Bun.file(/** @type {string} */ (ownershipPath)).json();
+              assert.equal(marker.identifier, resourceCrudProbeIdentifier);
+              assert.equal(marker.launches.at(-1)?.pid, pid);
+              assert.equal(marker.launches.at(-1)?.directoryAbsentAtBind, false);
+              await resourceSaved(page);
+              await capture();
+            }
             const original = await invoke("load_workspace");
             const layoutKeys = [
               "nocturne:split:workspace-left",
@@ -85,7 +95,7 @@ export async function runLegacyRequestNativeCases() {
             const source = legacyRequestFixture(
               (token) => fixture.target(token),
               paths,
-              { native: true },
+              { native: true, sse },
             );
             const large = join(root, "too-large.bin");
             const sparse = await open(large, "wx");
@@ -215,7 +225,7 @@ export async function runLegacyRequestNativeCases() {
               await loadFolder(dialog, null);
               assert.deepEqual(await invoke("load_workspace"), original);
               await loadFolder(dialog, root);
-              await dialog.getByText(/8 request files are portable/).waitFor();
+              await dialog.getByText(`${portableCount} request files are portable.`, { exact: false }).waitFor();
               assert.match(
                 (await dialog.textContent()) || "",
                 /still need attention/,
@@ -232,7 +242,7 @@ export async function runLegacyRequestNativeCases() {
               assert.deepEqual(await invoke("load_workspace"), original);
               dialog = await startReview();
               await loadFolder(dialog, root);
-              await dialog.getByText(/8 request files are portable/).waitFor();
+              await dialog.getByText(`${portableCount} request files are portable.`, { exact: false }).waitFor();
               await dialog
                 .getByRole("button", { name: "Import", exact: true })
                 .click();
@@ -301,7 +311,7 @@ export async function runLegacyRequestNativeCases() {
                 const before = await invoke("load_workspace"),
                   count = fixture.records.length;
                 await page
-                  .getByRole("button", { name: "Send", exact: true })
+                  .getByRole("button", { name: sse ? "Connect" : "Send", exact: true })
                   .click();
                 await poll(
                   async () =>
@@ -317,6 +327,16 @@ export async function runLegacyRequestNativeCases() {
                   definition.token,
                   { native: true },
                 );
+                if (sse) {
+                  await page.getByRole("button", { name: "Reconnect", exact: true }).waitFor();
+                  await resourceSaved(page);
+                  const history = (await invoke("load_workspace")).history.filter((/** @type {any} */ row) => row.requestId === request._id);
+                  assert.equal(history.length, 1);
+                  assert.equal(history[0].protocol, "sse");
+                  assert.equal(history[0].connectionState, "closed");
+                  assert.ok(history[0].events.some((/** @type {any} */ event) => event.kind === "sse" && event.data === definition.token));
+                }
+                const historyBeforeReload = (await invoke("load_workspace")).history;
                 assert.deepEqual(
                   (await invoke("load_workspace")).resources.find(
                     (/** @type {any} */ row) => row._id === request._id,
@@ -327,6 +347,8 @@ export async function runLegacyRequestNativeCases() {
                 );
                 await page.reload();
                 await resourceSaved(page);
+                assert.deepEqual((await invoke("load_workspace")).history, historyBeforeReload);
+                assert.equal(fixture.records.length, count + 1, "Reload never reconnects implicitly");
                 assert.deepEqual(
                   (await invoke("load_workspace")).resources.find(
                     (/** @type {any} */ row) => row._id === request._id,
@@ -339,6 +361,7 @@ export async function runLegacyRequestNativeCases() {
                   exactBytesSha256: true,
                   reload: true,
                   sourceRecordImmutable: true,
+                  protocol: sse ? "sse" : "http",
                 });
               }
               const refusalRows = [];
@@ -433,7 +456,7 @@ export async function runLegacyRequestNativeCases() {
               await dialog
                 .getByRole("button", { name: "Review import", exact: true })
                 .click();
-              await dialog.getByText(/8 request files are portable/).waitFor();
+              await dialog.getByText(`${portableCount} request files are portable.`, { exact: false }).waitFor();
               assert.deepEqual(await invoke("load_workspace"), beforeRoundtrip);
               await dialog
                 .getByRole("button", { name: "Import", exact: true })
@@ -529,8 +552,10 @@ export async function runLegacyRequestNativeCases() {
           options,
         );
       },
-      { ...options, lazyCapture: true },
+      { ...options, lazyCapture: !integration },
     );
+    if (integration) await preserveNativeProfile(run);
+    else await run();
   } catch (error) {
     failures.push(error);
   }

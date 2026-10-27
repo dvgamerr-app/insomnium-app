@@ -1,14 +1,50 @@
 import assert from "node:assert/strict";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { withNativeApp, poll } from "./helpers/native-app.js";
-process.env.INSOMNIUM_UI_BUILD_STATE ||=
-  "artifacts/native-unix-socket-ui-probe/build-state.json";
+import { withNativeApp, poll, selectedNativeProbeIdentifier, integrationProbeIdentifier } from "./helpers/native-app.js";
+import { withComponentFixture } from "./helpers/component-fixture.js";
+import { preserveNativeProfile } from "./helpers/native-profile-preservation.js";
+import { withResourceProbePreserved, registerResourceProbeCollection } from "./helpers/resource-manager-cases.js";
+if (process.env.INSOMNIUM_GRAPHQL_CACHE_ORDER === "1") {
+  await withComponentFixture("graphql-navigation", async (page, output) => {
+    await page.locator(".graphql-panel").waitFor();
+    const small = "type Query { ping: String }";
+    const large = (/** @type {number} */ mib) => small + '\n"""' + "x".repeat(mib * 1024 * 1024) + '\n"""\nscalar Payload';
+    const cases = [
+      { name: "same timestamp and numeric IDs", ids: ["3", "1", "4", "2"], times: [1000, 1000, 1000, 1000], expected: ["1", "2", "4"] },
+      { name: "backward clock", ids: ["a", "b", "c", "d"], times: [4000, 3000, 2000, 1000], expected: ["b", "c", "d"] },
+      { name: "replacement refreshes load age", ids: ["a", "b", "c", "a", "d"], times: [1000, 1000, 1000, 1000, 1000], expected: ["a", "c", "d"] },
+      { name: "byte budget retains newest fitting schemas", ids: ["a", "b", "c"], times: [1000, 1000, 1000], sdl: [large(11), large(8), large(2)], expected: ["b", "c"] },
+    ];
+    const checks = [];
+    for (const test of cases) {
+      const entries = test.ids.map((id, index) => ({ id, time: test.times[index], sdl: test.sdl?.[index] || small }));
+      const result = await page.evaluate(entries => /** @type {any} */ (window).exerciseSchemaCacheOrder(entries), entries);
+      await writeFile(join(output, "cache-order-observed.json"), JSON.stringify({ name: test.name, result }, null, 2));
+      assert.equal(result.dataUnchanged, true);
+      assert.equal(result.clockRestored, true);
+      assert.deepEqual(Object.keys(result.snapshots.at(-1)).sort(), test.expected, test.name);
+      for (const [index, snapshot] of result.snapshots.entries()) {
+        assert.ok(Object.keys(snapshot).length <= 3);
+        assert.ok(Object.values(snapshot).reduce((sum, entry) => sum + entry.bytes, 0) <= 20 * 1024 * 1024);
+        assert.equal(snapshot[entries[index].id].loadedAt, entries[index].time, "UI timestamp keeps the real wall clock");
+      }
+      checks.push(test.name);
+    }
+    await writeFile(join(output, "acceptance.json"), JSON.stringify({ checks, renderingMode: "headless", actualWorkspaceCache: true, dataUnchanged: true, wallClockRestored: true }, null, 2));
+  });
+} else {
+assert.equal(selectedNativeProbeIdentifier(), integrationProbeIdentifier);
+assert.ok(process.env.INSOMNIUM_UI_BUILD_STATE, "Explicit native build required");
+const options = { expectedIdentifier: integrationProbeIdentifier };
+const fixedClock = process.env.INSOMNIUM_GRAPHQL_CACHE_ORDER_NATIVE === "1";
 
+await preserveNativeProfile(() => withResourceProbePreserved(async () => {
 await withNativeApp(
   "graphql-schema-cache",
   async ({ page, invoke, output }) => {
     const prefix = "Schema cache " + Date.now();
+    if (fixedClock) await page.clock.setFixedTime(new Date("2026-10-26T00:00:00Z"));
     const requests = ["A", "B", "C", "D"].map((letter) => ({
       _id: "req_" + letter,
       _type: "request",
@@ -48,6 +84,11 @@ await withNativeApp(
       .click();
     await dialog.getByRole("button", { name: "Import", exact: true }).click();
     await dialog.waitFor({ state: "detached" });
+    await poll(async () => {
+      const collection = (await invoke("load_workspace")).resources.find((/** @type {any} */ row) => row._type === "workspace" && row.name === prefix);
+      if (collection) registerResourceProbeCollection(collection._id, collection.name);
+      return !!collection;
+    }, "Actual cache fixture collection registered for restoration");
     const baseline = (await invoke("load_workspace")).resources.filter(
       (/** @type {Record<string, any>} */ r) =>
         r._type === "request" && r.name.startsWith(prefix),
@@ -174,6 +215,8 @@ await withNativeApp(
       JSON.stringify(
         {
           checks,
+          fixedWebViewClock: fixedClock,
+          renderingMode: "native-hidden",
           largeDescriptionBytes: padding.length,
           requestIds: persisted.map(
             (/** @type {Record<string, any>} */ r) => r._id,
@@ -184,4 +227,7 @@ await withNativeApp(
       ),
     );
   },
+  options,
 );
+}, options));
+}

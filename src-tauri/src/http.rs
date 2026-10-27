@@ -75,6 +75,18 @@ impl NetworkState {
             sender,
         })
     }
+    pub(crate) fn cancel(&self, id: &str) -> Result<(), String> {
+        if let Some(sender) = self
+            .running
+            .lock()
+            .map_err(|e| e.to_string())?
+            .calls
+            .get(id)
+        {
+            let _ = sender.send(true);
+        }
+        Ok(())
+    }
     pub(crate) fn begin(&self, id: &str) -> Result<watch::Receiver<bool>, String> {
         self.register(id).map(|(_, receiver)| receiver)
     }
@@ -299,16 +311,7 @@ impl HttpFailure {
 
 #[tauri::command]
 pub fn cancel_http(id: String, state: tauri::State<'_, NetworkState>) -> Result<(), String> {
-    if let Some(sender) = state
-        .running
-        .lock()
-        .map_err(|e| e.to_string())?
-        .calls
-        .get(&id)
-    {
-        let _ = sender.send(true);
-    }
-    Ok(())
+    state.cancel(&id)
 }
 
 #[tauri::command]
@@ -440,7 +443,7 @@ pub async fn send_http(
             if error.is_timeout() {
                 "Request timed out".into()
             } else {
-                error.to_string()
+                crate::digest_response::body_error(&error)
             }
         })? {
             if bytes.len() + chunk.len() > 20 * 1024 * 1024 {
@@ -451,6 +454,7 @@ pub async fn send_http(
             }
             bytes.extend_from_slice(&chunk);
         }
+        crate::digest_response::check_complete(response.extensions().get())?;
         let elapsed_ms = started.elapsed().as_millis();
         let mut network_log = log.lock().map(|log| log.clone()).unwrap_or_default();
         network_log.extend(crate::network_log::finish(
@@ -551,6 +555,7 @@ pub async fn fetch_oauth_token(
             &url,
             &config,
             versions::selected(request.http_version.as_deref())?,
+            request.decode_response,
         )
         .await
     };

@@ -9,6 +9,8 @@ export async function nativeEventFixtureAssets() {
   const entries = [
     ['event-fixture.js', 'tests/ui/fixtures/plugin-dom-event-channel.js', 'iife'],
     ['event-probe-worker.js', 'tests/ui/fixtures/plugin-dom-event-channel.worker.js', 'esm'],
+    ['plugin-file-worker.js', 'src/lib/plugin-file.worker.js', 'esm'],
+    ['event-subclass-fixture.js', 'tests/ui/fixtures/plugin-guest-dom.js', 'iife'],
     ['event-owner-fixture.js', 'tests/ui/fixtures/plugin-dom-render-owner.js', 'iife'],
   ];
   const assets = new Map();

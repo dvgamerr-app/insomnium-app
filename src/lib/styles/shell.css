@@ -11,12 +11,38 @@
 .app-header {
   position: relative;
   grid-area: header;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--size-278) minmax(0, 1fr);
   align-items: center;
   border-bottom: 1px solid var(--line);
   background: var(--bg);
   gap: var(--space-14);
   padding: 0 var(--space-18);
+}
+
+.header-collections,
+.header-tools {
+  display: flex;
+  align-items: center;
+  gap: inherit;
+  min-width: 0;
+}
+
+.header-collections > :not(.ui-select-shell) {
+  flex-shrink: 0;
+}
+
+.header-collections .ui-select {
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.header-collections > .ui-select-shell {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.header-tools {
+  justify-self: end;
 }
 
 .brand {
@@ -269,11 +295,7 @@
 }
 
 .header-search {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
   width: var(--size-278);
-  margin-left: auto;
   min-width: var(--size-190);
   max-width: var(--size-300);
   height: var(--size-30);
@@ -287,14 +309,11 @@
   margin-left: auto;
 }
 
-.header-search + .spacer {
-  flex: 1;
-}
-
 @media (max-width: 1100px) {
+  .app-header {
+    grid-template-columns: minmax(0, 1fr) var(--size-30) minmax(0, 1fr);
+  }
   .header-search {
-    position: static;
-    transform: none;
     min-width: var(--size-30);
     width: var(--size-30);
     padding: 0;

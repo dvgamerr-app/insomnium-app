@@ -137,6 +137,51 @@ const resources = [
   newer,
   sub,
 ];
+for (const mode of [null, "zip", undefined, "__NEEDS_MIGRATION__"]) {
+  const response = /** @type {Record<string,any>} */ ({
+    ...older,
+    bodyCompression: mode,
+  });
+  const before = structuredClone(response);
+  const requested = legacySseAssetRequests([request, response]);
+  assert.equal(requested.entries[0]?.bodyPath, response.bodyPath);
+  assert.equal(
+    requested.entries[0]?.bodyCompression,
+    mode === null ? "raw" : "gzip",
+  );
+  assert.equal(requested.entries[0]?.bodyFormat, "sse-ndjson");
+  assert.deepEqual(requested.diagnostics, []);
+  const converted = convertLegacySseHistory([request, response]);
+  assert.equal(converted.history.length, 1);
+  assert.equal(
+    converted.history[0].bodySha256,
+    response._legacyResponseAssets.sha256,
+  );
+  const imported = parseImport(
+    JSON.stringify({ resources: [collection, request, response] }),
+  );
+  assert.equal(imported.history.length, 1);
+  assert.equal(
+    imported.history[0].bodySha256,
+    response._legacyResponseAssets.sha256,
+  );
+  assert.deepEqual(response, before);
+}
+const unknownCompression = legacySseAssetRequests([
+  request,
+  { ...older, bodyCompression: "unknown" },
+]);
+assert.equal(unknownCompression.entries[0]?.bodyPath, null);
+assert.ok(
+  unknownCompression.diagnostics.some(
+    (row) => row.code === "unknown-compression",
+  ),
+);
+assert.equal(
+  convertLegacySseHistory([request, { ...older, bodyCompression: "unknown" }])
+    .history.length,
+  0,
+);
 const timelineRows = [
   {
     name: "Text",

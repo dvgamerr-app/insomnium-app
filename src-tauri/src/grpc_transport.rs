@@ -306,11 +306,34 @@ pub(crate) enum Event {
         status: Box<Event>,
     },
     Status {
-        code: i32,
-        details: String,
+        #[serde(
+            serialize_with = "serialize_status_number",
+            skip_serializing_if = "Option::is_none"
+        )]
+        code: Option<f64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        details: Option<String>,
         trailers: Vec<(String, String)>,
     },
 }
+fn serialize_status_number<S: serde::Serializer>(
+    code: &Option<f64>,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    let Some(code) = code else {
+        return serializer.serialize_none();
+    };
+    if code.is_finite()
+        && code.fract() == 0.0
+        && *code >= i64::MIN as f64
+        && *code < i64::MAX as f64
+    {
+        serializer.serialize_i64(*code as i64)
+    } else {
+        serializer.serialize_f64(*code)
+    }
+}
+
 enum Callback {
     Message(String),
     Error(String),
@@ -419,7 +442,15 @@ where
             // initial-metadata event. Keep their values for terminal delivery.
             if terminal_headers.is_none() {
                 emit(Event::Metadata {
-                    headers: metadata_rows(response.metadata())?,
+                    // grpc-js's compression filter consumes these initial
+                    // headers after selecting its receive codec. Trailers use
+                    // their separate projection and retain ordinary metadata.
+                    headers: metadata_rows(response.metadata())?
+                        .into_iter()
+                        .filter(|(name, _)| {
+                            !matches!(name.as_str(), "grpc-encoding" | "grpc-accept-encoding")
+                        })
+                        .collect(),
                 })
                 .await?;
             }
@@ -506,14 +537,23 @@ pub(crate) fn terminal_callback(status: &Event) -> Option<Event> {
     let Event::Status { code, details, .. } = status else {
         return None;
     };
+    let Some(code) = code else {
+        return Some(Event::FinalError {
+            message: "undefined undefined: undefined".into(),
+            status: Box::new(status.clone()),
+        });
+    };
+    let details = details.as_deref().unwrap_or("undefined");
     // Legacy forwards grpc.error separately, except for explicit cancellation.
-    if *code == 0 || *code == 1 {
+    if *code == 0.0 || *code == 1.0 {
         return None;
     }
-    let name = retry::CODES
-        .get(*code as usize)
-        .copied()
-        .unwrap_or("UNKNOWN");
+    let name = if code.fract() == 0.0 && (0.0..=16.0).contains(code) {
+        retry::CODES[*code as usize]
+    } else {
+        "undefined"
+    };
+    let code = ryu_js::Buffer::new().format(*code).to_owned();
     Some(Event::FinalError {
         message: format!("{code} {name}: {details}"),
         status: Box::new(status.clone()),
@@ -529,13 +569,20 @@ fn successful_status_event(metadata: &MetadataMap) -> Result<Event, String> {
     trailers.remove("grpc-status");
     trailers.remove("grpc-message");
     Ok(Event::Status {
-        code: 0,
-        details,
+        code: Some(0.0),
+        details: Some(details),
         trailers: metadata_rows(&trailers)?,
     })
 }
 
 fn status_event(status: Status) -> Result<Event, String> {
+    if status.is_legacy_filter_error() {
+        return Ok(Event::Status {
+            code: None,
+            details: None,
+            trailers: Vec::new(),
+        });
+    }
     let mut trailers = metadata_rows(status.metadata())?;
     if !status.details().is_empty() && !status.metadata().contains_key("grpc-status-details-bin") {
         trailers.push((
@@ -544,8 +591,8 @@ fn status_event(status: Status) -> Result<Event, String> {
         ));
     }
     Ok(Event::Status {
-        code: status.code() as i32,
-        details: status.message().to_string(),
+        code: Some(status.legacy_code()),
+        details: Some(status.message().to_string()),
         trailers,
     })
 }
@@ -619,6 +666,44 @@ mod status_tests {
                 assert_eq!(status.message(), expected);
             }
         }
+        let deadline = Some(tokio::time::Instant::now());
+        let timeout = || Status::from_error(Box::new(tonic::TimeoutExpired(())));
+        assert_eq!(timeout().code(), tonic::Code::Cancelled);
+        assert_eq!(
+            retry::deadline_status(timeout(), None).code(),
+            tonic::Code::Cancelled
+        );
+        let mut timed = timeout();
+        timed
+            .metadata_mut()
+            .insert("x-owned", "kept".parse().unwrap());
+        let expired = retry::deadline_status(timed, deadline);
+        assert_eq!(expired.code(), tonic::Code::DeadlineExceeded);
+        assert_eq!(expired.message(), "gRPC deadline exceeded.");
+        assert_eq!(expired.metadata().get("x-owned").unwrap(), "kept");
+        let peer = retry::deadline_status(Status::cancelled("Timeout expired"), deadline);
+        assert_eq!(peer.code(), tonic::Code::Cancelled);
+        assert_eq!(peer.message(), "Timeout expired");
+        let filter_error = Status::from_legacy_filter_error("owned codec error");
+        assert!(filter_error.clone().is_legacy_filter_error());
+        assert!(!retry::status_matches(&[2, 7, 14], &filter_error));
+        let event = serde_json::to_value(status_event(filter_error).unwrap()).unwrap();
+        assert_eq!(event, serde_json::json!({"kind":"status","trailers":[]}));
+        for wire in ["17", "-1", "7.5", "NaN", "Infinity", "-Infinity"] {
+            let mut headers = tonic::codegen::http::HeaderMap::new();
+            headers.insert("grpc-status", wire.parse().unwrap());
+            let status = Status::from_header_map(&headers).unwrap();
+            assert!(
+                !retry::status_matches(&[2, 7, 14], &status),
+                "Non-enum status {wire} must not match UNKNOWN retries/hedges"
+            );
+        }
+        for code in [2, 7, 14] {
+            assert!(retry::status_matches(
+                &[2, 7, 14],
+                &Status::new(tonic::Code::from_i32(code), "")
+            ));
+        }
         for (encoded, canonical) in [
             ("", ""),
             ("A", ""),
@@ -651,7 +736,7 @@ mod status_tests {
             }],
             include_paths: vec![],
         }).unwrap();
-        for shape in 0..16 {
+        for shape in 0..44 {
             let method_name = if shape == 1 { "Watch" } else { "Echo" };
             let method = pool
                 .get_service_by_name("owned.Status")
@@ -660,32 +745,43 @@ mod status_tests {
                 .find(|method| method.name() == method_name)
                 .unwrap();
             let message = match shape {
-                2 => "denied + %",
+                2 | 19 | 20 | 22 => "denied + %",
+                32 | 33 => "duplicate first, duplicate second",
                 5 => "Received HTTP status code 403",
                 6 => "Received HTTP status code 200",
                 7 => "Received RST_STREAM with code 0 (Call ended without gRPC status)",
-                8 => "Received HTTP status code 503",
+                8 | 17 => "Received HTTP status code 503",
                 9 => "Bandwidth exhausted or memory limit exceeded",
                 10 => "Call cancelled",
                 11 => "Connection dropped",
-                12 => "Received message larger than max (20971521 vs 20971520)",
+                12 | 16 => "Received message larger than max (20971521 vs 20971520)",
                 13 => "Failed to decompress deflate-encoded message",
+                37 | 38 | 39 => "Failed to decompress gzip-encoded message",
+                40 => "Received message that decompresses to a size larger than 20971520",
                 14 => "Failed to decompress gzip-encoded message",
                 15 => "Received message that decompresses to a size larger than 20971520",
+                21 => "protocol error: received message with compressed-flag but no grpc-encoding was specified",
+                18 => "Content is compressed with `owned-unsupported` which isn't supported",
                 _ => "สำเร็จ + 100%",
             };
             let code = match shape {
-                2 | 5 => tonic::Code::PermissionDenied,
+                2 | 5 | 19 | 20 | 22 => tonic::Code::PermissionDenied,
                 6 => tonic::Code::Unknown,
                 7 => tonic::Code::Internal,
-                8 => tonic::Code::Unavailable,
+                8 | 17 => tonic::Code::Unavailable,
                 9 => tonic::Code::ResourceExhausted,
                 10 => tonic::Code::Cancelled,
                 11 => tonic::Code::Unavailable,
-                12 => tonic::Code::ResourceExhausted,
-                13 | 14 => tonic::Code::Internal,
-                15 => tonic::Code::ResourceExhausted,
+                12 | 16 => tonic::Code::ResourceExhausted,
+                13 | 14 | 21 | 37 | 38 | 39 => tonic::Code::Internal,
+                15 | 40 => tonic::Code::ResourceExhausted,
+                18 => tonic::Code::Unimplemented,
                 _ => tonic::Code::Ok,
+            };
+            let code = if (23..31).contains(&shape) {
+                tonic::Code::Unknown
+            } else {
+                code
             };
             let mut status = Status::new(code, message);
             status
@@ -698,12 +794,43 @@ mod status_tests {
             status.add_header(&mut trailers).unwrap();
             // Preserve the existing success/error wire paths while checking
             // grpc-js Number conversion of legal leading-zero status values.
+            if (23..31).contains(&shape) {
+                trailers.insert(
+                    "grpc-status",
+                    [
+                        "17",
+                        "-1",
+                        "7.5",
+                        "NaN",
+                        "Infinity",
+                        "-Infinity",
+                        "0x11",
+                        "1e2",
+                    ][shape - 23]
+                        .parse()
+                        .unwrap(),
+                );
+            }
+            if matches!(shape, 32 | 33) {
+                trailers.insert("grpc-status", "0".parse().unwrap());
+                trailers.append("grpc-status", "7".parse().unwrap());
+                trailers.insert("grpc-message", "duplicate%20first".parse().unwrap());
+                trailers.append("grpc-message", "duplicate%20second".parse().unwrap());
+                trailers.append("cookie", "a=1".parse().unwrap());
+                trailers.append("cookie", "b=2".parse().unwrap());
+                trailers.append("set-cookie", "a=1".parse().unwrap());
+                trailers.append("set-cookie", "b=2".parse().unwrap());
+                trailers.append("authorization", "first".parse().unwrap());
+                trailers.append("authorization", "discarded".parse().unwrap());
+                trailers.append("proof-bin", "AP8=".parse().unwrap());
+                trailers.append("proof-bin", "AA".parse().unwrap());
+            }
             if shape == 1 {
                 trailers.insert("grpc-status", "00".parse().unwrap());
             } else if shape == 2 {
                 trailers.insert("grpc-status", "007".parse().unwrap());
             }
-            if shape >= 5 {
+            if (5..19).contains(&shape) {
                 // Distinct missing-status paths reuse this peer and ownership:
                 // headers-only, final trailers, clean EOF and invalid HTTP body.
                 trailers.remove("grpc-status");
@@ -834,13 +961,48 @@ mod status_tests {
                                 }
                                 (encoder.finish().unwrap(), Some("gzip"))
                             }
+                            36..=43 => {
+                                let gzip = |bytes: &[u8]| {
+                                    let mut encoder = flate2::write::GzEncoder::new(
+                                        Vec::new(),
+                                        flate2::Compression::default(),
+                                    );
+                                    encoder.write_all(bytes).unwrap();
+                                    encoder.finish().unwrap()
+                                };
+                                let mut first = gzip(payload);
+                                let mut second = gzip(b"\x0a\x04tail");
+                                match shape {
+                                    37 => {
+                                        let crc = second.len() - 8;
+                                        second[crc] ^= 1;
+                                    }
+                                    38 => second.truncate(8),
+                                    39 => second = b"junk".to_vec(),
+                                    40 => second = gzip(&vec![0; MAX_MESSAGE]),
+                                    41 => second = vec![0, 0],
+                                    42 => second = b"\0junk".to_vec(),
+                                    43 => second.insert(0, 0),
+                                    _ => {}
+                                }
+                                first.extend(second);
+                                (first, Some("gzip"))
+                            }
                             13 => (vec![0xff; 8], Some("deflate")),
                             14 => (vec![0xff; 8], Some("gzip")),
+                            18 | 22 => (payload.to_vec(), Some("owned-unsupported")),
+                            20 | 31 => (payload.to_vec(), Some("identity")),
                             _ => (payload.to_vec(), None),
                         };
                         let mut frame = vec![u8::from(encoding.is_some())];
                         frame.extend_from_slice(&(encoded.len() as u32).to_be_bytes());
                         frame.extend_from_slice(&encoded);
+                        if matches!(shape, 19..=22) {
+                            frame[0] = 1;
+                            if shape != 21 {
+                                frame.truncate(6);
+                            }
+                        }
                         if shape == 0 {
                             // Legacy reads every flag other than 1 as raw.
                             frame[0] = 2;
@@ -848,13 +1010,15 @@ mod status_tests {
                         if shape == 8 {
                             frame = vec![2, 0, 0, 0, 0];
                         }
-                        if shape == 12 {
+                        if matches!(shape, 12 | 16 | 17) {
                             // Declared overflow must fail before waiting for
                             // or allocating the absent oversized payload.
-                            frame = vec![0];
+                            // Shapes16/17 also have compressed-flag1 without an
+                            // encoding; framing refusal/HTTP fallback win first.
+                            frame = vec![u8::from(shape != 12)];
                             frame.extend_from_slice(&((MAX_MESSAGE + 1) as u32).to_be_bytes());
                         }
-                        let trailers_only = matches!(shape, 1 | 2 | 5);
+                        let trailers_only = matches!(shape, 1 | 2 | 5 | 32);
                         let frames = if matches!(shape, 7 | 8) {
                             vec![Ok::<_, Infallible>(Frame::data(Bytes::from(frame)))]
                         } else if !trailers_only {
@@ -875,18 +1039,33 @@ mod status_tests {
                         let mut response = HttpResponse::new(response_body);
                         *response.status_mut() = match shape {
                             5 => tonic::codegen::http::StatusCode::FORBIDDEN,
-                            8 | 13 => tonic::codegen::http::StatusCode::SERVICE_UNAVAILABLE,
+                            8 | 13 | 17 => tonic::codegen::http::StatusCode::SERVICE_UNAVAILABLE,
                             _ => tonic::codegen::http::StatusCode::OK,
                         };
                         response
                             .headers_mut()
                             .insert("content-type", "application/grpc".parse().unwrap());
-                        if shape == 0 {
+                        if matches!(shape, 0 | 34 | 35) {
                             let headers = response.headers_mut();
                             // Initial status is metadata until END_STREAM;
                             // the real final trailers below still carry OK.
-                            headers.insert("grpc-status", "7".parse().unwrap());
+                            headers.insert(
+                                "grpc-status",
+                                match shape {
+                                    34 => "0",
+                                    35 => "not-a-status",
+                                    _ => "007",
+                                }
+                                .parse()
+                                .unwrap(),
+                            );
+                            if shape == 34 {
+                                headers.append("grpc-status", "7".parse().unwrap());
+                            }
                             headers.insert("grpc-message", "initial%20%25".parse().unwrap());
+                            headers.insert("grpc-encoding", "owned-unsupported".parse().unwrap());
+                            headers
+                                .insert("grpc-accept-encoding", "identity,gzip".parse().unwrap());
                             headers.append("x-prefix", "kept".parse().unwrap());
                             headers.append(
                                 "x-prefix",
@@ -899,6 +1078,13 @@ mod status_tests {
                             response
                                 .headers_mut()
                                 .insert("grpc-encoding", encoding.parse().unwrap());
+                        }
+                        if matches!(shape, 1 | 2) {
+                            // Trailers-only status does not pass through the
+                            // compression filter, even with unknown encoding.
+                            response
+                                .headers_mut()
+                                .insert("grpc-encoding", "owned-unsupported".parse().unwrap());
                         }
                         if trailers_only {
                             response.headers_mut().extend(trailers);
@@ -976,29 +1162,45 @@ mod status_tests {
                     .iter()
                     .filter(|event| event["kind"] == "message")
                     .count(),
-                if matches!(shape, 0 | 3 | 4) { 1 } else { 0 },
+                if matches!(shape, 0 | 3 | 4 | 34 | 35 | 36 | 41 | 42 | 43) {
+                    1
+                } else {
+                    0
+                },
                 "shape {shape}: {events:?}"
             );
-            if matches!(shape, 0 | 3 | 4) {
+            if matches!(shape, 0 | 3 | 4 | 34 | 35 | 36 | 41 | 42 | 43) {
                 let data = events
                     .iter()
                     .find(|event| event["kind"] == "message")
                     .unwrap();
                 let body: serde_json::Value =
                     serde_json::from_str(data["text"].as_str().unwrap()).unwrap();
-                assert_eq!(body["value"], "owned");
+                assert_eq!(body["value"], if shape == 36 { "tail" } else { "owned" });
             }
             let terminal = events.last().unwrap();
+            for metadata in events.iter().filter(|event| event["kind"] == "metadata") {
+                assert!(
+                    metadata["headers"].as_array().unwrap().iter().all(|row| {
+                        row[0] != "grpc-encoding" && row[0] != "grpc-accept-encoding"
+                    }),
+                    "Compression filter headers leaked in shape {shape}: {metadata:?}"
+                );
+            }
             assert_eq!(
                 events
                     .iter()
                     .filter(|event| event["kind"] == "metadata")
                     .count(),
-                if matches!(shape, 1 | 2 | 5 | 9) { 0 } else { 1 },
+                if matches!(shape, 1 | 2 | 5 | 9 | 32) {
+                    0
+                } else {
+                    1
+                },
                 "shape {shape}: {events:?}"
             );
             assert_eq!(terminal["kind"], "status");
-            if shape == 0 {
+            if matches!(shape, 0 | 34 | 35) {
                 let metadata = events
                     .iter()
                     .find(|event| event["kind"] == "metadata")
@@ -1006,29 +1208,104 @@ mod status_tests {
                     .as_array()
                     .unwrap();
                 assert!(metadata.contains(&serde_json::json!(["grpc-message", "initial%20%25"])));
-                assert!(metadata.contains(&serde_json::json!(["grpc-status", "7"])));
+                assert!(metadata.contains(&serde_json::json!([
+                    "grpc-status",
+                    match shape {
+                        34 => "0, 7",
+                        35 => "not-a-status",
+                        _ => "007",
+                    }
+                ])));
                 assert_eq!(
                     metadata
                         .iter()
                         .filter(|row| row[0] == "x-prefix")
                         .collect::<Vec<_>>(),
-                    vec![&serde_json::json!(["x-prefix", "kept"])]
+                    Vec::<&serde_json::Value>::new()
                 );
                 assert!(!metadata.iter().any(|row| row[0] == "x!invalid"));
             }
-            assert_eq!(terminal["code"], code as i32, "shape {shape}: {events:?}");
-            assert_eq!(terminal["details"], message);
+            let expected_code = if matches!(shape, 18 | 21 | 31 | 32 | 33) {
+                serde_json::Value::Null
+            } else if (23..31).contains(&shape) {
+                [
+                    serde_json::json!(17),
+                    serde_json::json!(-1),
+                    serde_json::json!(7.5),
+                    serde_json::Value::Null,
+                    serde_json::Value::Null,
+                    serde_json::Value::Null,
+                    serde_json::json!(17),
+                    serde_json::json!(100),
+                ][shape - 23]
+                    .clone()
+            } else {
+                serde_json::json!(code as i32)
+            };
+            assert_eq!(terminal["code"], expected_code, "shape {shape}: {events:?}");
+            if (23..31).contains(&shape) {
+                let code_text = [
+                    "17",
+                    "-1",
+                    "7.5",
+                    "NaN",
+                    "Infinity",
+                    "-Infinity",
+                    "17",
+                    "100",
+                ][shape - 23];
+                let error = events
+                    .iter()
+                    .find(|event| event["kind"] == "error")
+                    .unwrap();
+                assert_eq!(
+                    error["message"],
+                    format!("{code_text} undefined: {message}")
+                );
+            }
+            if matches!(shape, 18 | 21 | 31) {
+                assert!(terminal.get("code").is_none());
+                assert!(terminal.get("details").is_none());
+                let error = events
+                    .iter()
+                    .find(|event| event["kind"] == "error")
+                    .unwrap();
+                assert_eq!(error["message"], "undefined undefined: undefined");
+            } else {
+                assert_eq!(terminal["details"], message);
+            }
             let rows = terminal["trailers"].as_array().unwrap();
             assert!(!rows.iter().any(|row| row[0] == "grpc-status"));
             assert_eq!(
                 rows.iter().any(|row| row[0] == "grpc-message"),
                 matches!(shape, 5 | 6)
             );
-            if shape < 7 {
-                assert!(rows.contains(&serde_json::json!(["x-result", "first"])));
-                assert!(rows.contains(&serde_json::json!(["x-result", "second"])));
+            if shape < 7
+                || matches!(shape, 19 | 20 | 22 | 32 | 33 | 34 | 35 | 36 | 41 | 42 | 43)
+                || (23..31).contains(&shape)
+            {
+                assert!(rows.contains(&serde_json::json!(["x-result", "first, second"])));
             } else {
                 assert!(rows.is_empty());
+            }
+            if matches!(shape, 32 | 33) {
+                assert!(rows.contains(&serde_json::json!(["cookie", "a=1; b=2"])));
+                assert!(rows.contains(&serde_json::json!(["set-cookie", "a=1"])));
+                assert!(rows.contains(&serde_json::json!(["set-cookie", "b=2"])));
+                assert!(rows.contains(&serde_json::json!(["authorization", "first"])));
+                assert!(!rows
+                    .iter()
+                    .any(|row| row[0] == "authorization" && row[1] == "discarded"));
+                assert_eq!(
+                    rows.iter()
+                        .filter(|row| row[0] == "proof-bin")
+                        .cloned()
+                        .collect::<Vec<_>>(),
+                    vec![
+                        serde_json::json!(["proof-bin", "AP8="]),
+                        serde_json::json!(["proof-bin", "AA=="])
+                    ]
+                );
             }
             if matches!(shape, 2 | 3) {
                 assert_eq!(
@@ -1037,10 +1314,7 @@ mod status_tests {
                         .cloned()
                         .collect::<Vec<_>>(),
                     if shape == 2 {
-                        vec![
-                            serde_json::json!(["grpc-status-details-bin", "AP8="]),
-                            serde_json::json!(["grpc-status-details-bin", "AA=="]),
-                        ]
+                        vec![serde_json::json!(["grpc-status-details-bin", "AP8A"])]
                     } else {
                         vec![serde_json::json!(["grpc-status-details-bin", "AP8="])]
                     }
@@ -1048,4 +1322,76 @@ mod status_tests {
             }
         }
     }
+    #[tokio::test]
+    async fn graceful_goaway_notifies_ready_owner_before_active_body_finishes() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let (release, mut goaway) = tokio::sync::oneshot::channel::<()>();
+        let server = tokio::spawn(async move {
+            let (socket, _) = listener.accept().await.unwrap();
+            let mut peer: h2::server::Connection<_, Bytes> =
+                h2::server::handshake(socket).await.unwrap();
+            let (request, mut respond) = peer.accept().await.unwrap().unwrap();
+            let _body = request.into_body();
+            let _stream = respond
+                .send_response(HttpResponse::builder().status(200).body(()).unwrap(), false)
+                .unwrap();
+            tokio::select! { result=&mut goaway=>result.unwrap(), unexpected=peer.accept()=>panic!("Unexpected stream before GOAWAY: {}",unexpected.is_some()) }
+            peer.graceful_shutdown();
+            while peer.accept().await.is_some() {}
+            std::future::poll_fn(|cx| peer.poll_closed(cx))
+                .await
+                .unwrap();
+        });
+        let endpoint = tonic::transport::Endpoint::from_shared(format!("http://{address}")).unwrap();
+        let mut service =
+            endpoint.connect_with_connector_ready_lazy(tower::service_fn(move |_| async move {
+                tokio::net::TcpStream::connect(address)
+                    .await
+                    .map(TokioIo::new)
+            }));
+        let mut connectivity = service.connectivity();
+        tower::ServiceExt::ready(&mut service).await.unwrap();
+        let mut response = tower::Service::call(
+            &mut service,
+            HttpRequest::builder()
+                .uri("/owned/hold")
+                .body(tonic::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            connectivity.borrow().state,
+            tonic::transport::ConnectivityState::Ready
+        );
+        connectivity.borrow_and_update();
+        release.send(()).unwrap();
+        let disconnected = tokio::time::timeout(Duration::from_millis(1000), async {
+            loop {
+                connectivity.changed().await.unwrap();
+                if connectivity.borrow().state != tonic::transport::ConnectivityState::Ready {
+                    break;
+                }
+            }
+        })
+        .await;
+        let still_open = tokio::time::timeout(Duration::from_millis(100), response.body_mut().frame())
+            .await
+            .is_err();
+        drop(response);
+        drop(service);
+        server.abort();
+        let _ = server.await;
+        assert!(
+            still_open,
+            "Graceful GOAWAY must keep the active response open"
+        );
+        assert!(
+            disconnected.is_ok(),
+            "GOAWAY must retire READY before the active response drains"
+        );
+    }
+
+
 }

@@ -1,9 +1,12 @@
 import { invokeCookie } from './cookie-native.js';
 import { curlResources, isCurlImport } from "./curl-import.js";
 import { redactEnvironment } from "./environment-secrets.js";
-import { isTauri, invoke } from "@tauri-apps/api/core";
-import { open, save } from "@tauri-apps/plugin-dialog";
-import { readTextFile, writeTextFile, writeFile, stat } from "@tauri-apps/plugin-fs";
+import { Channel, isTauri, invoke } from "@tauri-apps/api/core";
+import { createNativeCancellation } from "./native-cancellation.js";
+import { open } from "@tauri-apps/plugin-dialog";
+import { readTextFile, stat } from "@tauri-apps/plugin-fs";
+import { encodeBase64 } from "./transport.js";
+import { safeResponseFilename } from "./response-download.js";
 import { id, initialData, newRequest, protocolFor, validateGrpcMetadata } from "./model.js";
 import { parseLegacyFiles } from "./legacy-import.js";
 import { pluginJarCookies, pluginCookieJarId, pluginCookieJarView } from "./plugin-cookie-jar.js";
@@ -68,7 +71,6 @@ function portableResource(resource, forExport = false) {
     delete copy._activeTemplateCookieSource;
     return copy;
   }
-  if (resource._type === "environment") return forExport ? redactEnvironment(resource) : resource;
   if (resource._type !== "git_repository") return resource;
   const copy = { ...resource };
   for (const key of localGitFields) delete copy[key];
@@ -558,6 +560,19 @@ export function attachLegacyResponseAssets(resources, entries) {
     };
   });
 }
+/** @param {string} command @param {string} root @param {Record<string,any>[]} entries @param {AbortSignal} [signal] */
+async function readLegacyAssets(command, root, entries, signal = new AbortController().signal) {
+  const requestId = id("legacy-assets");
+  const cancellation = createNativeCancellation(requestId, signal);
+  const onStarted = new Channel();
+  onStarted.onmessage = cancellation.started;
+  try {
+    signal.throwIfAborted();
+    return await invoke(command, { root, entries, id: requestId, onStarted });
+  } finally {
+    await cancellation.close();
+  }
+}
 /** Choose an explicitly authorized legacy folder and read response files only.
  * Successful bytes stay on preserved resources so collection export/reimport
  * survives later history retention. The original NeDB provenance is untouched.
@@ -583,7 +598,7 @@ export async function pickLegacyResponseHistory(review, signal) {
     return time(b.entry.id) - time(a.entry.id) || a.index - b.index;
   }).map(({ entry }) => entry);
   /** @type {{entries:(import('./legacy-response-history.js').LegacyResponseAsset & Record<string,any>)[]}} */
-  const assets = await invoke("read_legacy_response_assets", { root, entries: ordered.slice(0, 100) });
+  const assets = await readLegacyAssets("read_legacy_response_assets", root, ordered.slice(0, 100), signal);
   signal?.throwIfAborted();
   const resources = attachLegacyResponseAssets(review.resources, assets.entries);
   const attached = new Map(resources.map((resource) => [resource._id, resource]));
@@ -620,9 +635,7 @@ export async function pickLegacyRequestFiles(review, signal) {
   if (!root) return null;
   if (typeof root !== "string") throw new Error("Choose one request files folder.");
   const plan = legacyRequestAssetRequests(review.resources);
-  const assets = await invoke("read_legacy_request_assets", {
-    root, entries: plan.entries.map(({ id, path }) => ({ id, path })),
-  });
+  const assets = await readLegacyAssets("read_legacy_request_assets", root, plan.entries.map(({ id, path }) => ({ id, path })), signal);
   signal?.throwIfAborted();
   const converted = convertLegacyRequestFiles(review.resources, assets);
   return { ...review, resources: converted.resources,
@@ -640,7 +653,7 @@ export async function pickLegacyCertificateFiles(review, signal) {
   if (!root) return null;
   if (typeof root !== "string") throw new Error("Choose one certificate files folder.");
   const plan = legacyCertificateAssetRequests(review.resources);
-  const assets = await invoke("read_legacy_certificate_assets", { root, entries: plan.entries });
+  const assets = await readLegacyAssets("read_legacy_certificate_assets", root, plan.entries, signal);
   signal?.throwIfAborted();
   const converted = convertLegacyCertificateFiles(review.resources, assets);
   return { ...review, resources: converted.resources,
@@ -736,7 +749,7 @@ export async function exportData(data, signal = new AbortController().signal) {
     data.history.some((entry) => entry._id === responseId && entry.requestId === requestId) &&
     data.resources.some((resource) => resource._id === responseId && ((resource._type === "response" && resource._legacyResponseAssets?.version === 1) || (resource._type === "websocket_response" && resource._legacyWebSocketAssets?.version === 1)))));
   const resources = sourceResources.map((resource) => {
-    const portable = portableResource(resource, true);
+    const portable = redactEnvironment(portableResource(resource, true), sourceResources);
     const selected = resource._type === "request_meta" ? selectedPortableResponses.get(resource.parentId) : undefined;
     return selected ? { ...portable, activeResponseId: selected } : portable;
   });
@@ -755,30 +768,34 @@ export async function exportData(data, signal = new AbortController().signal) {
     2,
   );
   if (isTauri()) {
-    const path = await save({
-      defaultPath: "insomnium-export.json",
-      filters: [{ name: "Insomnium JSON", extensions: ["json"] }],
-    });
-    signal.throwIfAborted();
-    if (path) await writeTextFile(path, text);
+    await saveNativeDownload(text,"insomnium-export.json","application/json",signal,"export");
   } else {
     signal.throwIfAborted();
     await download(text, "insomnium-export.json", "application/json");
   }
   signal.throwIfAborted();
 }
+/** @param {BlobPart} data @param {string} name @param {string} type
+ * @param {AbortSignal|undefined} signal @param {'save'|'export'} operation */
+async function saveNativeDownload(data,name,type,signal,operation) {
+  const cancellationSignal=signal ?? new AbortController().signal;
+  cancellationSignal.throwIfAborted();
+  const bytes=new Uint8Array(await new Blob([data],{type}).arrayBuffer());
+  cancellationSignal.throwIfAborted();
+  const id="download_"+crypto.randomUUID();
+  const cancellation=createNativeCancellation(id,cancellationSignal);
+  const onStarted=new Channel();onStarted.onmessage=cancellation.started;
+  try {
+    await invoke("response_download",{request:{id,operation,
+      name:safeResponseFilename(name)||"download.bin",bodyBase64:encodeBase64(bytes)},onStarted});
+    cancellationSignal.throwIfAborted();
+  } finally { await cancellation.close(); }
+}
 /** @param {BlobPart} data @param {string} name @param {string} [type] @param {AbortSignal} [signal] */
 export async function download(data, name, type = "text/plain", signal) {
   signal?.throwIfAborted();
   if (isTauri()) {
-    const path = await save({ defaultPath: name });
-    signal?.throwIfAborted();
-    if (path) {
-      const bytes = new Uint8Array(await new Blob([data], { type }).arrayBuffer());
-      signal?.throwIfAborted();
-      await writeFile(path, bytes);
-      signal?.throwIfAborted();
-    }
+    await saveNativeDownload(data,name,type,signal,"save");
     return;
   }
   const url = URL.createObjectURL(new Blob([data], { type }));

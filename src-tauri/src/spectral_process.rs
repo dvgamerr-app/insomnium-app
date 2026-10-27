@@ -36,7 +36,7 @@ fn read_bounded(
 }
 pub(crate) fn execute(executable: &Path, input: Vec<u8>, token: &Token) -> Result<Vec<u8>, String> {
     token.check()?;
-    let mut process = platform::Process::spawn(executable, token)?;
+    let mut process = platform::Process::spawn(executable, &|| token.check(), None)?;
     let (stdin, stdout, stderr) = process.take_pipes();
     let exceeded = Arc::new(AtomicBool::new(false));
     let failed = Arc::new(AtomicBool::new(false));
@@ -142,7 +142,6 @@ pub(crate) fn execute(executable: &Path, input: Vec<u8>, token: &Token) -> Resul
 
 #[cfg(windows)]
 mod platform {
-    use crate::spectral_jobs::Token;
     use std::{
         fs::File,
         mem::{size_of, zeroed},
@@ -170,17 +169,30 @@ mod platform {
         list: LPPROC_THREAD_ATTRIBUTE_LIST,
     }
     impl Attributes {
-        fn new(handles: &mut [HANDLE]) -> Result<Self, String> {
+        fn new(
+            handles: &mut [HANDLE],
+            sandbox: Option<&crate::plugin_sandbox::Sandbox>,
+        ) -> Result<Self, String> {
             unsafe {
                 let mut bytes = 0;
-                let _ = InitializeProcThreadAttributeList(None, 1, None, &mut bytes);
+                let _ = InitializeProcThreadAttributeList(
+                    None,
+                    if sandbox.is_some() { 2 } else { 1 },
+                    None,
+                    &mut bytes,
+                );
                 if bytes == 0 {
                     return Err("process".into());
                 }
                 let mut storage = vec![0usize; bytes.div_ceil(size_of::<usize>())];
                 let list = LPPROC_THREAD_ATTRIBUTE_LIST(storage.as_mut_ptr().cast());
-                InitializeProcThreadAttributeList(Some(list), 1, None, &mut bytes)
-                    .map_err(|_| "process")?;
+                InitializeProcThreadAttributeList(
+                    Some(list),
+                    if sandbox.is_some() { 2 } else { 1 },
+                    None,
+                    &mut bytes,
+                )
+                .map_err(|_| "process")?;
                 let result = Self { storage, list };
                 UpdateProcThreadAttribute(
                     list,
@@ -192,6 +204,22 @@ mod platform {
                     None,
                 )
                 .map_err(|_| "process")?;
+                if let Some(sandbox) = sandbox {
+                    UpdateProcThreadAttribute(
+                        list,
+                        0,
+                        PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES as usize,
+                        Some(
+                            (&sandbox.capabilities
+                                as *const windows::Win32::Security::SECURITY_CAPABILITIES)
+                                .cast(),
+                        ),
+                        size_of::<windows::Win32::Security::SECURITY_CAPABILITIES>(),
+                        None,
+                        None,
+                    )
+                    .map_err(|_| "sandbox_attributes")?;
+                }
                 Ok(result)
             }
         }
@@ -222,12 +250,14 @@ mod platform {
         std::mem::forget(handle);
         unsafe { File::from_raw_handle(raw) }
     }
-    pub(super) struct Process {
+    pub(crate) struct Process {
         root: Handle,
         job: Handle,
         pipes: Option<(File, File, File)>,
+        sync_pipe: Option<(File, usize)>,
         reaped: bool,
         members: Vec<Member>,
+        started: std::time::Instant,
     }
     struct Member {
         handle: Handle,
@@ -243,15 +273,35 @@ mod platform {
         ids: [usize; 16],
     }
     impl Process {
-        pub(super) fn spawn(path: &Path, token: &Token) -> Result<Self, String> {
+        pub(crate) fn spawn(
+            path: &Path,
+            check: &dyn Fn() -> Result<(), String>,
+            sandbox: Option<&crate::plugin_sandbox::Sandbox>,
+        ) -> Result<Self, String> {
+            Self::spawn_inner(path, check, sandbox, false)
+        }
+        pub(crate) fn spawn_session(
+            path: &Path,
+            check: &dyn Fn() -> Result<(), String>,
+            sandbox: &crate::plugin_sandbox::Sandbox,
+        ) -> Result<Self, String> {
+            Self::spawn_inner(path, check, Some(sandbox), true)
+        }
+        fn spawn_inner(
+            path: &Path,
+            check: &dyn Fn() -> Result<(), String>,
+            sandbox: Option<&crate::plugin_sandbox::Sandbox>,
+            synchronous: bool,
+        ) -> Result<Self, String> {
             unsafe {
                 let job = Handle(CreateJobObjectW(None, PCWSTR::null()).map_err(|_| "process")?);
                 let mut limits: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = zeroed();
                 limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
                     | JOB_OBJECT_LIMIT_ACTIVE_PROCESS
                     | JOB_OBJECT_LIMIT_JOB_MEMORY;
-                limits.BasicLimitInformation.ActiveProcessLimit = 8;
-                limits.JobMemoryLimit = 512 * 1024 * 1024;
+                limits.BasicLimitInformation.ActiveProcessLimit =
+                    if sandbox.is_some() { 1 } else { 8 };
+                limits.JobMemoryLimit = if sandbox.is_some() { 128 } else { 512 } * 1024 * 1024;
                 SetInformationJobObject(
                     job.0,
                     JobObjectExtendedLimitInformation,
@@ -262,12 +312,23 @@ mod platform {
                 let (child_in, parent_in) = pipe()?;
                 let (parent_out, child_out) = pipe()?;
                 let (parent_err, child_err) = pipe()?;
+                let sync_pipe = if synchronous {
+                    let (read, write) = pipe()?;
+                    SetHandleInformation(write.0, HANDLE_FLAG_INHERIT.0, HANDLE_FLAGS(0))
+                        .map_err(|_| "process")?;
+                    Some((read, write))
+                } else {
+                    None
+                };
                 for handle in [&parent_in, &parent_out, &parent_err] {
                     SetHandleInformation(handle.0, HANDLE_FLAG_INHERIT.0, HANDLE_FLAGS(0))
                         .map_err(|_| "process")?;
                 }
-                let mut inherited = [child_in.0, child_out.0, child_err.0];
-                let attributes = Attributes::new(&mut inherited)?;
+                let mut inherited = vec![child_in.0, child_out.0, child_err.0];
+                if let Some((read, _)) = &sync_pipe {
+                    inherited.push(read.0);
+                }
+                let attributes = Attributes::new(&mut inherited, sandbox)?;
                 let mut startup: STARTUPINFOEXW = zeroed();
                 startup.StartupInfo.cb = size_of::<STARTUPINFOEXW>() as u32;
                 startup.StartupInfo.dwFlags = STARTF_USESTDHANDLES;
@@ -293,11 +354,33 @@ mod platform {
                 let mut environment = Vec::<u16>::new();
                 let mut variables = std::env::vars_os()
                     .filter(|(key, _)| {
+                        if sandbox.is_some() {
+                            return [
+                                "SystemRoot",
+                                "WINDIR",
+                                "USERPROFILE",
+                                "LOCALAPPDATA",
+                                "APPDATA",
+                                "ALLUSERSPROFILE",
+                                "PROGRAMDATA",
+                                "TEMP",
+                                "TMP",
+                            ]
+                            .iter()
+                            .any(|allowed| key.to_string_lossy().eq_ignore_ascii_case(allowed));
+                        }
                         !["BUN_OPTIONS", "BUN_BE_BUN", "NODE_OPTIONS", "NODE_PATH"]
                             .iter()
                             .any(|blocked| key.to_string_lossy().eq_ignore_ascii_case(blocked))
                     })
                     .collect::<Vec<_>>();
+                if sandbox.is_some() {
+                    // Bun otherwise sizes I/O pools from host cores, exhausting the 128 MiB job on cold async I/O.
+                    variables.push(("UV_THREADPOOL_SIZE".into(), "2".into()));
+                    // Commit sparse pages as used and purge freed pages within the job budget.
+                    variables.push(("MIMALLOC_PAGE_COMMIT_ON_DEMAND".into(), "1".into()));
+                    variables.push(("MIMALLOC_PURGE_DELAY".into(), "0".into()));
+                }
                 variables.sort_by_key(|a| a.0.to_ascii_lowercase());
                 for (key, value) in variables {
                     environment.extend(key.encode_wide());
@@ -306,7 +389,7 @@ mod platform {
                     environment.push(0);
                 }
                 environment.push(0);
-                token.check()?;
+                check()?;
                 let mut info: PROCESS_INFORMATION = zeroed();
                 CreateProcessW(
                     PCWSTR(application.as_ptr()),
@@ -323,7 +406,13 @@ mod platform {
                     &startup.StartupInfo,
                     &mut info,
                 )
-                .map_err(|_| "process")?;
+                .map_err(|error| {
+                    if sandbox.is_some() {
+                        format!("sandbox_create_process: {error}")
+                    } else {
+                        "process".into()
+                    }
+                })?;
                 let root = Handle(info.hProcess);
                 let thread = Handle(info.hThread);
                 if AssignProcessToJobObject(job.0, root.0).is_err() {
@@ -335,11 +424,18 @@ mod platform {
                     root,
                     job,
                     pipes: Some((file(parent_in), file(parent_out), file(parent_err))),
+                    sync_pipe: sync_pipe.map(|(read, write)| (file(write), read.0 .0 as usize)),
                     reaped: false,
                     members: Vec::new(),
+                    started: std::time::Instant::now(),
                 };
                 // No child code can execute before successful job assignment.
-                token.check()?;
+                if let Some(sandbox) = sandbox {
+                    process.restrict_writes(sandbox)?;
+                    sandbox.seal(check)?;
+                }
+                check()?;
+                process.started = std::time::Instant::now();
                 if ResumeThread(thread.0) == u32::MAX {
                     process.kill_and_reap()?;
                     return Err("process".into());
@@ -348,10 +444,154 @@ mod platform {
                 Ok(process)
             }
         }
-        pub(super) fn take_pipes(&mut self) -> (File, File, File) {
+        pub(crate) fn started(&self) -> std::time::Instant {
+            self.started
+        }
+        pub(crate) fn take_sync_pipe(&mut self) -> Result<(File, usize), String> {
+            self.sync_pipe
+                .take()
+                .ok_or_else(|| "Bun synchronous pipe is unavailable".into())
+        }
+        fn restrict_writes(&self, sandbox: &crate::plugin_sandbox::Sandbox) -> Result<(), String> {
+            use windows::Win32::Security::{
+                CreateWellKnownSid, EqualSid, GetTokenInformation, SetTokenInformation,
+                TokenIntegrityLevel, TokenMandatoryPolicy, WinUntrustedLabelSid, PSID,
+                TOKEN_ADJUST_DEFAULT, TOKEN_DUPLICATE, TOKEN_MANDATORY_LABEL,
+                TOKEN_MANDATORY_POLICY, TOKEN_MANDATORY_POLICY_NO_WRITE_UP, TOKEN_QUERY,
+            };
+            #[repr(C)]
+            struct Integrity {
+                label: TOKEN_MANDATORY_LABEL,
+                sid: [u32; 17],
+            }
+            unsafe {
+                let mut token = HANDLE::default();
+                OpenProcessToken(
+                    self.root.0,
+                    TOKEN_QUERY | TOKEN_ADJUST_DEFAULT | TOKEN_DUPLICATE,
+                    &mut token,
+                )
+                .map_err(|error| format!("sandbox_token: {error}"))?;
+                let token = Handle(token);
+                sandbox.seal_registry(token.0)?;
+                let mut expected: Integrity = zeroed();
+                let mut sid_bytes = std::mem::size_of_val(&expected.sid) as u32;
+                let sid = PSID(expected.sid.as_mut_ptr().cast());
+                CreateWellKnownSid(WinUntrustedLabelSid, None, Some(sid), &mut sid_bytes)
+                    .map_err(|error| format!("sandbox_integrity_sid: {error}"))?;
+                expected.label.Label.Sid = sid;
+                const SE_GROUP_INTEGRITY: u32 = 0x20;
+                expected.label.Label.Attributes = SE_GROUP_INTEGRITY;
+                SetTokenInformation(
+                    token.0,
+                    TokenIntegrityLevel,
+                    (&expected as *const Integrity).cast(),
+                    size_of::<TOKEN_MANDATORY_LABEL>() as u32 + sid_bytes,
+                )
+                .map_err(|error| format!("sandbox_integrity: {error}"))?;
+                let mut actual: Integrity = zeroed();
+                let mut returned = 0;
+                GetTokenInformation(
+                    token.0,
+                    TokenIntegrityLevel,
+                    Some((&mut actual as *mut Integrity).cast()),
+                    size_of::<Integrity>() as u32,
+                    &mut returned,
+                )
+                .map_err(|error| format!("sandbox_integrity_query: {error}"))?;
+                if returned < size_of::<TOKEN_MANDATORY_LABEL>() as u32
+                    || returned > size_of::<Integrity>() as u32
+                    || actual.label.Label.Sid.0.is_null()
+                    || EqualSid(actual.label.Label.Sid, sid).is_err()
+                {
+                    return Err("sandbox_integrity_mismatch".into());
+                }
+                let mut policy = TOKEN_MANDATORY_POLICY::default();
+                GetTokenInformation(
+                    token.0,
+                    TokenMandatoryPolicy,
+                    Some((&mut policy as *mut TOKEN_MANDATORY_POLICY).cast()),
+                    size_of::<TOKEN_MANDATORY_POLICY>() as u32,
+                    &mut returned,
+                )
+                .map_err(|error| format!("sandbox_integrity_policy: {error}"))?;
+                if returned != size_of::<TOKEN_MANDATORY_POLICY>() as u32
+                    || policy.Policy.0 & TOKEN_MANDATORY_POLICY_NO_WRITE_UP.0 == 0
+                {
+                    return Err("sandbox_write_up_policy_missing".into());
+                }
+                Ok(())
+            }
+        }
+        #[cfg(test)]
+        pub(crate) fn is_app_container(&self) -> Result<bool, String> {
+            use windows::Win32::Security::{GetTokenInformation, TokenIsAppContainer, TOKEN_QUERY};
+            unsafe {
+                let mut token = HANDLE::default();
+                OpenProcessToken(self.root.0, TOKEN_QUERY, &mut token)
+                    .map_err(|error| error.to_string())?;
+                let token = Handle(token);
+                let mut value = 0u32;
+                let mut returned = 0;
+                GetTokenInformation(
+                    token.0,
+                    TokenIsAppContainer,
+                    Some((&mut value as *mut u32).cast()),
+                    size_of::<u32>() as u32,
+                    &mut returned,
+                )
+                .map_err(|error| error.to_string())?;
+                if returned != size_of::<u32>() as u32 {
+                    return Err("sandbox_token".into());
+                }
+                Ok(value == 1)
+            }
+        }
+        #[cfg(any(test, debug_assertions))]
+        pub(crate) fn peak_job_memory(&self) -> Result<usize, String> {
+            unsafe {
+                let mut info: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = zeroed();
+                QueryInformationJobObject(
+                    Some(self.job.0),
+                    JobObjectExtendedLimitInformation,
+                    (&mut info as *mut JOBOBJECT_EXTENDED_LIMIT_INFORMATION).cast(),
+                    size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
+                    None,
+                )
+                .map_err(|error| error.to_string())?;
+                Ok(info.PeakJobMemoryUsed)
+            }
+        }
+        pub(crate) fn take_pipes(&mut self) -> (File, File, File) {
             self.pipes.take().expect("owned pipe transfer")
         }
-        pub(super) fn exited(&mut self) -> Result<Option<u32>, String> {
+        pub(crate) fn cpu_time(&self) -> Result<std::time::Duration, String> {
+            unsafe {
+                let (mut created, mut exited, mut kernel, mut user) = (
+                    FILETIME::default(),
+                    FILETIME::default(),
+                    FILETIME::default(),
+                    FILETIME::default(),
+                );
+                GetProcessTimes(
+                    self.root.0,
+                    &mut created,
+                    &mut exited,
+                    &mut kernel,
+                    &mut user,
+                )
+                .map_err(|error| error.to_string())?;
+                let ticks = |value: FILETIME| {
+                    ((value.dwHighDateTime as u64) << 32) | value.dwLowDateTime as u64
+                };
+                Ok(std::time::Duration::from_nanos(
+                    ticks(kernel)
+                        .saturating_add(ticks(user))
+                        .saturating_mul(100),
+                ))
+            }
+        }
+        pub(crate) fn exited(&mut self) -> Result<Option<u32>, String> {
             self.capture_members()?;
             unsafe {
                 match WaitForSingleObject(self.root.0, 0) {
@@ -365,7 +605,7 @@ mod platform {
                 }
             }
         }
-        pub(super) fn kill_and_reap(&mut self) -> Result<(), String> {
+        pub(crate) fn kill_and_reap(&mut self) -> Result<(), String> {
             unsafe {
                 if self.reaped {
                     return Ok(());
@@ -501,21 +741,27 @@ mod platform {
 // reaping are verified; never label root-only Child::wait as tree cleanup.
 #[cfg(not(windows))]
 mod platform {
-    use crate::spectral_jobs::Token;
     use std::{fs::File, path::Path};
-    pub(super) struct Process;
+    pub(crate) struct Process;
     impl Process {
-        pub(super) fn spawn(_: &Path, _: &Token) -> Result<Self, String> {
+        pub(crate) fn spawn(
+            _: &Path,
+            _: &dyn Fn() -> Result<(), String>,
+            _: Option<&crate::plugin_sandbox::Sandbox>,
+        ) -> Result<Self, String> {
             Err("process".into())
         }
-        pub(super) fn take_pipes(&mut self) -> (File, File, File) {
+        pub(crate) fn take_pipes(&mut self) -> (File, File, File) {
             unreachable!()
         }
-        pub(super) fn exited(&mut self) -> Result<Option<u32>, String> {
+        pub(crate) fn exited(&mut self) -> Result<Option<u32>, String> {
             Err("process".into())
         }
-        pub(super) fn kill_and_reap(&mut self) -> Result<(), String> {
+        pub(crate) fn kill_and_reap(&mut self) -> Result<(), String> {
             Ok(())
         }
     }
 }
+
+#[cfg(windows)]
+pub(crate) use platform::Process;

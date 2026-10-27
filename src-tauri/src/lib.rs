@@ -3,6 +3,7 @@ mod aws;
 mod clipboard;
 mod cookies;
 mod digest;
+mod digest_response;
 mod git;
 mod git_clone;
 mod git_advance_lock;
@@ -58,6 +59,10 @@ mod streaming;
 mod spectral;
 mod spectral_jobs;
 mod spectral_process;
+mod plugin_sandbox;
+mod plugin_bun;
+mod plugin_inspection;
+mod plugin_bun_session;
 mod template;
 mod template_os;
 mod desktop_menu;
@@ -110,8 +115,10 @@ pub fn run() {
         .manage(git_remote_job::RemoteJobState::default())
         .manage(plugin_save::SaveState::default())
         .manage(spectral::SpectralState::default())
+        .manage(plugin_inspection::InspectionState::default())
         .on_window_event(|window, event| {
             if window.label() == "main" && matches!(event, tauri::WindowEvent::Destroyed) {
+                if let Some(state) = window.try_state::<plugin_inspection::InspectionState>() { plugin_inspection::cancel_all(&state); }
                 if let Some(state) = window.try_state::<http::NetworkState>() { state.close(); }
                 if let Some(state) = window.try_state::<git_remote_job::RemoteJobState>() { state.close(); }
                 if let Some(state) = window.try_state::<spectral::SpectralState>() { spectral::cancel_all(&state); }
@@ -165,6 +172,13 @@ pub fn run() {
             plugins::discover_plugins,
             plugin_sources::discover_plugin_sources,
             plugin_package::read_plugin_package,
+            plugin_inspection::reserve_plugin_inspection,
+            plugin_inspection::run_plugin_inspection,
+            plugin_inspection::cancel_plugin_inspection,
+            plugin_bun_session::open_bun_plugin_session,
+            plugin_bun_session::invoke_bun_plugin_callback,
+            plugin_bun_session::reply_bun_plugin_helper,
+            plugin_bun_session::set_bun_plugin_interaction,
             plugin_store::plugin_store,
             plugin_store::import_legacy_plugin_data,
             git_remote_job::git_remote_advertise,

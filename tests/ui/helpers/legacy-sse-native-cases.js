@@ -8,6 +8,8 @@ import {
   withNativeApp,
   poll,
   resourceCrudProbeIdentifier,
+  selectedNativeProbeIdentifier,
+  integrationProbeIdentifier,
 } from "./native-app.js";
 import {
   withResourceProbePreserved,
@@ -30,24 +32,32 @@ const layoutKeys = [
 /** Actual scoped reader/OS chooser/review/durable raw SSE workflow; never connects a stream. */
 export async function runLegacySseNativeCases() {
   assert.equal(process.platform, "win32");
+  const integration =
+    selectedNativeProbeIdentifier() === integrationProbeIdentifier;
   const markerPath = process.env.INSOMNIUM_UI_PROFILE_OWNERSHIP;
-  assert.ok(markerPath);
+  if (!integration) assert.ok(markerPath);
   assert.ok(process.env.INSOMNIUM_UI_BUILD_STATE);
-  const options = {
-    expectedIdentifier: resourceCrudProbeIdentifier,
-    profileOwnershipPath: markerPath,
-  };
+  const options = integration
+    ? { expectedIdentifier: integrationProbeIdentifier }
+    : {
+        expectedIdentifier: resourceCrudProbeIdentifier,
+        profileOwnershipPath: markerPath,
+      };
   await withResourceProbePreserved(
     async (capture) => {
       await withNativeApp(
         "legacy-sse-import-native",
         async ({ page, invoke, output, pid }) => {
-          const marker = await Bun.file(markerPath).json();
-          assert.equal(marker.identifier, resourceCrudProbeIdentifier);
-          assert.equal(marker.launches.at(-1)?.pid, pid);
-          assert.equal(marker.launches.at(-1)?.directoryAbsentAtBind, false);
+          if (!integration) {
+            const marker = await Bun.file(
+              /** @type {string} */ (markerPath),
+            ).json();
+            assert.equal(marker.identifier, resourceCrudProbeIdentifier);
+            assert.equal(marker.launches.at(-1)?.pid, pid);
+            assert.equal(marker.launches.at(-1)?.directoryAbsentAtBind, false);
+          }
           await resourceSaved(page);
-          await capture();
+          if (!integration) await capture();
           const original = await invoke("load_workspace"),
             load = () => invoke("load_workspace");
           const layout = await page.evaluate(
@@ -107,6 +117,13 @@ export async function runLegacySseNativeCases() {
             chunks.map((row) => JSON.stringify(row)).join("\r\n\r\n"),
           );
           const bodyPath = await write("body.ndjson", raw);
+          const gzipPath = await write(
+            "body.gzip",
+            Buffer.concat([
+              Bun.gzipSync(raw.subarray(0, 97)),
+              Bun.gzipSync(raw.subarray(97)),
+            ]),
+          );
           const timeline = [
             {
               name: "Text",
@@ -125,6 +142,18 @@ export async function runLegacySseNativeCases() {
             malformed = await write("malformed.ndjson", malformedRaw),
             badTimeline = await write("bad-timeline.ndjson", "{broken"),
             emptyPath = await write("empty.ndjson", "");
+          const malformedGzip = await write(
+            "malformed.gzip",
+            Bun.gzipSync(Buffer.from(malformedRaw)),
+          );
+          const truncatedGzip = await write(
+            "truncated.gzip",
+            (await Bun.file(gzipPath).bytes()).slice(0, -4),
+          );
+          const gzipBomb = await write(
+            "over-decoded-limit.gzip",
+            Bun.gzipSync(Buffer.alloc(20 * 1024 * 1024 + 1, 120)),
+          );
           const outside = join(output, "outside-sse.ndjson");
           await Bun.write(outside, raw);
           sourceFiles.push(outside);
@@ -145,25 +174,25 @@ export async function runLegacySseNativeCases() {
             },
             {
               _id: "sse_res_second",
-              bodyPath,
+              bodyPath: gzipPath,
               timelinePath: "",
               environmentId: null,
             },
             {
               _id: "sse_res_sub",
-              bodyPath,
+              bodyPath: gzipPath,
               timelinePath: "",
               environmentId: subId,
             },
             {
               _id: "sse_res_bad_timeline",
-              bodyPath,
+              bodyPath: gzipPath,
               timelinePath: badTimeline,
               environmentId: null,
             },
             {
               _id: "sse_res_malformed",
-              bodyPath: malformed,
+              bodyPath: malformedGzip,
               timelinePath: "",
               environmentId: null,
             },
@@ -298,7 +327,18 @@ export async function runLegacySseNativeCases() {
               statusCode: 200,
               statusMessage: "OK",
               headers: [{ name: "Content-Type", value: "text/event-stream" }],
-              bodyCompression: null,
+              ...(index === 2
+                ? {}
+                : {
+                    bodyCompression: [
+                      null,
+                      "zip",
+                      undefined,
+                      "__NEEDS_MIGRATION__",
+                      "zip",
+                      null,
+                    ][index],
+                  }),
               contentType: "text/event-stream",
               error: "",
               elapsedTime: 17,
@@ -339,7 +379,10 @@ export async function runLegacySseNativeCases() {
           };
           const openImport = async () => {
             await page
-              .getByRole("navigation", { name: "Main navigation", exact: true })
+              .getByRole("navigation", {
+                name: "Main navigation",
+                exact: true,
+              })
               .getByRole("button", { name: "Import collection", exact: true })
               .click();
             return page.getByRole("dialog", {
@@ -571,6 +614,8 @@ export async function runLegacySseNativeCases() {
           let passed = false;
           const unavailablePaths = [
             bodyPath,
+            gzipPath,
+            malformedGzip,
             timelinePath,
             badTimeline,
             malformed,
@@ -600,6 +645,7 @@ export async function runLegacySseNativeCases() {
               /** @type {string} */ path,
               /** @type {string} */ timeline = "",
               /** @type {string} */ bodyFormat = "sse-ndjson",
+              /** @type {string} */ bodyCompression = "raw",
             ) =>
               invoke("read_legacy_response_assets", {
                 root,
@@ -607,7 +653,7 @@ export async function runLegacySseNativeCases() {
                   {
                     id,
                     bodyPath: path,
-                    bodyCompression: "raw",
+                    bodyCompression,
                     bodyFormat,
                     timelinePath: timeline,
                   },
@@ -625,6 +671,37 @@ export async function runLegacySseNativeCases() {
             );
             assert.equal(valid.timelineSize, timelineBytes.length);
             assert.equal(valid.timelineSha256, digest(timelineBytes));
+            const decoded = (
+              await read("gzip", gzipPath, timelinePath, "sse-ndjson", "gzip")
+            ).entries[0];
+            assert.equal(decoded.bodyBase64, raw.toString("base64"));
+            assert.equal(decoded.sha256, digest(raw));
+            assert.equal(decoded.size, raw.length);
+            assert.equal(
+              decoded.timelineBase64,
+              timelineBytes.toString("base64"),
+            );
+            readerChecks.push({
+              id: "gzip-concatenated-members",
+              sha256: decoded.sha256,
+              size: decoded.size,
+            });
+            for (const [id, path, code] of [
+              ["invalid-gzip", bodyPath, "compression"],
+              ["truncated-gzip", truncatedGzip, "compression"],
+              ["decoded-gzip-limit", gzipBomb, "oversize"],
+            ]) {
+              const refused = (await read(id, path, "", "sse-ndjson", "gzip"))
+                .entries[0];
+              assert.equal(refused.bodyBase64, undefined);
+              assert.ok(
+                refused.diagnostics.some(
+                  (/** @type {any} */ row) =>
+                    row.asset === "body" && row.code === code,
+                ),
+              );
+              readerChecks.push({ id, diagnostics: refused.diagnostics });
+            }
             for (const source of standalone) {
               const row = (
                 await invoke("read_legacy_response_assets", {
@@ -805,7 +882,10 @@ export async function runLegacySseNativeCases() {
               .filter({ hasText: request.name })
               .click();
             await page
-              .getByRole("navigation", { name: "Main navigation", exact: true })
+              .getByRole("navigation", {
+                name: "Main navigation",
+                exact: true,
+              })
               .getByRole("button", { name: "Preferences", exact: true })
               .click();
             await page
@@ -892,7 +972,10 @@ export async function runLegacySseNativeCases() {
                 respondToOwnedSaveDialog(pid, output, exportPath),
               );
             await page
-              .getByRole("button", { name: "Export collections", exact: true })
+              .getByRole("button", {
+                name: "Export collections",
+                exact: true,
+              })
               .click();
             receipts.push(await saving);
             await poll(
@@ -935,7 +1018,9 @@ export async function runLegacySseNativeCases() {
             verify(await load());
             dialog = await openImport();
             await dialog
-              .getByLabel("Import collection or cURL commands", { exact: true })
+              .getByLabel("Import collection or cURL commands", {
+                exact: true,
+              })
               .fill(exported);
             await dialog
               .getByRole("button", { name: "Review import", exact: true })
@@ -1011,6 +1096,12 @@ export async function runLegacySseNativeCases() {
                       bytes: row.bytes.length,
                     })),
                     partialComponentRereads: 2,
+                    compressionModes: [
+                      "raw",
+                      "zip",
+                      "missing→gzip",
+                      "migration→gzip",
+                    ],
                     sourceBefore: beforeFiles,
                     sourceAfter: await snapshot(),
                     connections,
@@ -1037,6 +1128,6 @@ export async function runLegacySseNativeCases() {
         options,
       );
     },
-    { ...options, lazyCapture: true },
+    { ...options, lazyCapture: !integration },
   );
 }

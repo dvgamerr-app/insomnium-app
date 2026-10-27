@@ -83,8 +83,8 @@ if (process.env.INSOMNIUM_LEGACY_REQUEST_NATIVE === "1") {
             body: { fileName: paths.binary },
           },
         ]);
-        assert.equal(scoped.entries.length, 0);
-        assert.equal(scoped.warnings.length, 3);
+        assert.deepEqual(scoped.entries.map(row => row.id), ["req_sse:body"]);
+        assert.equal(scoped.warnings.length, 2);
         const pending = Array.from({ length: 101 }, (_, index) => ({
           _id: "req_cap_" + index,
           _type: "request",

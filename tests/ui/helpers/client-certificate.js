@@ -1,3 +1,4 @@
+import { createSocket } from "node:dgram";
 import assert from "node:assert/strict";
 import { mkdir, realpath, stat } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
@@ -5,8 +6,25 @@ import { poll } from "./native-app.js";
 import { X509Certificate } from "node:crypto";
 import { pfxContainers } from "./pfx-containers.js";
 
+/** Shared pinned-policy input for the reference client and native DNS TXT.
+ * @param {number} enforcement */
+export function grpcOutlierConfig(enforcement) {
+  assert.ok([0, 100].includes(enforcement));
+  return {
+    loadBalancingConfig: [{outlier_detection: {
+      interval: {seconds:0,nanos:100000000},
+      base_ejection_time: {seconds:1,nanos:0},
+      max_ejection_time: {seconds:1,nanos:0},
+      max_ejection_percent:100,
+      failure_percentage_ejection: {threshold:0,enforcement_percentage:enforcement,minimum_hosts:1,request_volume:1},
+      child_policy: [{round_robin:{}}],
+    }}],
+    methodConfig: [{name:[{service:'owned.Sample'}],retryPolicy:{maxAttempts:2,initialBackoff:'0.01s',maxBackoff:'0.1s',backoffMultiplier:2,retryableStatusCodes:['UNAVAILABLE']}}],
+  };
+}
+
 /** Per-run private CA, server and client identities. Trust stays inside the owned fixture/app.
- * @param {string} output @param {{grpc?:boolean,fileIdentities?:boolean,multipleIdentities?:boolean}} [options] */
+ * @param {string} output @param {{grpc?:boolean,fileIdentities?:boolean,multipleIdentities?:boolean,grpcPolicy?:boolean,grpcOrca?:boolean,grpcOutlier?:boolean,grpcOutlierRecovery?:boolean,grpcStatusNames?:boolean,grpcBudget?:boolean,grpcEmptyBudget?:boolean,grpcThrottle?:boolean,grpcThrottleResize?:boolean,grpcThrottleReset?:boolean,grpcDeadline?:boolean,grpcPolicyDeadline?:boolean,grpcResolverHold?:boolean}} [options] */
 export async function clientCertificateFixture(output, options = {}) {
   const root = await realpath(output);
   const relation = relative(resolve("artifacts/playwright"), root);
@@ -131,7 +149,7 @@ export async function clientCertificateFixture(output, options = {}) {
     "server",
     "localhost",
     "ca",
-    "basicConstraints=critical,CA:FALSE\nkeyUsage=critical,digitalSignature\nextendedKeyUsage=serverAuth\nsubjectAltName=IP:127.0.0.1,DNS:localhost\n",
+    "basicConstraints=critical,CA:FALSE\nkeyUsage=critical,digitalSignature\nextendedKeyUsage=serverAuth\nsubjectAltName=IP:127.0.0.1,DNS:localhost\n".replace("DNS:localhost",options.grpcPolicy ? "DNS:localhost,DNS:owned-policy.test" : "DNS:localhost"),
   );
   const serverExtensions =
     "basicConstraints=critical,CA:FALSE\nkeyUsage=critical,digitalSignature\nextendedKeyUsage=serverAuth\nsubjectAltName=IP:127.0.0.1,DNS:localhost\n";
@@ -517,6 +535,12 @@ export async function clientCertificateFixture(output, options = {}) {
   ];
   if (options.grpc) args.push("--cfg", "grpc_fixture");
   if (options.multipleIdentities) args.push("--cfg", "multiple_identities");
+  const fingerprintRoot=resolve('src-tauri/target/release/.fingerprint');
+  const appFiles=await Array.fromAsync(new Bun.Glob('insomnium-*/lib-insomnium_lib.json').scan({cwd:fingerprintRoot}));
+  const appCandidates=await Promise.all(appFiles.map(async path=>({path,modified:(await stat(join(fingerprintRoot,path))).mtimeMs})));
+  appCandidates.sort((a,b)=>b.modified-a.modified);assert.ok(appCandidates.length,'Built application fingerprint required');
+  const appFingerprint=await Bun.file(join(fingerprintRoot,appCandidates[0].path)).text();
+  const libraryBindings=[];
   for (const name of [
     "rustls",
     "sha2",
@@ -531,25 +555,31 @@ export async function clientCertificateFixture(output, options = {}) {
           "prost",
           "prost_types",
           "tonic_reflection",
+          "flate2",
         ]
       : []),
   ]) {
-    const files = await Array.fromAsync(
-      new Bun.Glob("lib" + name + "-*.rlib").scan(deps),
-    );
-    const candidates = await Promise.all(
-      files.map(async (file) => ({
-        file,
-        modified: (await stat(join(deps, file))).mtimeMs,
-      })),
-    );
-    candidates.sort((a, b) => b.modified - a.modified);
-    assert.ok(
-      candidates.length,
-      "Accepted native release dependency required: " + name,
-    );
-    args.push("--extern", name + "=" + join(deps, candidates[0].file));
+    // Cargo dependency fingerprints are u64: retain decimal literals before
+    // JSON parsing can round them, and match their little-endian disk form.
+    let dependency=appFingerprint.match(new RegExp('\\[\\d+,"'+name+'",false,(\\d+)\\]'));
+    if(!dependency&&name==='tokio_rustls'){
+      const parent=appFingerprint.match(/\[\d+,"tonic",false,(\d+)\]/);assert.ok(parent,'Application tonic dependency required');
+      for(const path of await Array.fromAsync(new Bun.Glob('tonic-*/lib-tonic').scan({cwd:fingerprintRoot}))){
+        const bytes=(await Bun.file(join(fingerprintRoot,path)).text()).trim();
+        if(/^[0-9a-f]{16}$/.test(bytes)&&BigInt('0x'+Buffer.from(bytes,'hex').reverse().toString('hex'))===BigInt(parent[1]))dependency=(await Bun.file(join(fingerprintRoot,path+'.json')).text()).match(/\[\d+,"tokio_rustls",false,(\d+)\]/);
+      }
+    }
+    assert.ok(dependency,'Application library dependency missing: '+name);
+    const files=await Array.fromAsync(new Bun.Glob(name.replaceAll('_','?')+'-*/lib-'+name).scan({cwd:fingerprintRoot}));
+    const candidates=[];
+    for(const path of files){const bytes=(await Bun.file(join(fingerprintRoot,path)).text()).trim();if(/^[0-9a-f]{16}$/.test(bytes)&&BigInt('0x'+Buffer.from(bytes,'hex').reverse().toString('hex'))===BigInt(dependency[1]))candidates.push(path);}
+    assert.equal(candidates.length,1,'Exact built application library required: '+name);
+    const unit=candidates[0].split(/[\\/]/)[0],suffix=unit.slice(unit.lastIndexOf('-')+1),file=join(deps,'lib'+name+'-'+suffix+'.rlib');
+    assert.ok(await Bun.file(file).exists(),'Built application rlib missing: '+file);
+    libraryBindings.push({name,path:file,fingerprint:candidates[0]});
+    args.push('--extern',name+'='+file);
   }
+  await Bun.write(join(directory,'fixture-library-bindings.json'),JSON.stringify({applicationFingerprint:appCandidates[0].path,libraries:libraryBindings},null,2));
   const compiler = Bun.spawn(["D:/home/.cargo/bin/rustc.exe", ...args], {
     env,
     stdout: "pipe",
@@ -609,7 +639,18 @@ export async function clientCertificateFixture(output, options = {}) {
         else if (
           [
             "grpc-open",
+            "grpc-orca-report",
+            "grpc-orca-malformed",
+            "grpc-orca-attempt",
+            "grpc-orca-goaway",
+            "grpc-orca-close",
             "grpc-message",
+            "grpc-malformed-response",
+            "grpc-policy-attempt",
+            "grpc-policy-cancel",
+            "grpc-policy-backoff",
+            "grpc-refused-attempt",
+            "grpc-throttle-attempt",
             "grpc-end",
             "grpc-cancelled",
             "grpc-reflection",
@@ -633,7 +674,13 @@ export async function clientCertificateFixture(output, options = {}) {
       }
     }
   })();
+  /** @type {import("node:dgram").Socket|undefined} */ let policyDns;
+  const dnsQueries = /** @type {Array<{name:string,type:number,enforcementPercentage?:number,maxTokens?:number,tokenRatio?:number,throttlePresent?:boolean,receivedAt?:number,sentAt?:number,sendError?:string}>} */ ([]);
+  const dnsTimers = /** @type {Set<ReturnType<typeof setTimeout>>} */ (new Set());
   const close = async () => {
+    for (const timer of dnsTimers) clearTimeout(timer);
+    const dns=policyDns;
+    if (dns) await new Promise(resolve => dns.close(()=>resolve(undefined)));
     await Bun.write(
       join(directory, "fixture-observations.json"),
       JSON.stringify(
@@ -646,6 +693,7 @@ export async function clientCertificateFixture(output, options = {}) {
           grpcRequests,
           grpcConnections,
           grpcEvents,
+          dnsQueries,
           sseEvents,
           signatures,
           algorithmConnections,
@@ -678,6 +726,68 @@ export async function clientCertificateFixture(output, options = {}) {
     throw error;
   }
   assert.ok(state.ready);
+  let policyUrl;
+  if (options.grpcPolicy) {
+    /** @type {Array<Record<string,any>>} */
+    const methodConfig=options.grpcDeadline ? [
+      {name:[{service:'owned.Sample',method:'DeadlineObject'}],timeout:{seconds:0,nanos:800000000}},
+      {name:[{service:'owned.Sample',method:'DeadlineString'}],timeout:'1.2s'},
+      {name:[{service:'owned.Sample',method:'DeadlineEarlier'}],timeout:'3s'}
+    ] : options.grpcThrottle ? [{name:[{service:'owned.Sample'}],retryPolicy:{maxAttempts:3,initialBackoff:'0.01s',maxBackoff:'0.1s',backoffMultiplier:2,retryableStatusCodes:['UNAVAILABLE']}}] : options.grpcBudget ? (options.grpcEmptyBudget ? ['BudgetEmptyExact','BudgetEmptyOver'] : ['BudgetExact','BudgetOver']).map(method=>({name:[{service:'owned.Sample',method}],retryPolicy:{maxAttempts:3,initialBackoff:'0.01s',maxBackoff:'0.1s',backoffMultiplier:2,retryableStatusCodes:['UNAVAILABLE']}})) : [
+      {name:[{service:'owned.Sample',method:'RetryOnce'}],retryPolicy:{maxAttempts:3,initialBackoff:'0.01s',maxBackoff:'0.1s',backoffMultiplier:2,retryableStatusCodes:['UNAVAILABLE']}},
+      {name:[{service:'owned.Sample',method:'HedgeOnce'}],hedgingPolicy:{maxAttempts:2,hedgingDelay:'0.05s',nonFatalStatusCodes:['UNAVAILABLE']}},
+      {name:[{service:'owned.Sample',method:'RetryCancel'}],retryPolicy:{maxAttempts:3,initialBackoff:'0.01s',maxBackoff:'0.1s',backoffMultiplier:2,retryableStatusCodes:['UNAVAILABLE']}},
+      {name:[{service:'owned.Sample',method:'HedgeCancel'}],hedgingPolicy:{maxAttempts:3,hedgingDelay:'0.4s',nonFatalStatusCodes:['UNAVAILABLE']}}
+    ];
+    if(options.grpcStatusNames){
+      methodConfig.splice(0,methodConfig.length,...['RetryAscii','RetryUnicode','HedgeAscii','HedgeUnicode'].map(method=>{
+        const codes=[method.endsWith('Unicode')?'unavaılable':'uNaVaIlAbLe'];
+        return {name:[{service:'owned.Sample',method}],...(method.startsWith('Retry')?{retryPolicy:{maxAttempts:2,initialBackoff:'0.01s',maxBackoff:'0.1s',backoffMultiplier:2,retryableStatusCodes:codes}}:{hedgingPolicy:{maxAttempts:2,hedgingDelay:'0.4s',nonFatalStatusCodes:codes}})};
+      }));
+    }
+    if(options.grpcPolicyDeadline || options.grpcResolverHold)for(const config of methodConfig){
+      if(config.name.some((/** @type {Record<string,any>} */ name)=>'method' in name && typeof name.method==='string' && ['RetryCancel','HedgeCancel'].includes(name.method)))Object.assign(config,{timeout:{seconds:0,nanos:650000000}});
+    }
+    const weightsProbe=process.env.INSOMNIUM_GRPC_ORCA_WEIGHTS;
+    if(weightsProbe){methodConfig.splice(0,methodConfig.length,{name:[{service:'owned.Sample',method:'RetryOnce'}],retryPolicy:{maxAttempts:['blackout-exit','expiry-refresh'].includes(weightsProbe)?3:2,initialBackoff:'0.4s',maxBackoff:'0.4s',backoffMultiplier:1,retryableStatusCodes:['UNAVAILABLE']}});}
+    /** @type {{
+     * loadBalancingConfig?: Array<{weighted_round_robin: {enable_oob_load_report:boolean,oob_load_reporting_period:string,blackout_period:string,weight_update_period:string,weight_expiration_period?:string,error_utilization_penalty?:number}}>,
+     * methodConfig: typeof methodConfig,
+     * retryThrottling?: {maxTokens:number,tokenRatio:number}
+     * }} */
+    const serviceConfig={...(options.grpcOrca?{loadBalancingConfig:[{weighted_round_robin:{enable_oob_load_report:true,oob_load_reporting_period:'0.2s',blackout_period:'0s',weight_update_period:'0.1s'}}]}:{}),methodConfig,...(options.grpcThrottle?{retryThrottling:{maxTokens:4,tokenRatio:3}}:{})};
+    if(weightsProbe)serviceConfig.loadBalancingConfig=[{weighted_round_robin:{enable_oob_load_report:weightsProbe!=='control',oob_load_reporting_period:'0.2s',blackout_period:['blackout','blackout-exit'].includes(weightsProbe)?'1s':'0s',weight_expiration_period:weightsProbe==='expiry'?'0.1s':weightsProbe==='expiry-refresh'?'0.5s':'180s',error_utilization_penalty:weightsProbe==='penalty0'?0:1,weight_update_period:'0.1s'}}];
+    const txt=Buffer.from('grpc_config='+JSON.stringify([{serviceConfig}]));
+    let throttleRevision=0;
+    let outlierRevision=0;
+    const dns=createSocket('udp4');
+    policyDns=dns;
+    dns.on('message',(packet,peer)=>{
+      let end=12;const labels=[];
+      while(packet[end]){const size=packet[end++];labels.push(packet.subarray(end,end+size).toString());end+=size;}
+      end++;const type=packet.readUInt16BE(end);end+=4;
+      const name=labels.join('.');
+      const revision=(options.grpcThrottleResize||options.grpcThrottleReset)&&type===16?Math.min(throttleRevision++,2):undefined;
+      const resize=options.grpcThrottleReset&&revision!==undefined ? (revision===1?null:{maxTokens:4,tokenRatio:1}) : options.grpcThrottleResize&&revision!==undefined?{maxTokens:[4,8,4][revision],tokenRatio:1}:undefined;
+      const enforcementPercentage=options.grpcOutlier&&type===16?(options.grpcOutlierRecovery?100:outlierRevision++===0?0:100):undefined;
+      const query=/** @type {(typeof dnsQueries)[number]} */({name,type,...resize,...(enforcementPercentage!==undefined?{enforcementPercentage}:{}),...(options.grpcThrottleReset&&type===16?{throttlePresent:resize!==null}:{}),...(options.grpcResolverHold?{receivedAt:Date.now()}: {})});dnsQueries.push(query);
+      const intervalProbe=process.env.INSOMNIUM_GRPC_ORCA_INTERVAL==='1';
+      const intervalMs=intervalProbe&&type===16?(outlierRevision++===0?200:400):undefined;
+      if(intervalMs!==undefined)Object.assign(query,{intervalMs});
+      const intervalTxt=intervalMs===undefined?null:Buffer.from('grpc_config='+JSON.stringify([{serviceConfig:{...serviceConfig,loadBalancingConfig:[{weighted_round_robin:{enable_oob_load_report:true,oob_load_reporting_period:intervalMs===200?'0.2s':'0.4s',blackout_period:'0s',weight_update_period:'0.1s'}}]}}]));
+      const selectedTxt=intervalTxt??(enforcementPercentage!==undefined?Buffer.from('grpc_config='+JSON.stringify([{serviceConfig:grpcOutlierConfig(enforcementPercentage)}])):resize===null?Buffer.from('grpc_config='+JSON.stringify([{serviceConfig:{methodConfig}}])):resize?Buffer.from('grpc_config='+JSON.stringify([{serviceConfig:{...serviceConfig,retryThrottling:resize}}])):txt);
+      assert.equal(name,'owned-policy.test');assert.ok([1,28,16].includes(type));
+      const answer=type===1?Buffer.from([127,0,0,1]):type===16?Buffer.concat(Array.from({length:Math.ceil(selectedTxt.length/255)},(_,i)=>{const part=selectedTxt.subarray(i*255,(i+1)*255);return Buffer.concat([Buffer.from([part.length]),part]);})):null;
+      const header=Buffer.alloc(12);packet.copy(header,0,0,2);header.writeUInt16BE(0x8180,2);header.writeUInt16BE(1,4);header.writeUInt16BE(answer?1:0,6);
+      let rr=Buffer.alloc(0);if(answer){rr=Buffer.alloc(12);rr.writeUInt16BE(0xc00c,0);rr.writeUInt16BE(type,2);rr.writeUInt16BE(1,4);rr.writeUInt16BE(answer.length,10);rr=Buffer.concat([rr,answer]);}
+      if(weightsProbe&&type===1){header.writeUInt16BE(2,6);const other=Buffer.from(rr);other[other.length-1]=2;rr=Buffer.concat([rr,other]);}
+      const reply=Buffer.concat([header,packet.subarray(12,end),rr]);
+      const timer=setTimeout(()=>{dnsTimers.delete(timer);dns.send(reply,peer.port,peer.address,error=>{if(options.grpcResolverHold){if(error)query.sendError=String(error);else query.sentAt=Date.now();}});},type===1?(options.grpcResolverHold?1500:150):0);dnsTimers.add(timer);
+    });
+    await new Promise(resolve=>dns.bind(0,'127.0.0.1',()=>resolve(undefined)));
+    const address=dns.address(),grpcPort=new URL(String(state.ready.grpc)).port;
+    policyUrl='grpcs://dns://127.0.0.1:'+address.port+'/owned-policy.test:'+grpcPort;
+  }
   const primary = { url: String(state.ready.primary) };
   const sink = { url: String(state.ready.sink) };
   return {
@@ -715,11 +825,13 @@ export async function clientCertificateFixture(output, options = {}) {
     sinkRequests,
     connections,
     rejected,
-    grpc: { url: String(state.ready.grpc) },
+    grpc: { url: String(state.ready.grpc), policyUrl },
+    dnsQueries,
     grpcAlpha: { url: String(state.ready.grpcAlpha) },
     grpcRequests,
     grpcConnections,
     grpcEvents,
+    releaseRefusedHeaders: () => { child.stdin.write("release-refused-headers\n"); return child.stdin.flush(); },
     sseEvents,
     async verifyFixture() {
       const independentFailures = [];

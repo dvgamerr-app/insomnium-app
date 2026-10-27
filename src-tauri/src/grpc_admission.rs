@@ -2,7 +2,7 @@
 use super::replay::Input;
 use prost::Message;
 use std::sync::{Arc, Mutex, Weak};
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, watch};
 
 type Binding<M> = Arc<Mutex<Option<Weak<Input<M>>>>>;
 pub(crate) struct Receiver<M> {
@@ -54,6 +54,27 @@ impl<M: Message + Clone> Sender<M> {
             binding: self.binding,
         })
     }
+    /// A call can end while its transport still retains the body receiver.
+    /// Cancellation must release queued producers without waiting for that drop.
+    pub(crate) async fn send_until_cancelled(
+        &self,
+        message: M,
+        cancellation: &mut watch::Receiver<bool>,
+    ) -> Result<(), mpsc::error::SendError<()>> {
+        if *cancellation.borrow() || cancellation.has_changed().is_err() {
+            return Err(mpsc::error::SendError(()));
+        }
+        let permit = tokio::select! {
+            biased;
+            _ = cancellation.changed() => return Err(mpsc::error::SendError(())),
+            result = self.clone().reserve_owned() => result?,
+        };
+        if *cancellation.borrow() || cancellation.has_changed().is_err() {
+            return Err(mpsc::error::SendError(()));
+        }
+        permit.send(message);
+        Ok(())
+    }
     pub(crate) async fn send(&self, message: M) -> Result<(), mpsc::error::SendError<()>> {
         self.clone().reserve_owned().await?.send(message);
         Ok(())
@@ -71,5 +92,72 @@ impl<M: Message + Clone> Permit<M> {
         } else {
             self.inner.send(message);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+    fn message(seconds: i64) -> prost_types::Duration {
+        prost_types::Duration { seconds, nanos: 0 }
+    }
+    #[tokio::test]
+    async fn call_cancellation_releases_admission_with_retained_receiver() {
+        // Old command path: cancellation cannot wake send while the live body
+        // receiver keeps a full queue. Keep that control instead of dropping it.
+        let (sender, mut receiver) = channel(1);
+        sender.send(message(1)).await.unwrap();
+        let (cancel, mut cancelled) = watch::channel(false);
+        let mut old = Box::pin(sender.send(message(2)));
+        assert!(futures_util::poll!(&mut old).is_pending());
+        cancel.send(true).unwrap();
+        assert!(tokio::time::timeout(Duration::from_millis(20), &mut old)
+            .await
+            .is_err());
+        drop(old);
+        assert_eq!(receiver.inner.recv().await.unwrap().seconds, 1);
+        assert!(receiver.inner.try_recv().is_err());
+        // An already-cancelled call must not consume an available permit.
+        assert!(sender
+            .send_until_cancelled(message(3), &mut cancelled)
+            .await
+            .is_err());
+        assert!(receiver.inner.try_recv().is_err());
+        for close_owner in [false, true] {
+            let (sender, mut receiver) = channel(1);
+            sender.send(message(10)).await.unwrap();
+            let (cancel, mut cancelled) = watch::channel(false);
+            let mut pending = Box::pin(sender.send_until_cancelled(message(20), &mut cancelled));
+            assert!(futures_util::poll!(&mut pending).is_pending());
+            if close_owner {
+                drop(cancel);
+            } else {
+                cancel.send(true).unwrap();
+            }
+            assert!(tokio::time::timeout(Duration::from_secs(1), &mut pending)
+                .await
+                .unwrap()
+                .is_err());
+            drop(pending);
+            assert_eq!(receiver.inner.recv().await.unwrap().seconds, 10);
+            assert!(
+                receiver.inner.try_recv().is_err(),
+                "Cancelled message must never enter the retained queue"
+            );
+        }
+        let (sender, mut receiver) = channel(1);
+        let (_cancel, mut cancelled) = watch::channel(false);
+        sender
+            .send_until_cancelled(message(30), &mut cancelled)
+            .await
+            .unwrap();
+        assert_eq!(receiver.inner.recv().await.unwrap().seconds, 30);
+        drop(receiver);
+        assert!(sender
+            .send_until_cancelled(message(40), &mut cancelled)
+            .await
+            .is_err());
+        println!("Old send remains pending after call cancellation; cancel/owner-close wake new admission with receiver retained; no cancelled enqueue; healthy/closed-receiver controls pass");
     }
 }

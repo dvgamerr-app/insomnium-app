@@ -10,6 +10,22 @@ import {
 } from "./helpers/split-pane.js";
 import { assertRequestResponseSplit } from "./helpers/request-response-split.js";
 import { exerciseRunnerResults } from "./helpers/runner-results.js";
+import {initialData,newRequest} from '../../src/lib/model.js';
+import {addWideCollectionFixture} from './helpers/collection-actions-cases.js';
+
+const tabsOnly=process.env.INSOMNIUM_WORKSPACE_TABS_ONLY==='1';
+const tabData=initialData(),foreignTabs=initialData();
+const firstTab=tabData.resources.find(row=>row._id===tabData.activeRequestId);assert.ok(firstTab);firstTab.name='Owned restored first';
+const secondTab=newRequest(tabData.activeWorkspaceId,{name:'Owned restored second'});
+if(tabsOnly){
+  const {selectedId}=addWideCollectionFixture(foreignTabs);assert.ok(selectedId);
+  foreignTabs.resources.push({_id:'wrkm_owned_large_selection',_type:'workspace_meta',parentId:foreignTabs.activeWorkspaceId,activeRequestId:selectedId});
+  foreignTabs.activeRequestId=selectedId;
+}
+const folder={_id:'fld_owned_tab',_type:'request_group',parentId:tabData.activeWorkspaceId,name:'Owned tab folder'};
+tabData.resources.push(secondTab,folder,...foreignTabs.resources);
+const tabEnvironment=tabData.resources.find(row=>row._type==='environment');assert.ok(tabEnvironment);
+tabData.openTabs=[firstTab._id,secondTab._id,firstTab._id,folder._id,foreignTabs.activeRequestId,'req_missing_tab',secondTab._id,tabEnvironment._id];
 
 await withPreview(
   "nocturne-workspace",
@@ -17,6 +33,28 @@ await withPreview(
     const errors = /** @type {string[]} */ ([]);
     page.on("pageerror", (error) => errors.push(error.message));
     await page.getByRole("button", { name: "Git", exact: true }).waitFor();
+    if(tabsOnly){
+      const tabs=page.locator('.request-tabs'),read=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('insomnium-tauri-preview-v1')||'{}'));
+      assert.equal(await tabs.locator('.request-tab').count(),2,'Restored tabs have unique request IDs');
+      assert.equal(await tabs.getByRole('button',{name:'Close Owned restored first',exact:true}).count(),1);
+      await tabs.getByRole('button',{name:'Close Owned restored first',exact:true}).click();
+      await page.waitForFunction(id=>JSON.parse(localStorage.getItem('insomnium-tauri-preview-v1')||'{}').activeRequestId===id,secondTab._id);
+      let saved=await read();assert.deepEqual(saved.openTabs,[secondTab._id,foreignTabs.activeRequestId]);
+      assert.deepEqual(saved.resources.filter((/** @type {any} */ row)=>tabData.resources.some(original=>original._id===row._id)),tabData.resources);
+      await tabs.getByRole('button',{name:'Close Owned restored second',exact:true}).click();
+      await page.waitForFunction(()=>JSON.parse(localStorage.getItem('insomnium-tauri-preview-v1')||'{}').activeRequestId==='');
+      assert.equal(await tabs.locator('.request-tab').count(),0);assert.deepEqual((await read()).openTabs,[foreignTabs.activeRequestId]);
+      await page.reload();await page.locator('.tree-request-row').filter({hasText:'Owned restored second'}).waitFor();assert.equal(await tabs.locator('.request-tab').count(),0);assert.equal((await read()).activeRequestId,'');
+      await page.getByRole('combobox',{name:'Collection',exact:true}).selectOption(foreignTabs.activeWorkspaceId);
+      await tabs.locator('.request-tab').waitFor();assert.equal(await tabs.locator('.request-tab').count(),1);
+      assert.equal((await read()).activeRequestId,foreignTabs.activeRequestId,'Large collection restores its last request');
+      assert.equal(await tabs.getByText('Owned large request 9999',{exact:true}).isVisible(),true);
+      await page.getByRole('combobox',{name:'Collection',exact:true}).selectOption(tabData.activeWorkspaceId);
+      await page.waitForFunction(id=>JSON.parse(localStorage.getItem('insomnium-tauri-preview-v1')||'{}').activeWorkspaceId===id,tabData.activeWorkspaceId);
+      saved=await read();assert.equal(saved.activeRequestId,'');assert.deepEqual(saved.openTabs,[foreignTabs.activeRequestId]);assert.deepEqual(saved.history,tabData.history);assert.deepEqual(errors,[]);
+      await Bun.write(output+'/tabs.json',JSON.stringify({passed:true,duplicateTabsRemoved:true,nonRequestAndMissingTabsRemoved:true,stableOrder:true,closeActiveFallback:true,closeLastAndReloadEmpty:true,foreignTabsRetained:true,largeCollectionRequests:10000,rememberedLastRequest:true,authoredResourcesUnchanged:true,historyUnchanged:true},null,2));
+      await Bun.write(output+'/result.json',JSON.stringify({status:'passed',headless:true,focus:'saved request tabs'},null,2));return;
+    }
     if (process.env.INSOMNIUM_RUNNER_NESTED_ONLY === "1") {
       await page.getByRole("button",{name:"Tests",exact:true}).click();
       await page.getByRole("button",{name:"New Test Suite",exact:true}).click();
@@ -323,5 +361,5 @@ await withPreview(
       }),
     );
   },
-  { buildRoot: process.env.INSOMNIUM_UI_PREVIEW_BUILD },
+  { buildRoot: process.env.INSOMNIUM_UI_PREVIEW_BUILD,beforeNavigate:async page=>{if(tabsOnly)await page.addInitScript(data=>{if(!localStorage.getItem('insomnium-tauri-preview-v1'))localStorage.setItem('insomnium-tauri-preview-v1',JSON.stringify(data));},tabData);} },
 );

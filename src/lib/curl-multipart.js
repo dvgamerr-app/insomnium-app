@@ -1,8 +1,8 @@
 import { parseMediaType } from './media-type.js';
 import { transfer } from './request-code-multipart.js';
-import { multipartEncodings } from './multipart-headers.js';
+import { multipartEncodings, multipartHeaders } from './multipart-headers.js';
 
-/** @typedef {{name:string|null,value?:string,valueBase64?:boolean,fileName?:string|null,contentType?:string|null,headers:[string,string][],transferEncoding?:string|null,params?:CurlPart[]}} CurlPart */
+/** @typedef {{name:string|null,value?:string,valueBase64?:boolean,fileName?:string|null,contentType?:string|null,headers:string,transferEncoding?:string|null,params?:CurlPart[]}} CurlPart */
 const encoder = new TextEncoder();
 /** Curl_mime_contenttype deliberately uses a small extension table rather than
  * browser/OS MIME guesses. @param {string|null|undefined} name @returns {string|null} */
@@ -44,7 +44,8 @@ export function curlMultipart(parts, contentType = null, formEscape = false) {
     const form = type.split(';')[0].trim().toLowerCase() === 'multipart/form-data';
     const encoded = rows.map(part => {
       if (++nodes > 10000) throw Error('Multipart exceeds part limits.');
-      const headerValue = (/** @type {string} */ name) => part.headers.find(([key]) => key.toLowerCase() === name)?.[1];
+      const headerRows = multipartHeaders(part.headers,true);
+      const headerValue = (/** @type {string} */ name) => headerRows.find(([key]) => key.toLowerCase() === name)?.[1];
       const nested = Array.isArray(part.params);
       let mime = part.contentType ?? headerValue('content-type') ?? (nested ? 'multipart/mixed' : null);
       let payload;
@@ -75,11 +76,10 @@ export function curlMultipart(parts, contentType = null, formEscape = false) {
         if (transformed !== null) payload = encoder.encode(transformed);
         if (headerValue('content-transfer-encoding') === undefined) add('Content-Transfer-Encoding: ' + part.transferEncoding);
       }
-      for (const [name, value] of part.headers) {
-        if (!/^[!#$%&'*+\-.^_`|~\da-zA-Z]+$/.test(name) || /[\x00-\x08\x0a-\x1f\x7f]/.test(value))
-          throw Error('Invalid multipart header.');
+      for (const line of part.headers.split(/\r?\n/).filter(Boolean)) {
+        const name = line.slice(0,line.indexOf(':'));
         if (name.toLowerCase() === 'content-type') continue;
-        add(name + ': ' + value);
+        add(line);
       }
       return { header, payload };
     });

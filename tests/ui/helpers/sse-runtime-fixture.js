@@ -131,7 +131,7 @@ export async function createSseRuntimeFixture() {
           },
         });
         const encoding = url.searchParams.get("encoding");
-        if (encoding && !["gzip", "deflate", "br"].includes(encoding)) {
+        if (encoding && (encoding.split(",").length > 6 || encoding.split(",").some(value => !["gzip", "deflate", "br", "identity"].includes(value.trim().toLowerCase())))) {
           closed(row, "unsupported-fixture-encoding");
           return new Response("Unsupported fixture encoding", { status: 400 });
         }
@@ -170,10 +170,10 @@ export async function createSseRuntimeFixture() {
     records,
     errors,
     /** @param {string} token @param {'stream'|'reject'|'mime'|'held'} [mode]
-     * @param {'gzip'|'deflate'|'br'} [encoding] */
+     * @param {string} [encoding] */
     target(token, mode = "stream", encoding) {
       assert.ok(token);
-      return `http://127.0.0.1:${server.port}/${encodeURIComponent(token)}?mode=${mode}${encoding ? `&encoding=${encoding}` : ""}`;
+      return `http://127.0.0.1:${server.port}/${encodeURIComponent(token)}?mode=${mode}${encoding ? `&encoding=${encodeURIComponent(encoding)}` : ""}`;
     },
     /** @param {string} token @param {string|Uint8Array} data */
     push(token, data) {

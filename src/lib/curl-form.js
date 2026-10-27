@@ -126,9 +126,10 @@ function parsePart(name, input, group = false) {
         "Unsupported cURL multipart attribute. Supported: type=, filename=, inline headers= and encoder=.",
       );
     const attribute = match[1].toLowerCase();
+    const headerFile = attribute === "headers" && /^[@<]/.test(input[index + match[0].length] || "");
     const item = (attribute === "type" ? mimeWord : word)(
       input,
-      index + match[0].length,
+      index + match[0].length + (headerFile ? 1 : 0),
       fileList,
     );
     if (/[\x00-\x1f\x7f]/.test(item.value))
@@ -136,10 +137,16 @@ function parsePart(name, input, group = false) {
     if (attribute === "encoder") {
       if (!group) result.transferEncoding = item.value.toLowerCase();
     } else if (attribute === "headers") {
-      if (item.value.startsWith("@"))
-        throw new Error("cURL multipart header files must be replaced with inline headers.");
-      result.partHeaders = [result.partHeaders, item.value].filter(Boolean).join("\n");
-      multipartHeaders(result.partHeaders, true);
+      if (headerFile) {
+        const fileName = item.value;
+        if (!fileName) throw Error("Multipart header files require a filename.");
+        result._curlPartHeaderSources ??= result.partHeaders ? [result.partHeaders] : [];
+        result._curlPartHeaderSources.push({fileName});
+      } else {
+        result.partHeaders = [result.partHeaders, item.value].filter(Boolean).join("\n");
+        if (result._curlPartHeaderSources) result._curlPartHeaderSources.push(item.value);
+        multipartHeaders(result.partHeaders, true);
+      }
     } else if (attribute === "type") {
       result.contentTypeOverride = item.value;
     } else if (!fileContent && !group) result.fileNameOverride = item.value;
@@ -184,6 +191,7 @@ export function parseCurlForms(forms) {
         name, type: "multipart", params,
         ...(part.contentTypeOverride ? { contentTypeOverride: part.contentTypeOverride } : {}),
         ...(part.partHeaders ? { partHeaders: part.partHeaders } : {}),
+        ...(part._curlPartHeaderSources ? { _curlPartHeaderSources: part._curlPartHeaderSources } : {}),
       });
       stack.push(params);
       continue;

@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
 import {initialData} from '../../src/lib/model.js';
 import {withPreview} from './helpers/preview-app.js';
+import {multipartBytes,exerciseMultipartResponse} from './helpers/response-multipart-cases.js';
 
 const data=initialData();
 const legacyIdsOnly=process.env.INSOMNIUM_RESPONSE_LEGACY_IDS_ONLY==='1';
+const actionsOnly=process.env.INSOMNIUM_REQUEST_ACTIONS_ONLY==='1';
 const charsetOnly=process.env.INSOMNIUM_RESPONSE_CHARSET_ONLY==='1';
 const charsetBytes=Buffer.from([65,0,0,0,66,0,0,0]);
 let charsetRequests=0;
@@ -13,10 +15,6 @@ const imageOnly=process.env.INSOMNIUM_RESPONSE_IMAGE_ONLY==='1';
 const audioOnly=process.env.INSOMNIUM_RESPONSE_AUDIO_ONLY==='1';
 const csvOnly=process.env.INSOMNIUM_RESPONSE_CSV_ONLY==='1';
 const multipartOnly=process.env.INSOMNIUM_RESPONSE_MULTIPART_ONLY==='1';
-const multipartJson='{"message":"ไทย","id":9007199254740993}';
-const metadataPoints=Array.from(multipartJson),metadataBytes=Buffer.alloc(metadataPoints.length*4);
-metadataPoints.forEach((char,index)=>metadataBytes.writeUInt32LE(char.codePointAt(0)||0,index*4));
-const multipartBytes=Buffer.concat([Buffer.from('preamble\r\n--owned+parts\r\nContent-Disposition: form-data; name="metadata"\r\nContent-Type: application/json; charset=utf-32le\r\nContent-Transfer-Encoding: 8bit\r\nX-Owned: first\r\n\r\n'),metadataBytes,Buffer.from('\r\n--owned+parts\r\nContent-Disposition: attachment; name="binary"; filename="owned.bin"\r\nContent-Type: application/octet-stream\r\nContent-Transfer-Encoding: BASE64\r\n\r\n'),Buffer.from('AP8N\r\nCio='),Buffer.from('\r\n--owned+parts--\r\nepilogue')]);
 const pdfOnly=process.env.INSOMNIUM_RESPONSE_PDF_ONLY==='1';
 function ownedPdf(){
  const first='BT /F1 18 Tf 30 120 Td (Owned PDF page one) Tj ET\n0 0 1 rg 20 20 20 20 re f\n';
@@ -49,7 +47,48 @@ if(csvOnly)data.history=data.history.slice(0,1).map(entry=>({...entry,headers:[[
 if(pdfOnly)data.history=data.history.slice(0,1).map(entry=>({...entry,headers:[['Content-Type','application/pdf'],['Content-Disposition',"attachment; filename=report.pdf; filename*=UTF-8''%E0%B9%84%E0%B8%97%E0%B8%A2.pdf"]],body:'Owned PDF text representation',bodyBase64:pdfBase64}));
 if(multipartOnly)data.history=data.history.slice(0,1).map(entry=>({...entry,headers:[['Content-Type','multipart/mixed; boundary="owned+parts"']],body:multipartBytes.toString('utf8'),bodyBase64:multipartBytes.toString('base64')}));
 if(charsetOnly)data.history=data.history.slice(0,1).map(entry=>({...entry,headers:[['Content-Type','text/plain; charset=utf-32le']],body:'A\u0000\u0000\u0000B\u0000\u0000\u0000',bodyBase64:charsetBytes.toString('base64')}));
-await withPreview(legacyIdsOnly?'response-legacy-ids':charsetOnly?'response-charset-preview':multipartOnly?'response-multipart-preview':pdfOnly?'response-pdf-preview':csvOnly?'response-csv-preview':audioOnly?'response-audio-preview':imageOnly?'response-image-preview':htmlOnly?'response-html-preview':'response-history-app',async(page,output)=>{
+await withPreview(actionsOnly?'request-action-ownership':legacyIdsOnly?'response-legacy-ids':charsetOnly?'response-charset-preview':multipartOnly?'response-multipart-preview':pdfOnly?'response-pdf-preview':csvOnly?'response-csv-preview':audioOnly?'response-audio-preview':imageOnly?'response-image-preview':htmlOnly?'response-html-preview':'response-history-app',async(page,output)=>{
+ if(actionsOnly){
+  let release=()=>{};
+  let held=new Promise(resolve=>{release=()=>resolve(undefined);});
+  let requests=0;
+  await page.evaluate(()=>{
+   const state={started:0,runs:/** @type {{aborted:boolean}[]} */([])};/** @type {any} */(window).__ownedScheduledFetch=state;
+   const original=window.fetch;
+   /** @type {any} */(window).fetch=(/** @type {RequestInfo|URL} */ input,/** @type {RequestInit|undefined} */ init)=>{
+    const url=typeof input==='string'?input:input instanceof URL?input.href:input.url;
+    if(url.includes('/owned-schedule-held')){state.started++;const run={aborted:false};state.runs.push(run);const signal=init?.signal??(input instanceof Request?input.signal:null);signal?.addEventListener('abort',()=>{run.aborted=true;},{once:true});}
+    return original.call(window,input,init);
+   };
+  });
+  await page.route('**/owned-schedule-held',async route=>{requests++;await held;await route.fulfill({status:200,contentType:'text/plain',body:'Owned manual response'}).catch(()=>{});});
+  try{
+   const url=page.getByRole('textbox',{name:'Request URL',exact:true});await url.fill(new URL('/owned-schedule-held',page.url()).href);await url.blur();
+   const actions=page.getByRole('button',{name:'Request actions',exact:true});await actions.click();
+   await page.getByLabel('Delay or interval (seconds)',{exact:true}).fill('60');
+   await page.getByRole('button',{name:'Repeat on Interval',exact:true}).click();
+   await page.keyboard.press('Control+Enter');
+   await page.waitForFunction(()=>/** @type {any} */(window).__ownedScheduledFetch.started===1);
+   assert.equal(requests,1);
+   await page.getByRole('button',{name:'Cancel',exact:true}).click();
+   assert.equal(await page.evaluate(()=>/** @type {any} */(window).__ownedScheduledFetch.runs[0].aborted),false,'Cancel waiting schedule must not abort an independent manual send');
+   assert.equal(await page.getByRole('button',{name:'Cancel',exact:true}).isVisible(),true,'Manual request remains running after schedule retires');
+   release();
+   await page.waitForFunction(()=>JSON.parse(localStorage.getItem('insomnium-tauri-preview-v1')||'{}').history?.some((/** @type {any} */row)=>row.body==='Owned manual response'));
+   await page.getByRole('button',{name:'Send',exact:true}).waitFor();assert.equal(requests,1);
+   held=new Promise(resolve=>{release=()=>resolve(undefined);});
+   await actions.click();await page.getByLabel('Delay or interval (seconds)',{exact:true}).fill('0.02');
+   await page.getByRole('button',{name:'Repeat on Interval',exact:true}).click();
+   await page.waitForFunction(()=>/** @type {any} */(window).__ownedScheduledFetch.started===2);
+   await page.getByRole('button',{name:'Cancel',exact:true}).click();
+   await page.waitForFunction(()=>/** @type {any} */(window).__ownedScheduledFetch.runs[1].aborted===true);
+   release();await page.getByRole('button',{name:'Send',exact:true}).waitFor();
+   await page.waitForTimeout(80);assert.equal(requests,2,'Cancelled repeat does not send later ticks');assert.deepEqual(errors,[]);
+   await page.screenshot({path:output+'/ownership.png'});
+   await Bun.write(output+'/result.json',JSON.stringify({status:'passed',headless:true,manualRunPreserved:true,scheduledRunCancelled:true,requests,manualCompleted:true,scheduledAbortObserved:true},null,2));
+  }finally{release();await page.unroute('**/owned-schedule-held');}
+  return;
+ }
  if(legacyIdsOnly){
   const trigger=page.getByRole('button',{name:'Response history',exact:true});
   await trigger.waitFor();await trigger.click();
@@ -71,33 +110,32 @@ await withPreview(legacyIdsOnly?'response-legacy-ids':charsetOnly?'response-char
   const editor=page.locator('textarea[aria-label="Response body"]').first();
   await page.waitForFunction(()=>/** @type {HTMLTextAreaElement|null} */(document.querySelector('textarea[aria-label="Response body"]'))?.value==='AB');
   assert.equal(await editor.inputValue(),'AB');
-  await page.getByRole('textbox',{name:'Request URL',exact:true}).fill(new URL('/owned-charset-response',page.url()).href);
-  const savedEvent=page.waitForEvent('download');
-  await page.getByRole('button',{name:'Request actions',exact:true}).click();
-  await page.getByRole('dialog').getByRole('button',{name:'Send And Download',exact:true}).click();
-  const saved=await savedEvent;assert.equal(saved.suggestedFilename(),'owned-response.txt');assert.equal(charsetRequests,1);
-  const savedPath=await saved.path();assert.ok(savedPath);assert.deepEqual(Buffer.from(await Bun.file(savedPath).bytes()),charsetBytes);
+  const downloadNames = [
+   {source:'',expected:'owned-response.txt'},
+   {source:'COM¹.txt',expected:'_COM¹.txt'},
+   {source:'ไทย'.repeat(40)+'.txt',expected:'ไทย'.repeat(27)+'ไท.txt'},
+   {source:'😀'.repeat(80)+'.bin',expected:'😀'.repeat(62)+'.bin'},
+   {source:'bad\u0085name.txt',expected:'bad_name.txt'},
+  ];
+  for (const item of downloadNames) {
+   const url=new URL('/owned-charset-response',page.url());if(item.source)url.searchParams.set('filename',item.source);
+   await page.getByRole('textbox',{name:'Request URL',exact:true}).fill(url.href);
+   const savedEvent=page.waitForEvent('download');
+   await page.getByRole('button',{name:'Request actions',exact:true}).click();
+   await page.getByRole('dialog').getByRole('button',{name:'Send And Download',exact:true}).click();
+   const saved=await savedEvent;assert.equal(saved.suggestedFilename(),item.expected);
+   const savedPath=await saved.path();assert.ok(savedPath);assert.deepEqual(Buffer.from(await Bun.file(savedPath).bytes()),charsetBytes);
+   await saved.delete();
+  }
+  assert.equal(charsetRequests,downloadNames.length);
   await page.getByRole('group',{name:'Response formatting',exact:true}).getByRole('button',{name:'Raw',exact:true}).click();
   await page.reload();await page.waitForFunction(()=>/** @type {HTMLTextAreaElement|null} */(document.querySelector('textarea[aria-label="Response body"]'))?.value==='AB');
   const stored=await page.evaluate(()=>JSON.parse(localStorage.getItem('insomnium-tauri-preview-v1')||'{}').history.find((/** @type {any} */ entry)=>entry._id==='res_owned_history_0'));assert.equal(stored.body,'A\u0000\u0000\u0000B\u0000\u0000\u0000');assert.equal(stored.bodyBase64,charsetBytes.toString('base64'));assert.deepEqual(errors,[]);
-  await Bun.write(output+'/result.json',JSON.stringify({status:'passed',headless:true,decodedCharset:true,exactSavedBytes:true,sendAndDownload:true,wireRequests:charsetRequests,filename:'owned-response.txt',reload:true,originalHistoryUnchanged:true},null,2));return;
+  await Bun.write(output+'/result.json',JSON.stringify({status:'passed',headless:true,decodedCharset:true,exactSavedBytes:true,sendAndDownload:true,wireRequests:charsetRequests,filename:'owned-response.txt',filenameCases:downloadNames,reload:true,originalHistoryUnchanged:true},null,2));return;
  }
  if(multipartOnly){
-  const selector=page.getByRole('combobox',{name:'Response part',exact:true});await selector.waitFor();
-  assert.equal(await selector.locator('option').count(),2);
-  const editor=page.locator('textarea[aria-label="Response part body"]').first();
-  await page.waitForFunction(()=>/** @type {HTMLTextAreaElement|null} */(document.querySelector('textarea[aria-label="Response part body"]'))?.value.includes('ไทย'));
-  assert.match(await editor.inputValue(),/9007199254740993/);
-  await page.getByRole('button',{name:'Part headers',exact:true}).click();
-  assert.match(await page.getByLabel('Part headers',{exact:true}).textContent()||'',/X-Ownedfirst/);
-  await selector.selectOption('1');
-  const downloaded=page.waitForEvent('download');await page.getByRole('button',{name:'Save part',exact:true}).click();
-  const file=await downloaded;assert.equal(file.suggestedFilename(),'owned.bin');const path=await file.path();assert.ok(path);
-  assert.deepEqual(Buffer.from(await Bun.file(path).bytes()),Buffer.from([0,255,13,10,42]));
-  await page.screenshot({path:output+'/multipart-preview.png'});
-  assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('insomnium-tauri-preview-v1')||'{}').history[0].bodyBase64),multipartBytes.toString('base64'));
-  assert.deepEqual(errors,[]);
-  await Bun.write(output+'/result.json',JSON.stringify({status:'passed',headless:true,parts:2,jsonUnicodeAndLargeInteger:true,utf32Part:true,transferBase64:true,headers:true,exactBinaryDownload:true,originalBytes:true},null,2));return;
+  const result=await exerciseMultipartResponse({page,output,loadHistory:()=>page.evaluate(()=>JSON.parse(localStorage.getItem('insomnium-tauri-preview-v1')||'{}').history)});
+  assert.deepEqual(errors,[]);await Bun.write(output+'/result.json',JSON.stringify({status:'passed',headless:true,...result},null,2));return;
  }
  if(pdfOnly){
   const deadline=setTimeout(()=>{void page.close();},15000);
@@ -240,4 +278,4 @@ await withPreview(legacyIdsOnly?'response-legacy-ids':charsetOnly?'response-char
  await page.reload();await trigger.waitFor();await page.locator('.status-badge').filter({hasText:'200 Owned 200'}).waitFor();
  assert.deepEqual(errors,[]);
  await Bun.write(output+'/result.json',JSON.stringify({status:'passed',headless:true,rows,reload:true},null,2));
-},{fetch:request=>charsetOnly&&new URL(request.url).pathname==='/owned-charset-response'?(charsetRequests++,new Response(charsetBytes,{headers:{'Content-Type':'text/plain; charset=utf-32le'}})):undefined,...(visualOnly?{headers:{'Content-Security-Policy':'frame-src blob:','Cross-Origin-Opener-Policy':'same-origin','Cross-Origin-Embedder-Policy':'require-corp'}}:{}),beforeNavigate:async page=>{page.on('pageerror',error=>errors.push(error.message));await page.addInitScript(value=>{if(window.top===window&&!localStorage.getItem('insomnium-tauri-preview-v1'))localStorage.setItem('insomnium-tauri-preview-v1',JSON.stringify(value));},data);}});
+},{fetch:request=>charsetOnly&&new URL(request.url).pathname==='/owned-charset-response'?(charsetRequests++,new Response(charsetBytes,{headers:{'Content-Type':'text/plain; charset=utf-32le',...(new URL(request.url).searchParams.has('filename')?{'Content-Disposition':"attachment; filename*=UTF-8''"+encodeURIComponent(new URL(request.url).searchParams.get('filename')||'')}: {})}})):undefined,...(visualOnly?{headers:{'Content-Security-Policy':'frame-src blob:','Cross-Origin-Opener-Policy':'same-origin','Cross-Origin-Embedder-Policy':'require-corp'}}:{}),beforeNavigate:async page=>{page.on('pageerror',error=>errors.push(error.message));await page.addInitScript(value=>{if(window.top===window&&!localStorage.getItem('insomnium-tauri-preview-v1'))localStorage.setItem('insomnium-tauri-preview-v1',JSON.stringify(value));},data);}});

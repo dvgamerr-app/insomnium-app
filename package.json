@@ -9,17 +9,17 @@
   },
   "type": "module",
   "scripts": {
-    "dev": "bun x --bun vite dev",
-    "build": "bun x --bun vite build",
+    "dev": "bun run prepare:vendor && bun x --bun vite dev",
+    "build": "bun run prepare:vendor && bun x --bun vite build",
     "preview": "bun x --bun vite preview",
-    "prepare": "bun run generate:openapi && bun run generate:plugin-buffer && bun x --bun svelte-kit sync",
+    "prepare": "bun run prepare:vendor && bun run generate:openapi && bun run generate:plugin-buffer && bun x --bun svelte-kit sync",
     "check": "bun x --bun svelte-kit sync && bun x --bun svelte-check --tsconfig ./jsconfig.json --config ./svelte.config.js --fail-on-warnings",
     "check:watch": "bun run check --watch",
     "quality": "bun scripts/check-quality.mjs",
-    "tauri": "bun x --bun tauri",
+    "tauri": "bun run prepare:vendor && bun x --bun tauri",
     "desktop": "bun run tauri dev",
     "desktop:build": "bun scripts/build-desktop.mjs",
-    "native:check": "cargo check --manifest-path src-tauri/Cargo.toml",
+    "native:check": "bun run prepare:vendor && cargo check --manifest-path src-tauri/Cargo.toml",
     "generate:openapi": "bun scripts/build-openapi-validators.mjs",
     "generate:plugin-buffer": "bun scripts/build-plugin-buffer.mjs",
     "test:ui:git-create": "bun tests/ui/git-create-and-switch.js",
@@ -46,7 +46,8 @@
     "test:ui:theme": "bun tests/ui/nocturne-theme.js",
     "test:ui:workspace": "bun tests/ui/nocturne-workspace.js",
     "test:ui:window-controls": "bun tests/ui/window-controls.js",
-    "test:ui:source-control": "bun tests/ui/git-source-control.js"
+    "test:ui:source-control": "bun tests/ui/git-source-control.js",
+    "prepare:vendor": "bun scripts/prepare-vendor.mjs"
   },
   "license": "MIT",
   "dependencies": {
@@ -73,7 +74,6 @@
     "date-fns": "4.4.0",
     "diff": "9.0.0",
     "graphql": "16",
-    "httpsnippet-lite": "3.0.5",
     "iconv-lite": "0.6.3",
     "jsonpath-plus": "11.1.0",
     "mime-db": "1.52.0",
@@ -87,6 +87,7 @@
     "string_decoder": "1.3.0",
     "url": "0.11.4",
     "uuid": "14.0.2",
+    "web-streams-polyfill": "4.3.0",
     "xpath": "0.0.34",
     "yaml": "^2.9.1"
   },

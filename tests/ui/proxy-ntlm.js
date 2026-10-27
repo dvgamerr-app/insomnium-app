@@ -9,6 +9,7 @@ import { preserveNativeProfile } from "./helpers/native-profile-preservation.js"
 import {
   withResourceProbePreserved,
   registerResourceProbeCollection,
+  resourceSaved,
 } from "./helpers/resource-manager-cases.js";
 import { newRequest, id } from "../../src/lib/model.js";
 import { createProxyNtlmFixture } from "./helpers/proxy-ntlm-fixture.js";
@@ -23,6 +24,7 @@ await preserveNativeProfile(async () =>
   withResourceProbePreserved(
     async () => {
       await withNativeApp("proxy-ntlm", async ({ page, invoke, output }) => {
+        await resourceSaved(page);
         const fixture = await createProxyNtlmFixture(output);
         if(digestOnly)fixture.setMode('digest');
         const checks = /** @type {Record<string,any>[]} */ ([]);
@@ -66,6 +68,7 @@ await preserveNativeProfile(async () =>
           });
           await invoke("save_workspace", { data });
           await page.reload();
+          await resourceSaved(page);
           /** @param {string} proxy */
           const preferences = async (proxy) => {
             await page
@@ -99,6 +102,7 @@ await preserveNativeProfile(async () =>
           };
           await preferences(fixture.httpProxy);
           await page.reload();
+          await resourceSaved(page);
           const historyIds = new Set(
             (await invoke("load_workspace")).history.map(
               (/** @type {any} */ r) => r._id,
@@ -125,7 +129,10 @@ await preserveNativeProfile(async () =>
           const body = Buffer.from(Array.from({ length: 256 }, (_, i) => i));
           /** @param {string} proxy @param {string} url @param {Record<string,any>} [extra] */
           const send = async (proxy, url, extra = {}) =>
-            invoke("send_http", {
+            page.evaluate(async ({ request }) => {
+              try { return await /** @type {any} */ (window).__TAURI_INTERNALS__.invoke('send_http', { request }); }
+              catch (error) { throw new Error(typeof error === 'object' && error && 'message' in error ? String(error.message) : String(error)); }
+            }, {
               request: {
                 id: id(),
                 workspaceId,
@@ -175,11 +182,81 @@ await preserveNativeProfile(async () =>
             assert.equal((await send(fixture.httpProxy,fixture.httpOrigin+'/origin-digest',{headers:[],digest:{username:'origin-digest-user',password:'origin-digest-password'}})).status,200);
             assert.ok(fixture.origins.slice(originDigest).some(r=>r.proofValid));
             checks.push({kind:'origin-digest-shared-signer-regression',signatureVerified:true});
+            const digest = { username: 'origin-digest-user', password: 'origin-digest-password' };
+            const target = (/** @type {Record<string,string>} */ options) => fixture.httpOrigin + '/origin-digest-proof?' + new URLSearchParams(options);
+            for (const algorithm of ['MD5', 'SHA-256', 'SHA-512-256', 'MD5-sess', 'SHA-256-sess', 'SHA-512-256-sess']) {
+              for (const qop of algorithm.endsWith('-sess') ? ['auth', 'auth-int'] : ['none', 'auth', 'auth-int']) {
+                const result = await send('', target({ algorithm, qop }), { headers: [], digest });
+                assert.equal(result.status, 200);
+                assert.deepEqual(Buffer.from(result.bodyBase64, 'base64'), body);
+                checks.push({ kind: 'origin-response-proof', algorithm, qop });
+              }
+            }
+            for (const proof of ['trailer', 'absent', 'nextnonce', 'redirect', 'stale']) {
+              assert.deepEqual(Buffer.from((await send('', target({ proof }), { headers: [], digest })).bodyBase64, 'base64'), body);
+              checks.push({ kind: 'origin-response-proof-control', proof });
+            }
+            for (const coding of ['gzip', 'deflate', 'br', 'stacked']) {
+              for (const proof of ['header', 'trailer']) {
+                const result = await send('', target({ coding, proof }), { headers: [], digest, decodeResponse: true });
+                assert.deepEqual(Buffer.from(result.bodyBase64, 'base64'), body);
+                checks.push({ kind: 'encoded-entity-proof', coding, proof, decodeResponse: true });
+              }
+            }
+            const defaultDecoded = await send('', target({ coding: 'gzip', proof: 'trailer' }), { headers: [], digest });
+            assert.deepEqual(Buffer.from(defaultDecoded.bodyBase64, 'base64'), body);
+            checks.push({ kind: 'default-decoder-encoded-entity-trailer' });
+            for (const proof of ['forged', 'cnonce', 'nc', 'qop', 'duplicate', 'malformed', 'incomplete', 'missing-trailer', 'decoded-hash', 'bad-redirect', 'bad-stale']) {
+              const start = fixture.origins.length;
+              await assert.rejects(send('', target({ proof, ...(proof === 'decoded-hash' ? { coding: 'gzip' } : {}) }), { headers: [], digest, decodeResponse: true }),
+                (error) => String(error).includes('Digest response authentication failed'));
+              if (['bad-redirect', 'bad-stale'].includes(proof)) assert.equal(fixture.origins.length - start, 2, 'Reject intermediate proof before following redirect or stale retry');
+              checks.push({ kind: 'origin-response-proof-refusal', proof });
+            }
+            for (const method of ['HEAD', 'GET']) {
+              assert.equal((await send('', target(method === 'HEAD' ? {} : { empty: '1' }), { method, headers: [], digest, bodyBase64: null })).status, method === 'HEAD' ? 200 : 204);
+              checks.push({ kind: 'bodyless-response-proof', method });
+            }
+            for (const [protocol, proof] of [['sse', 'trailer'], ['sse', 'forged'], ['websocket', 'header'], ['websocket', 'forged']]) {
+              const current = await invoke('load_workspace');
+              const selected = current.resources.find((/** @type {any} */ row) => row._id === request._id);
+              Object.assign(selected, { _type: protocol === 'sse' ? 'request' : 'websocket_request', method: 'GET',
+                url: protocol === 'sse' ? target({ sse: '1', proof, coding: 'gzip' }) : fixture.httpOrigin.replace(/^http/, 'ws') + '/websocket?proof=' + proof,
+                responseMode: protocol === 'sse' ? 'sse' : undefined, headers: [],
+                authentication: { type: 'digest', ...digest }, body: { mimeType: '', text: '', params: [] } });
+              current.settings.proxy = '';
+              const previous = new Set(current.history.map((/** @type {any} */ row) => row._id));
+              await invoke('save_workspace', { data: current }); await page.reload(); await resourceSaved(page);
+              await page.getByRole('button', { name: /^(?:Connect|Reconnect)$/ }).click();
+              if (protocol === 'websocket' && proof === 'header') {
+                await page.getByRole('region', { name: 'Stream response', exact: true }).getByText('open', { exact: true }).first().waitFor();
+                await poll(() => Promise.resolve(fixture.origins.some(row => row.upgrade && row.proofValid)), 'Digest WebSocket upgrade verified');
+                await page.getByRole('button', { name: 'Disconnect', exact: true }).click();
+              }
+              let saved = /** @type {any} */ (null);
+              await poll(async () => {
+                saved = (await invoke('load_workspace')).history.find((/** @type {any} */ row) => row.requestId === request._id && row.protocol === protocol && !previous.has(row._id));
+                return saved && ['error', 'closed'].includes(saved.connectionState) && !(await page.getByRole('button', { name: 'Disconnect', exact: true }).count());
+              }, 'Digest stream terminal history');
+              if (proof === 'forged') {
+                assert.equal(saved.connectionState, 'error');
+                assert.ok(saved.events.some((/** @type {any} */ event) => event.kind === 'error' && event.message.includes('Digest response authentication failed')));
+                if (protocol === 'websocket') assert.ok(!saved.events.some((/** @type {any} */ event) => event.kind === 'open'));
+              } else {
+                assert.equal(saved.connectionState, 'closed');
+                if (protocol === 'sse') assert.ok(saved.events.some((/** @type {any} */ event) => event.data === 'digest-response-ok'));
+              }
+              await page.reload();
+              await resourceSaved(page);
+              const reloaded = (await invoke('load_workspace')).history.find((/** @type {any} */ row) => row._id === saved._id);
+              assert.deepEqual(reloaded, saved);
+              checks.push({ kind: 'mounted-digest-stream-proof-reload', protocol, proof });
+            }
             assert.deepEqual(fixture.errors,[]);
             await poll(()=>Promise.resolve(fixture.activeSocketCount()===0),'Digest fixture sockets retired before cleanup');
             assert.ok(fixture.records.every(r=>r.socketClosed));
             await Bun.write(output+'/acceptance.json',JSON.stringify({passed:true,checks,records:fixture.records,origins:fixture.origins,
-              limits:'Local HTTP proxy SHA-256/auth-int, CONNECT, one stale retry, rejection/no Basic downgrade and Basic/NTLM/origin Digest controls; other algorithms/TLS proxies/provider/platform remain open.'},null,2));
+              limits:'Origin response proofs cover MD5/SHA-256/SHA-512-256, supported session/qop variants, encoded bodies, trailers, refusals, redirects and mounted SSE/WS history/reload on Windows. Proxy response proofs, nonce cache, legacy encodings, provider/platform and all retained gates remain open.'},null,2));
             return;
           }
           for (const [proxyName, proxy] of [
@@ -770,6 +847,7 @@ await preserveNativeProfile(async () =>
             ),
           );
         } finally {
+          const beforeCleanup = { sockets: fixture.socketDiagnostics(), upgrades: fixture.origins.filter(row => row.upgrade && !row.closed).map(row => ({ ...row })) };
           await fixture.close();
           await Bun.write(
             output + "/fixture-observations.json",
@@ -779,6 +857,7 @@ await preserveNativeProfile(async () =>
                 records: fixture.records,
                 origins: fixture.origins,
                 errors: fixture.errors,
+                beforeCleanup,
               },
               null,
               2,

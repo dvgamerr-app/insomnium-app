@@ -12,12 +12,11 @@ const nonnegative = (value) =>
 /** @param {string} id @param {string} code @param {string} message */
 const diagnostic = (id, code, message) => ({ id, code, message });
 
-/** Use the shared ownership/path validation; only explicit raw SSE producer input
- * is supported. No mutation, file access or compression guessing occurs here.
+/** Use shared ownership/path/compression validation for legacy SSE sources.
+ * No mutation, file access or decompression occurs here.
  * @param {Record<string,any>[]} resources */
 export function legacySseAssetRequests(resources) {
   const requested = legacyResponseAssetRequests(resources, "sse");
-  const index = new Map(resources.map((resource) => [resource._id, resource]));
   const diagnostics = [...requested.diagnostics];
   const entries = requested.entries
     .filter((entry) => {
@@ -31,20 +30,13 @@ export function legacySseAssetRequests(resources) {
         );
         if (!entry.timelinePath) return false;
       }
-      if (index.get(entry.id)?.bodyCompression === null) return true;
-      diagnostics.push(
-        diagnostic(
-          entry.id,
-          "unsupported-sse-compression",
-          "Legacy SSE requires explicit bodyCompression:null raw NDJSON; compressed or unspecified formats are retained without activation.",
-        ),
-      );
-      return Boolean(entry.timelinePath);
+      return true;
     })
-    .map((entry) => ({ ...entry,
-      bodyPath: index.get(entry.id)?.bodyCompression === null ? entry.bodyPath || null : null,
-      bodyCompression: index.get(entry.id)?.bodyCompression === null ? entry.bodyCompression : "raw",
-      bodyFormat: "sse-ndjson" }));
+    .map((entry) => ({
+      ...entry,
+      bodyPath: entry.bodyPath || null,
+      bodyFormat: "sse-ndjson",
+    }));
   return { entries, diagnostics };
 }
 
@@ -116,10 +108,8 @@ export function convertLegacySseHistory(
   );
   const warnings = [
     ...converted.warnings,
-    ...requested.diagnostics.filter((item) =>
-      ["unsupported-sse-compression", "invalid-sse-body-path"].includes(
-        item.code,
-      ),
+    ...requested.diagnostics.filter(
+      (item) => item.code === "invalid-sse-body-path",
     ),
   ];
   const supplied = new Map(
@@ -133,7 +123,6 @@ export function convertLegacySseHistory(
       const request = index.get(entry.requestId);
       if (!response || !request)
         throw Error("Legacy SSE response owner is missing.");
-      if (response.bodyCompression !== null) continue;
       if (history.length >= 100)
         throw Error(
           "Only the newest 100 SSE histories can be activated per preview.",

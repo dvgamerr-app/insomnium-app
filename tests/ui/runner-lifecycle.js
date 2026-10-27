@@ -2,12 +2,14 @@ import assert from "node:assert/strict";
 import { heldHttp } from "./helpers/held-http.js";
 import { withNativeApp, poll, integrationProbeIdentifier, selectedNativeProbeIdentifier } from "./helpers/native-app.js";
 import { preserveNativeProfile } from "./helpers/native-profile-preservation.js";
-import { withResourceProbePreserved, registerResourceProbeCollection } from "./helpers/resource-manager-cases.js";
+import { withResourceProbePreserved, registerResourceProbeCollection, manageResource } from "./helpers/resource-manager-cases.js";
 import { id, newRequest } from "../../src/lib/model.js";
 
 assert.equal(selectedNativeProbeIdentifier(), integrationProbeIdentifier);
 assert.ok(process.env.INSOMNIUM_UI_BUILD_STATE, "Explicit native build required");
 const closeDuringRun = process.env.INSOMNIUM_RUNNER_NATIVE_CLOSE === "1";
+const deleteDuringRun = process.env.INSOMNIUM_RUNNER_DELETE_REQUEST === "1";
+assert.ok(!(closeDuringRun && deleteDuringRun), "Select one Runner lifecycle focus");
 /** @type {((context:import('./helpers/native-app.js').ScenarioContext)=>Promise<void>)|undefined} */
 let resumeAfterClose;
 const fixtureHttp = await heldHttp({
@@ -94,6 +96,11 @@ expect(delegated).to.equal(1);`,
         code: "expect('actual').to.equal('expected');",
       },
     );
+    if (deleteDuringRun) {
+      data.resources.find((/** @type {any} */ item) => item._id === testId).code =
+        `await insomnia.sendRequest('${fixture.requestId}');`;
+      request.url = `http://127.0.0.1:${fixtureHttp.port}/held`;
+    }
     await invoke("save_workspace", { data });
     registerResourceProbeCollection(fixture.workspaceId, collectionName);
     await page.reload();
@@ -105,6 +112,44 @@ expect(delegated).to.equal(1);`,
     await runner
       .getByRole("textbox", { name: "Test suite name", exact: true })
       .waitFor();
+    if (deleteDuringRun) {
+      const before = await invoke("load_workspace");
+      const results = (/** @type {any} */ value) => value.resources.filter(
+        (/** @type {any} */ item) => item._type === "unit_test_result" && item.unitTestSuiteId === suiteId,
+      );
+      await runner.getByRole("button", { name: "Run Callback contract", exact: true }).click();
+      await poll(async () => fixtureHttp.held === 1, "Runner reaches owned held transport before request deletion");
+      await page.getByRole("button", { name: "Collections", exact: true }).click();
+      const dialog = await manageResource(page, "Preserved local request");
+      await dialog.getByRole("button", { name: "Delete…", exact: true }).click();
+      await dialog.getByRole("button", { name: "Back", exact: true }).click();
+      assert.equal(fixtureHttp.cancelled, 0, "Cancelled deletion preserves the live request");
+      assert.ok((await invoke("load_workspace")).resources.some((/** @type {any} */ row) => row._id === fixture.requestId));
+      await dialog.getByRole("button", { name: "Delete…", exact: true }).click();
+      await dialog.getByRole("button", { name: "Delete", exact: true }).click();
+      await dialog.waitFor({ state: "detached" });
+      await poll(async () => fixtureHttp.cancelled === 1, "Deleted request cancels the owning Runner transport");
+      await poll(async () => !(await invoke("load_workspace")).resources.some((/** @type {any} */ row) => row._id === fixture.requestId), "Request deletion persisted");
+      await page.getByRole("button", { name: "Tests", exact: true }).click();
+      await runner.getByRole("button", { name: "Run Tests", exact: true }).waitFor();
+      assert.equal(fixtureHttp.completeHeld(), 0, "No held transport survives for a late response");
+      const deleted = await invoke("load_workspace");
+      assert.deepEqual(results(deleted), results(before), "Cancelled Runner cannot publish a result after request deletion");
+      assert.deepEqual(deleted.history, before.history, "Deleted request cannot publish late history");
+      assert.equal(deleted.openTabs.includes(fixture.requestId), false);
+      assert.equal(deleted.activeRequestId, "");
+      assert.ok(deleted.resources.some((/** @type {any} */ row) => row._id === suiteId));
+      assert.ok(deleted.resources.some((/** @type {any} */ row) => row._id === testId));
+      await page.reload();
+      await page.getByRole("button", { name: "Tests", exact: true }).click();
+      await runner.getByRole("textbox", { name: "Test suite name", exact: true }).waitFor();
+      const reloaded = await invoke("load_workspace");
+      assert.deepEqual(reloaded.resources, deleted.resources);
+      assert.deepEqual(reloaded.history, deleted.history);
+      assert.deepEqual(pageErrors, []);
+      await Bun.write(output + "/acceptance.json", JSON.stringify({passed:true,focus:"delete-running-request",nativeHttpSends:fixtureHttp.held,cancelledHeldCalls:fixtureHttp.cancelled,completedHeldCalls:fixtureHttp.completed,echoes:fixtureHttp.echoes,states:["actual Worker waits on native HTTP","Back preserves live owner","confirmed request deletion cancels Runner transport","no late result/history or pending connection","suite/test retained and deleted request absent after reload"],limits:"Named Windows deletion and renderer reload; not OS-close, all models/providers/platforms or full data parity"},null,2));
+      return;
+    }
     assert.equal(
       await runner
         .getByRole("textbox", { name: "Test suite name", exact: true })

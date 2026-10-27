@@ -33,4 +33,6 @@ import "codemirror-graphql/variables/hint.js";
 import "codemirror-graphql/variables/lint.js";
 import "codemirror-graphql/jump.js";
 import "codemirror-graphql/info.js";
+import { installGraphqlJump } from "./editor-jump.js";
+installGraphqlJump(CodeMirror);
 export default CodeMirror;

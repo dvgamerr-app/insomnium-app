@@ -1,4 +1,4 @@
-import { id, workspaceFor } from "./model.js";
+import { id, indexWorkspaces } from "./model.js";
 import { xpathNamespaces } from "./xpath-namespaces.js";
 
 /** @param {Record<string, any>[]} resources @param {string} requestId */
@@ -16,8 +16,14 @@ export function requestPinMeta(resources, request) {
 
 /** @param {Record<string,any>[]} resources @param {string} workspaceId */
 export function pinnedRequests(resources, workspaceId) {
+  const workspaces = indexWorkspaces(resources);
+  const metadata = new Map([['request_meta',new Map()],['grpc_request_meta',new Map()]]);
+  for (const resource of resources) {
+    const rows = metadata.get(resource._type);
+    if (rows && !rows.has(resource.parentId)) rows.set(resource.parentId,resource);
+  }
   return resources.filter((r) => ["request", "websocket_request", "grpc_request"].includes(r._type) &&
-    workspaceFor(resources, r._id) === workspaceId && requestPinMeta(resources, r)?.pinned === true);
+    workspaces.get(r._id) === workspaceId && metadata.get(r._type === 'grpc_request' ? 'grpc_request_meta' : 'request_meta')?.get(r._id)?.pinned === true);
 }
 
 /** Legacy lastActive metadata determines request-switch order without changing
@@ -25,9 +31,10 @@ export function pinnedRequests(resources, workspaceId) {
  * @param {Record<string,any>[]} resources @param {string} workspaceId
  * @returns {Record<string,any>[]} */
 export function recentRequests(resources, workspaceId) {
+  const workspaces = indexWorkspaces(resources);
   const metadata = new Map(resources.filter(r => ['request_meta','grpc_request_meta'].includes(r._type)).map(r => [r.parentId,r]));
   return resources.filter(r => ['request','websocket_request','grpc_request'].includes(r._type) &&
-    workspaceFor(resources,r._id) === workspaceId).map(request => {
+    workspaces.get(r._id) === workspaceId).map(request => {
       const value=metadata.get(request._id)?.lastActive;
       return {...request,lastActive:typeof value === 'number' && Number.isFinite(value) ? value : 0};
     }).sort((a,b)=>b.lastActive-a.lastActive);

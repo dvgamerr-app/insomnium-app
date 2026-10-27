@@ -14,7 +14,6 @@ const PER_CHANNEL: usize = 1 << 24;
 
 struct Entry<M> {
     message: M,
-    count: u64,
     bytes: usize,
 }
 struct Cursor {
@@ -114,23 +113,13 @@ impl<M> Input<M> {
         else {
             return;
         };
-        loop {
-            let Some((&start, entry)) = state.cache.first_key_value() else {
-                break;
-            };
-            if start >= next {
-                break;
-            }
-            let end = start + entry.count;
-            let mut entry = state.cache.pop_first().unwrap().1;
-            if end <= next {
-                self.release(state, entry.bytes);
-            } else {
-                // Only identical empty-wire messages share an entry.
-                entry.count = end - next;
-                state.cache.insert(next, entry);
-                break;
-            }
+        while state
+            .cache
+            .first_key_value()
+            .is_some_and(|(&start, _)| start < next)
+        {
+            let entry = state.cache.pop_first().unwrap().1;
+            self.release(state, entry.bytes);
         }
     }
     pub(super) fn committed(&self) -> bool {
@@ -233,7 +222,9 @@ impl<M: Message + Clone> Input<M> {
         }
     }
     fn stage(&self, state: &mut State<M>, message: M) {
-        let bytes = message.encoded_len();
+        // grpc-js buffers after identity framing: one flag plus four length
+        // bytes. Empty protobuf payloads therefore still consume five bytes.
+        let bytes = message.encoded_len().saturating_add(5);
         let mut total = self
             .budget
             .lock()
@@ -263,22 +254,13 @@ impl<M: Message + Clone> Input<M> {
             drop(total);
             bytes
         };
-        if bytes == 0
-            && state.cache.last_key_value().is_some_and(|(_, entry)| {
-                entry.bytes == 0 && entry.message.encoded_len() == 0 && entry.count < u64::MAX
-            })
-        {
-            state.cache.last_entry().unwrap().get_mut().count += 1;
-        } else {
-            state.cache.insert(
-                state.next,
-                Entry {
-                    message,
-                    count: 1,
-                    bytes: charged,
-                },
-            );
-        }
+        state.cache.insert(
+            state.next,
+            Entry {
+                message,
+                bytes: charged,
+            },
+        );
         state.next += 1;
         Self::wake(state);
     }
@@ -343,12 +325,9 @@ impl<M: Message + Clone> Stream for Attempt<M> {
             cursor.wake = Some(cx.waker().clone());
             let next = cursor.next;
             if next < state.next {
-                let Some((&start, entry)) = state.cache.range(..=next).next_back() else {
+                let Some(entry) = state.cache.get(&next) else {
                     return Poll::Ready(None);
                 };
-                if next >= start + entry.count {
-                    return Poll::Ready(None);
-                }
                 let message = entry.message.clone();
                 state.cursors.get_mut(&self.generation).unwrap().next += 1;
                 if state.committed {
@@ -374,5 +353,110 @@ impl<M: Message + Clone> Stream for Attempt<M> {
             }
             self.input.stage(&mut state, message);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use futures_util::StreamExt;
+
+    #[derive(Clone, PartialEq, Message)]
+    struct Blob {
+        #[prost(bytes = "vec", tag = "1")]
+        data: Vec<u8>,
+    }
+    fn boundary() -> Blob {
+        let message = Blob {
+            data: vec![42; PER_CALL - 9],
+        };
+        assert_eq!(message.encoded_len() + 5, PER_CALL);
+        message
+    }
+    #[tokio::test]
+    async fn replay_budget_counts_framing_and_releases_exactly() {
+        let budget = Arc::new(Mutex::new(0));
+        let (sender, receiver) = super::super::admission::channel(2);
+        let guard = Input::new(receiver, budget.clone(), true);
+        sender.send(boundary()).await.unwrap();
+        assert!(!guard.0.committed());
+        assert_eq!(
+            *budget.lock().unwrap(),
+            PER_CALL,
+            "Replay includes the five-byte frame header"
+        );
+        sender.send(Blob::default()).await.unwrap();
+        assert!(
+            guard.0.committed(),
+            "Even an empty protobuf adds five wire bytes"
+        );
+        drop(sender);
+        let mut attempt = guard.0.attempt();
+        assert_eq!(attempt.next().await.unwrap(), boundary());
+        assert_eq!(attempt.next().await.unwrap(), Blob::default());
+        assert!(attempt.next().await.is_none());
+        assert_eq!(*budget.lock().unwrap(), 0);
+        drop(attempt);
+        drop(guard);
+
+        let (sender, receiver) = super::super::admission::channel(2);
+        let guard = Input::new(receiver, budget.clone(), true);
+        sender.send(Blob::default()).await.unwrap();
+        sender.send(Blob::default()).await.unwrap();
+        drop(sender);
+        assert_eq!(*budget.lock().unwrap(), 10);
+        let mut first = guard.0.attempt();
+        let mut second = guard.0.attempt();
+        for _ in 0..2 {
+            assert_eq!(first.next().await.unwrap(), Blob::default());
+            assert_eq!(second.next().await.unwrap(), Blob::default());
+        }
+        assert!(first.next().await.is_none());
+        assert!(second.next().await.is_none());
+        assert_eq!(
+            *budget.lock().unwrap(),
+            10,
+            "Uncommitted attempts retain replay storage"
+        );
+        drop(guard);
+        assert_eq!(
+            *budget.lock().unwrap(),
+            0,
+            "Cancellation releases once despite retained cursors"
+        );
+        drop(first);
+        drop(second);
+
+        let mut owners = Vec::new();
+        for _ in 0..16 {
+            let (sender, receiver) = super::super::admission::channel(1);
+            let owner = Input::new(receiver, budget.clone(), true);
+            sender.send(boundary()).await.unwrap();
+            drop(sender);
+            assert!(!owner.0.committed());
+            owners.push(owner);
+        }
+        assert_eq!(*budget.lock().unwrap(), PER_CHANNEL);
+        let (sender, receiver) = super::super::admission::channel(1);
+        let overflow = Input::new(receiver, budget.clone(), true);
+        sender.send(Blob::default()).await.unwrap();
+        drop(sender);
+        assert!(
+            overflow.0.committed(),
+            "Shared channel budget counts empty frames too"
+        );
+        assert_eq!(*budget.lock().unwrap(), PER_CHANNEL);
+        drop(owners.pop());
+        assert_eq!(*budget.lock().unwrap(), PER_CHANNEL - PER_CALL);
+        let (sender, receiver) = super::super::admission::channel(1);
+        let reused = Input::new(receiver, budget.clone(), true);
+        sender.send(Blob::default()).await.unwrap();
+        drop(sender);
+        assert!(!reused.0.committed());
+        assert_eq!(*budget.lock().unwrap(), PER_CHANNEL - PER_CALL + 5);
+        drop(reused);
+        drop(overflow);
+        drop(owners);
+        assert_eq!(*budget.lock().unwrap(), 0);
     }
 }

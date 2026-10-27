@@ -25,12 +25,14 @@ const owned=['workspace-v1.json','workspace-v1.previous.json','.window-state.jso
 const journals=new Set(['git-transition-v1.json','git-clone-install-v1.json','insomnium-fetch-journal-v1.json','insomnium-restore-ref-locks-v1.json','insomnium-advance-ref-locks-v1.json']);
 /** Preserve an existing allowlisted probe profile around a fully awaited native
  * scenario. The callback must await native process exit before settling.
- * Only workspace, clean lifecycle metadata and default window-state files may change; originals stay in RAM. Unknown
+ * Only explicitly selected workspace/auxiliary files may change; originals stay in RAM. Unknown
  * changes are refused and retained, never deleted or overwritten.
  * @template T
  * @param {(context:{profile:string,workspacePath:string})=>Promise<T>} run
+ * @param {{responseDownloads?:boolean,pluginData?:boolean}} [options]
  * @returns {Promise<T>} */
-export async function preserveNativeProfile(run){
+export async function preserveNativeProfile(run, options = {}){
+ const selectedOwned = [...owned,...(options.responseDownloads?["response-downloads-v1.json"]:[]),...(options.pluginData?["plugin-data-v1.json"]:[])];
  assert.ok(process.env.APPDATA,'Probe profile requires APPDATA');
  const profile=resolve(process.env.APPDATA,selectedNativeProbeIdentifier());
  const inventory=async()=>{
@@ -49,16 +51,16 @@ export async function preserveNativeProfile(run){
   };
   await visit(profile);return rows;
  };
- const before=await inventory(), originals=await Promise.all(owned.map(async name=>{
+ const before=await inventory(), originals=await Promise.all(selectedOwned.map(async name=>{
   const exists=before.some(row=>row.name===name&&row.kind==='file');
-  assert.ok(exists||name==='.window-state.json'||name===cookieLifecycleFile,'Existing workspace file required: '+name);
+  assert.ok(exists||name==='.window-state.json'||name===cookieLifecycleFile||name==='response-downloads-v1.json'||options.pluginData&&name==='plugin-data-v1.json','Existing workspace file required: '+name);
   return {name,path:join(profile,name),bytes:exists?await readFile(join(profile,name)):undefined};
  }));
  let result=/** @type {T|undefined} */(undefined),failure=/** @type {unknown} */(undefined);
  try{result=await run({profile,workspacePath:join(profile,owned[0])});}catch(error){failure=error;}
  const errors=/** @type {unknown[]} */([]);
  let canRestore=true;
- try{const after=await inventory();assert.deepEqual(after.filter(row=>!owned.includes(row.name)),before.filter(row=>!owned.includes(row.name)),'Unowned profile contents and layout changed');}catch(error){errors.push(error);canRestore=false;}
+ try{const after=await inventory();assert.deepEqual(after.filter(row=>!selectedOwned.includes(row.name)),before.filter(row=>!selectedOwned.includes(row.name)),'Unowned profile contents and layout changed');}catch(error){errors.push(error);canRestore=false;}
  if(canRestore)for(const original of originals){try{
   if(original.bytes===undefined){
    try{const stat=await lstat(original.path);assert.ok(stat.isFile()&&!stat.isSymbolicLink());assert.equal((await realpath(original.path)).toLowerCase(),original.path.toLowerCase());await unlink(original.path);}catch(error){if(/** @type {any} */(error).code!=='ENOENT')throw error;}

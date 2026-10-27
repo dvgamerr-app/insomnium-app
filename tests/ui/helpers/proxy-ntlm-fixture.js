@@ -19,6 +19,7 @@ import {
 } from "node:crypto";
 import { mkdir, realpath } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
+import { gzipSync, deflateSync, brotliCompressSync } from "node:zlib";
 
 // Independent proof oracle: MS-NLMP 2.2.1.2 / 2.2.2.1 / 3.3.2.
 // https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-nlmp/
@@ -48,6 +49,40 @@ export function digestProof(value,method,target,body,nonce,user=username,secret=
   const ha1=hash(user+':owned Digest:'+secret),ha2=hash(method+':'+target+':'+hash(body));
   assert.equal(fields.response,hash([ha1,nonce,fields.nc,fields.cnonce,'auth-int',ha2].join(':')));
   return {proofValid:true,digestNonce:nonce,digestTarget:target,digestQop:fields.qop};
+}
+/** Independent RFC7616 request/response oracle, using only observed wire fields.
+ * @param {any} req @param {Buffer} body @param {Buffer} entity */
+function digestResponseProof(req, body, entity) {
+  const options = new URL(req.url, 'http://fixture').searchParams;
+  const algorithm = options.get('algorithm') || 'SHA-256', qop = options.get('qop') || 'auth-int';
+  let nonce = 'owned-response-nonce';
+  const realm = 'owned response', mode = options.get('proof') || 'header';
+  const challenge = `Digest realm="${realm}", nonce="${nonce}", algorithm=${algorithm}${qop === 'none' ? '' : `, qop="${qop}"`}`;
+  if (!req.headers.authorization) return { challenge, info: '', proofValid: false };
+  const fields = Object.fromEntries([...req.headers.authorization.matchAll(/([\w*]+)=(?:"((?:\\.|[^"\\])*)"|([^,\s]+))/g)]
+    .map((/** @type {any} */ match) => [match[1], match[2] === undefined ? match[3] : match[2].replace(/\\(.)/g, '$1')]));
+  if (mode.endsWith('stale') && fields.nonce === nonce + '-next') nonce += '-next';
+  assert.equal(fields.username, 'origin-digest-user'); assert.equal(fields.realm, realm);
+  assert.equal(fields.nonce, nonce); assert.equal(fields.uri, req.url); assert.equal(fields.algorithm ?? 'MD5', algorithm);
+  assert.equal(fields.qop, qop === 'none' ? undefined : qop);
+  if (qop !== 'none') { assert.equal(fields.nc, '00000001'); assert.ok(fields.cnonce); }
+  const hashName = algorithm.replace(/-sess$/, '').toLowerCase().replace('sha-512-256', 'sha512-256').replace('sha-256', 'sha256');
+  const hash = (/** @type {string|Buffer} */ value) => createHash(hashName).update(value).digest('hex');
+  let ha1 = hash(`origin-digest-user:${realm}:origin-digest-password`);
+  if (algorithm.endsWith('-sess')) ha1 = hash(`${ha1}:${nonce}:${fields.cnonce}`);
+  const digest = (/** @type {string} */ ha2) => hash(qop === 'none' ? `${ha1}:${nonce}:${ha2}` : `${ha1}:${nonce}:${fields.nc}:${fields.cnonce}:${qop}:${ha2}`);
+  assert.equal(fields.response, digest(hash(`${req.method}:${req.url}${qop === 'auth-int' ? ':' + hash(body) : ''}`)));
+  let rspauth = digest(hash(`:${req.url}${qop === 'auth-int' ? ':' + hash(entity) : ''}`));
+  if (['forged', 'bad-redirect', 'bad-stale'].includes(mode)) rspauth = '0'.repeat(rspauth.length);
+  let info = `rspauth="${rspauth}"${qop === 'none' ? '' : `, qop=${qop}, cnonce="${fields.cnonce}", nc=${fields.nc}`}`;
+  if (mode === 'cnonce') info = info.replace(fields.cnonce, 'foreign-client');
+  if (mode === 'nc') info = info.replace('nc=00000001', 'nc=00000002');
+  if (mode === 'qop') info = info.replace(`qop=${qop}`, 'qop=foreign');
+  if (mode === 'duplicate') info += `, rspauth="${rspauth}"`;
+  if (mode === 'malformed') info = 'rspauth="unterminated';
+  if (mode === 'incomplete') info = `qop=${qop}`;
+  if (mode === 'nextnonce') info = 'nextnonce="future-nonce"';
+  return { challenge, info, proofValid: true, algorithm, qop, nonce };
 }
 /** @param {string} [domainName] @param {Buffer} [nonce] */
 function type2(domainName = "FIXTURE", nonce = challengeNonce) {
@@ -320,6 +355,31 @@ export async function createProxyNtlmFixture(output) {
         if(!req.headers.authorization){res.writeHead(401,{'WWW-Authenticate':digestChallenge('owned-origin-digest-nonce'),'Content-Length':'0'});res.end();return;}
         Object.assign(row,digestProof(req.headers.authorization,req.method || '',req.url,body,'owned-origin-digest-nonce','origin-digest-user','origin-digest-password'));
       }
+      if (req.url.startsWith('/origin-digest-proof')) {
+        const options = new URL(req.url, 'http://fixture').searchParams;
+        const mode = options.get('proof') || 'header', coding = options.get('coding');
+        const decoded = req.method === 'HEAD' || options.has('empty') ? Buffer.alloc(0)
+          : options.has('sse') ? Buffer.from('event: fixture\ndata: digest-response-ok\n\n') : body;
+        let entity = decoded;
+        if (coding === 'gzip') entity = gzipSync(decoded);
+        if (coding === 'deflate') entity = deflateSync(decoded);
+        if (coding === 'br') entity = brotliCompressSync(decoded);
+        if (coding === 'stacked') entity = brotliCompressSync(gzipSync(decoded));
+        const proof = digestResponseProof(req, body, mode === 'decoded-hash' ? decoded : entity);
+        Object.assign(row, proof, { entityBase64: entity.toString('base64') });
+        if (!proof.proofValid) { res.writeHead(401, { 'WWW-Authenticate': proof.challenge, 'Content-Length': '0' }); res.end(); return; }
+        const headers = /** @type {Record<string,string>} */ ({ 'Content-Type': options.has('sse') ? 'text/event-stream' : 'application/octet-stream' });
+        if (coding) headers['Content-Encoding'] = coding === 'stacked' ? 'gzip, br' : coding;
+        if (['trailer', 'missing-trailer'].includes(mode)) headers.Trailer = 'Authentication-Info';
+        else { headers['Content-Length'] = String(entity.length); if (mode !== 'absent') headers['Authentication-Info'] = proof.info; }
+        if (mode.endsWith('redirect')) headers.Location = '/origin-digest-proof?proof=header';
+        const stale = mode.endsWith('stale') && proof.nonce === 'owned-response-nonce';
+        if (stale) headers['WWW-Authenticate'] = proof.challenge.replace('nonce="owned-response-nonce"', 'nonce="owned-response-nonce-next"') + ', stale=true';
+        res.writeHead(stale ? 401 : mode.endsWith('redirect') ? 307 : options.has('empty') ? 204 : 200, headers);
+        if (mode === 'trailer') { res.write(entity.subarray(0, 3)); res.write(entity.subarray(3)); res.addTrailers({ 'Authentication-Info': proof.info }); res.end(); }
+        else res.end(entity);
+        return;
+      }
       if (req.url === "/origin-ntlm") {
         const auth = req.headers.authorization ?? "";
         if (!auth) {
@@ -391,8 +451,8 @@ export async function createProxyNtlmFixture(output) {
         "Content-Length": String(body.length),
       });
       res.end(body);
-    } catch {
-      errors.push("Origin forwarding assertion failed");
+    } catch (error) {
+      errors.push("Origin forwarding assertion failed: " + String(error));
       res.writeHead(500);
       res.end();
     }
@@ -405,7 +465,8 @@ export async function createProxyNtlmFixture(output) {
     /** @type {Buffer} */ head,
   ) => {
     try {
-      assert.equal(req.url, "/websocket");
+      assert.ok(req.url);
+      assert.equal(req.url.split('?')[0], "/websocket");
       assert.equal(req.method, "GET");
       assert.equal(req.headers.upgrade?.toLowerCase(), "websocket");
       assert.ok(
@@ -437,11 +498,19 @@ export async function createProxyNtlmFixture(output) {
       socket.once("close", () => {
         row.closed = true;
       });
+      socket.once('end', () => socket.end());
+      let digestInfo = '';
+      if (req.url.includes('?')) {
+        const proof = digestResponseProof(req, Buffer.alloc(0), Buffer.alloc(0));
+        Object.assign(row, proof);
+        if (!proof.proofValid) { socket.end(`HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: ${proof.challenge}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n`); return; }
+        digestInfo = `Authentication-Info: ${proof.info}\r\n`;
+      }
       const accept = createHash("sha1")
         .update(key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11")
         .digest("base64");
       socket.write(
-        `HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n\r\n`,
+        `HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n${digestInfo}\r\n`,
       );
       let input = Buffer.from(head),
         fragmentOpcode = 0,
@@ -965,6 +1034,8 @@ export async function createProxyNtlmFixture(output) {
       origins,
       errors,
       activeSocketCount: () => sockets.size,
+      socketDiagnostics: () => [...sockets].map(socket => ({ localPort: socket.localPort, remotePort: socket.remotePort,
+        readableEnded: socket.readableEnded, writableEnded: socket.writableEnded, destroyed: socket.destroyed })),
       setMode(/** @type {string} */ next) {
         assert.ok(
           [

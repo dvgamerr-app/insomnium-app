@@ -943,11 +943,12 @@ async fn sse_session(
     // `then` holds at most the current decoded transport chunk. Each fragment
     // uses the same acknowledged delivery sequence as parsed events; no queue
     // or second reader can race parsing or terminal invocation completion.
+    let proof = response.extensions().get::<Arc<dyn reqwest::ResponseVerifier>>().cloned();
     let bytes = response
         .bytes_stream()
         .then(move |chunk| {
             let raw_delivery = raw_delivery.clone();
-            let chunk = chunk.map_err(|e| e.to_string());
+            let chunk = chunk.map_err(|e| crate::digest_response::body_error(&e));
             if chunk.as_ref().is_ok_and(|bytes| !bytes.is_empty()) {
                 chunk_number += 1;
             }
@@ -995,7 +996,10 @@ async fn sse_session(
                     shared_delivery.lock().await.message(StreamEvent::Sse { event: event.event, id: event.id, data: event.data, retry_ms: event.retry.map(|r| r.as_millis()) }).await?;
                 }
                 Some(Err(error)) => return Err(format!("SSE stream failed: {error}")),
-                None => return emit(&channel, StreamEvent::Closed { code: None, reason: "Event stream ended".into() }),
+                None => {
+                    crate::digest_response::check_complete(proof.as_ref())?;
+                    return emit(&channel, StreamEvent::Closed { code: None, reason: "Event stream ended".into() });
+                },
             }
         }
     }

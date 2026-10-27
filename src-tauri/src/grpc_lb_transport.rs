@@ -909,9 +909,10 @@ impl Service<Request> for Pool {
         call.start();
         Box::pin(async move {
             let mut response = future.await.map_err(Error::from)?;
-            wire_status::normalize(response.headers_mut());
-            call.observe(response.headers());
-            if response.headers().contains_key("grpc-status") {
+            let terminal = tonic::codegen::Body::is_end_stream(response.body());
+            wire_status::normalize(response.headers_mut(), terminal);
+            call.observe(response.headers(), terminal);
+            if terminal && response.headers().contains_key("grpc-status") {
                 if let Some(metrics) = &metrics {
                     metrics.observe(response.headers());
                 }
@@ -920,10 +921,10 @@ impl Service<Request> for Pool {
                 Body::new(body.map_frame(move |mut frame| {
                     let _ = &retained;
                     if let Some(trailers) = frame.trailers_mut() {
-                        wire_status::normalize(trailers);
+                        wire_status::normalize(trailers, true);
                     }
                     if let Some(trailers) = frame.trailers_ref() {
-                        call.observe(trailers);
+                        call.observe(trailers, true);
                     }
                     if let (Some(metrics), Some(trailers)) = (&metrics, frame.trailers_ref()) {
                         metrics.observe(trailers);
@@ -983,12 +984,13 @@ impl Service<Request> for Channel {
                 let future = channel.call(request);
                 Box::pin(async move {
                     let mut response = future.await.map_err(Error::from)?;
-                    wire_status::normalize(response.headers_mut());
+                    let terminal = tonic::codegen::Body::is_end_stream(response.body());
+                    wire_status::normalize(response.headers_mut(), terminal);
                     Ok(response.map(|body| {
                         Body::new(body.map_frame(move |mut frame| {
                             let _ = &retained;
                             if let Some(trailers) = frame.trailers_mut() {
-                                wire_status::normalize(trailers);
+                                wire_status::normalize(trailers, true);
                             }
                             frame
                         }))
@@ -999,5 +1001,472 @@ impl Service<Request> for Channel {
             Self::PickFirst(first) => first.call(request),
             Self::Dynamic(channel) => channel.call(request),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use hyper::{body::Bytes, Request as HttpRequest, Response as HttpResponse};
+
+    #[tokio::test]
+    async fn weighted_owner_reconnects_after_goaway_with_active_response() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let accepted = Arc::new(AtomicUsize::new(0));
+        let observed = accepted.clone();
+        let orca = Arc::new(AtomicUsize::new(0));
+        let reports = orca.clone();
+        let frames = Arc::new(Mutex::new(Vec::<Vec<u8>>::new()));
+        let captured = frames.clone();
+        let resets = Arc::new(AtomicUsize::new(0));
+        let cancelled = resets.clone();
+        let (release, goaway) = watch::channel(0_u64);
+        let (terminate, terminal_events) = watch::channel((0_u64, "12"));
+        let arrivals = Arc::new(Mutex::new(Vec::<tokio::time::Instant>::new()));
+        let record_arrivals = arrivals.clone();
+        let failures = Arc::new(Mutex::new(
+            Vec::<(&'static str, tokio::time::Instant)>::new(),
+        ));
+        let record_failures = failures.clone();
+        let terminated = Arc::new(AtomicUsize::new(0));
+        let terminal_count = terminated.clone();
+        let server = tokio::spawn(async move {
+            let mut tasks = tokio::task::JoinSet::new();
+            loop {
+                let (socket, _) = listener.accept().await.unwrap();
+                observed.fetch_add(1, Ordering::SeqCst);
+                let mut trigger = Some(goaway.clone());
+                trigger.as_mut().unwrap().borrow_and_update();
+                let terminal_events = terminal_events.clone();
+                let terminal_count = terminal_count.clone();
+                let reports = reports.clone();
+                let captured = captured.clone();
+                let cancelled = cancelled.clone();
+                let record_arrivals = record_arrivals.clone();
+                let record_failures = record_failures.clone();
+                tasks.spawn(async move {
+                    let mut peer:h2::server::Connection<_,Bytes>=h2::server::handshake(socket).await.unwrap();
+                    let mut streams=tokio::task::JoinSet::new();
+                    loop {
+                        tokio::select!{
+                            result=async{trigger.as_mut().unwrap().changed().await},if trigger.is_some()=>{result.unwrap();trigger=None;peer.graceful_shutdown();}
+                            request=peer.accept()=>{
+                                let Some(request)=request else{break};let (request,mut respond)=request.unwrap();let reports=reports.clone();let captured=captured.clone();let cancelled=cancelled.clone();let mut terminal_events=terminal_events.clone();let terminal_count=terminal_count.clone();let record_arrivals=record_arrivals.clone();let record_failures=record_failures.clone();terminal_events.borrow_and_update();
+                                streams.spawn(async move {
+                                    let metrics=request.uri().path().ends_with("StreamCoreMetrics");let mut body=request.into_body();let mut frame=Vec::new();
+                                    while let Some(bytes)=body.data().await{let bytes=bytes.unwrap();frame.extend_from_slice(&bytes);body.flow_control().release_capacity(bytes.len()).unwrap();}
+                                    let mut send=respond.send_response(HttpResponse::builder().status(200).header("content-type","application/grpc").body(()).unwrap(),false).unwrap();
+                                    if metrics {record_arrivals.lock().unwrap().push(tokio::time::Instant::now());captured.lock().unwrap().push(frame);send.send_data(Bytes::from_static(&[0,0,0,0,0]),false).unwrap();reports.fetch_add(1,Ordering::SeqCst);}
+                                    if metrics {
+                                        tokio::select! {
+                                            reset=std::future::poll_fn(|cx|send.poll_reset(cx))=>{eprintln!("ORCA metrics reset: {reset:?}");if matches!(reset, Ok(h2::Reason::CANCEL)){cancelled.fetch_add(1,Ordering::SeqCst);}}
+                                            changed=terminal_events.changed()=>{
+                                                changed.unwrap();let code=terminal_events.borrow_and_update().1;let at=tokio::time::Instant::now();let mut trailers=hyper::HeaderMap::new();trailers.insert("grpc-status",hyper::header::HeaderValue::from_static(code));send.send_trailers(trailers).unwrap();record_failures.lock().unwrap().push((code,at));terminal_count.fetch_add(1,Ordering::SeqCst);
+                                            }
+                                        }
+                                    }else{let _=std::future::poll_fn(|cx|send.poll_reset(cx)).await;}
+                                });
+                            }
+                        }
+                    }
+                    let _=std::future::poll_fn(|cx|peer.poll_closed(cx)).await;
+                });
+            }
+        });
+        let endpoint = Endpoint::from_shared(format!("http://{address}")).unwrap();
+        let cache = SubchannelCache::new(endpoint, &format!("http://{address}"));
+        let raw=crate::grpc_legacy::Json::parse(r#"{"enable_oob_load_report":true,"oob_load_reporting_period":"0.2s","blackout_period":"0s"}"#,0).unwrap();
+        let policy = outlier::Policy {
+            weighted: Some(weighted::Config::from_json(&raw)),
+            ..Default::default()
+        };
+        let mut pool = Pool::pending_policy(cache.clone(), &[address], policy.clone());
+        ServiceExt::ready(&mut pool).await.unwrap();
+        let mut response = Service::call(
+            &mut pool,
+            HttpRequest::builder()
+                .uri("/owned/hold")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+        tokio::time::timeout(Duration::from_secs(2), async {
+            while orca.load(Ordering::SeqCst) < 1 {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .unwrap();
+        assert_eq!(
+            orca.load(Ordering::SeqCst),
+            1,
+            "Exactly one subscription before GOAWAY"
+        );
+        let raw = crate::grpc_legacy::Json::parse(r#"{"enable_oob_load_report":true,"oob_load_reporting_period":"0.4s","blackout_period":"0s"}"#,0).unwrap();
+        let other_policy = outlier::Policy {
+            weighted: Some(weighted::Config::from_json(&raw)),
+            ..Default::default()
+        };
+        let mut other = Pool::pending_policy(cache.clone(), &[address], other_policy.clone());
+        ServiceExt::ready(&mut other).await.unwrap();
+        let mut other_response = Service::call(
+            &mut other,
+            HttpRequest::builder()
+                .uri("/owned/other-hold")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        assert_eq!(
+            orca.load(Ordering::SeqCst),
+            1,
+            "Adding a slower watcher must share the existing subscription"
+        );
+        let resolution = pool.resolution_requests();
+        let before_resolution = *resolution.borrow();
+        release.send_modify(|revision| *revision += 1);
+        let replaced = tokio::time::timeout(Duration::from_millis(2000), async {
+            while orca.load(Ordering::SeqCst) < 2 {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await;
+        assert!(
+            replaced.is_ok(),
+            "Shared OOB reconnect must precede support-state checks"
+        );
+        tokio::time::timeout(Duration::from_secs(2), async {
+            while resets.load(Ordering::SeqCst) < 1 {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .unwrap();
+        terminate.send_modify(|value| value.0 += 1);
+        tokio::time::timeout(Duration::from_secs(2), async {
+            while terminated.load(Ordering::SeqCst) < 1 {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .unwrap();
+        tokio::time::sleep(Duration::from_millis(1350)).await;
+        assert_eq!(
+            orca.load(Ordering::SeqCst),
+            2,
+            "UNIMPLEMENTED must not schedule a timer retry"
+        );
+        let revision = pool.update_policy(vec![address], other_policy.clone());
+        let _ = pool.clone().decided_after(revision).await;
+        // Raising the minimum200→400ms distinguishes UNIMPLEMENTED from a
+        // normally completed stream: a supported producer would subscribe again.
+        let revision = other.update_policy(vec![address], other_policy.clone());
+        let _ = other.clone().decided_after(revision).await;
+        tokio::time::sleep(Duration::from_millis(1350)).await;
+        assert_eq!(
+            orca.load(Ordering::SeqCst),
+            2,
+            "READY watcher replacement must retain shared UNIMPLEMENTED"
+        );
+        assert_eq!(
+            accepted.load(Ordering::SeqCst),
+            2,
+            "Suppression must be observed on the unchanged READY transport"
+        );
+        let revision = pool.update_policy(vec![address], policy.clone());
+        let _ = pool.clone().decided_after(revision).await;
+        let revision = other.update_policy(vec![address], policy.clone());
+        let _ = other.clone().decided_after(revision).await;
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        assert_eq!(
+            orca.load(Ordering::SeqCst),
+            2,
+            "Restoring200ms must still retain shared UNIMPLEMENTED"
+        );
+        release.send_modify(|revision| *revision += 1);
+        let support_reset = tokio::time::timeout(Duration::from_secs(2), async {
+            while orca.load(Ordering::SeqCst) < 3 {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await;
+        assert!(
+            support_reset.is_ok(),
+            "A replacement physical connection must start a fresh supported producer"
+        );
+        let wait_report = |target| {
+            let count = orca.clone();
+            async move {
+                tokio::time::timeout(Duration::from_secs(4), async {
+                    while count.load(Ordering::SeqCst) < target {
+                        tokio::time::sleep(Duration::from_millis(10)).await;
+                    }
+                })
+                .await
+                .unwrap();
+            }
+        };
+        // Two errors on one producer must preserve its growing backoff history.
+        terminate.send_modify(|value| {
+            value.0 += 1;
+            value.1 = "14";
+        });
+        wait_report(4).await;
+        terminate.send_modify(|value| {
+            value.0 += 1;
+            value.1 = "14";
+        });
+        wait_report(5).await;
+        // Keep a foreground response on this generation too, so graceful
+        // GOAWAY drains while the old OOB CANCEL is observed by the peer.
+        ServiceExt::ready(&mut pool).await.unwrap();
+        let mut backoff_response = Service::call(
+            &mut pool,
+            HttpRequest::builder()
+                .uri("/owned/backoff-hold")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+        // Retire an active call after growth, then fail the fresh producer.
+        release.send_modify(|revision| *revision += 1);
+        wait_report(6).await;
+        tokio::time::timeout(Duration::from_secs(2), async {
+            while resets.load(Ordering::SeqCst) < 2 {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .unwrap();
+        terminate.send_modify(|value| {
+            value.0 += 1;
+            value.1 = "14";
+        });
+        wait_report(7).await;
+        let backoff_gaps = {
+            let requests = arrivals.lock().unwrap();
+            let errors = failures.lock().unwrap();
+            assert_eq!(
+                errors.iter().map(|(code, _)| *code).collect::<Vec<_>>(),
+                vec!["12", "14", "14", "14"]
+            );
+            [
+                requests[3].duration_since(errors[1].1),
+                requests[4].duration_since(errors[2].1),
+                requests[6].duration_since(errors[3].1),
+            ]
+        };
+        println!(
+            "{}",
+            serde_json::json!({"orcaBackoffMs":backoff_gaps.map(|duration|duration.as_millis()),"statusCodes":[12,14,14,14]})
+        );
+        // A new same-period watcher can wake an already pending backoff.
+        terminate.send_modify(|value| {
+            value.0 += 1;
+            value.1 = "14";
+        });
+        tokio::time::timeout(Duration::from_secs(2), async {
+            while terminated.load(Ordering::SeqCst) < 5 {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .unwrap();
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let pending_connections = accepted.load(Ordering::SeqCst);
+        let revision = pool.update_policy(vec![address], policy.clone());
+        let _ = pool.clone().decided_after(revision).await;
+        wait_report(8).await;
+        let watcher_wake_gap = {
+            let requests = arrivals.lock().unwrap();
+            let errors = failures.lock().unwrap();
+            requests[7].duration_since(errors[4].1)
+        };
+        assert!(
+            watcher_wake_gap < Duration::from_millis(500),
+            "Same-period watcher replacement must wake before backoff: {:?}",
+            watcher_wake_gap
+        );
+        tokio::time::sleep(Duration::from_millis(2300)).await;
+        assert_eq!(
+            orca.load(Ordering::SeqCst),
+            8,
+            "The old timer must not duplicate an active replacement call"
+        );
+        assert_eq!(
+            accepted.load(Ordering::SeqCst),
+            pending_connections,
+            "Watcher wake must use the same physical connection"
+        );
+        let revision = other.update_policy(vec![address], other_policy.clone());
+        let _ = other.clone().decided_after(revision).await;
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        assert_eq!(
+            orca.load(Ordering::SeqCst),
+            8,
+            "A slower surviving watcher must preserve the current200ms call"
+        );
+        let still_open =
+            tokio::time::timeout(Duration::from_millis(100), response.body_mut().frame())
+                .await
+                .is_err();
+        let other_still_open = tokio::time::timeout(
+            Duration::from_millis(100),
+            other_response.body_mut().frame(),
+        )
+        .await
+        .is_err();
+        let backoff_still_open = tokio::time::timeout(
+            Duration::from_millis(100),
+            backoff_response.body_mut().frame(),
+        )
+        .await
+        .is_err();
+        let connections = accepted.load(Ordering::SeqCst);
+        let subscriptions = orca.load(Ordering::SeqCst);
+        let requested_resolution = *resolution.borrow() != before_resolution;
+        drop(response);
+        drop(backoff_response);
+        drop(pool);
+        let slower = tokio::time::timeout(Duration::from_secs(2), async {
+            while orca.load(Ordering::SeqCst) < 9 {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await;
+        assert!(
+            slower.is_ok(),
+            "400ms replacement must precede pending-retirement checks"
+        );
+        tokio::time::timeout(Duration::from_secs(2), async {
+            while resets.load(Ordering::SeqCst) < 3 {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .unwrap();
+        terminate.send_modify(|value| {
+            value.0 += 1;
+            value.1 = "14";
+        });
+        tokio::time::timeout(Duration::from_secs(2), async {
+            while terminated.load(Ordering::SeqCst) < 6 {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .unwrap();
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        drop(other_response);
+        drop(other);
+        let retired_at = tokio::time::Instant::now();
+        tokio::time::sleep(Duration::from_millis(4200)).await;
+        let retirement_quiet_ms = retired_at.elapsed().as_millis();
+        assert_eq!(
+            orca.load(Ordering::SeqCst),
+            9,
+            "Final watcher release must retire its pending retry"
+        );
+        // A later owner can activate the endpoint again and still cancel its
+        // active400ms subscription when that final owner is released.
+        let mut fresh = Pool::pending_policy(cache, &[address], other_policy);
+        ServiceExt::ready(&mut fresh).await.unwrap();
+        let mut fresh_response = Service::call(
+            &mut fresh,
+            HttpRequest::builder()
+                .uri("/owned/fresh-owner")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+        wait_report(10).await;
+        let fresh_still_open = tokio::time::timeout(
+            Duration::from_millis(100),
+            fresh_response.body_mut().frame(),
+        )
+        .await
+        .is_err();
+        drop(fresh_response);
+        drop(fresh);
+        println!(
+            "{}",
+            serde_json::json!({"pendingWatcherWakeMs":watcher_wake_gap.as_millis(),"activeReplacementQuietMs":2300,"retirementQuietMs":retirement_quiet_ms,"finalStatusCodes":failures.lock().unwrap().iter().map(|(code,_)|*code).collect::<Vec<_>>()})
+        );
+        let all_cancelled = tokio::time::timeout(Duration::from_secs(2), async {
+            while resets.load(Ordering::SeqCst) < 4 {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await;
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let final_subscriptions = orca.load(Ordering::SeqCst);
+        println!(
+            "{}",
+            serde_json::json!({"orcaSubscriptions":final_subscriptions,"peerCancels":resets.load(Ordering::SeqCst),"connections":accepted.load(Ordering::SeqCst),"heldForegrounds":3,"freshOwnerForegrounds":1})
+        );
+        server.abort();
+        let _ = server.await;
+        assert!(
+            still_open && other_still_open && backoff_still_open && fresh_still_open,
+            "GOAWAY must preserve all active weighted responses"
+        );
+        assert!(
+            connections >= 4,
+            "Weighted owner must open all three replacement connections"
+        );
+        assert!(
+            requested_resolution,
+            "Weighted READY loss must request DNS resolution"
+        );
+        assert!(
+            slower.is_ok(),
+            "Removing the faster watcher must replace the subscription with400ms"
+        );
+        assert!(
+            all_cancelled.is_ok(),
+            "All four retired OOB streams must receive CANCEL"
+        );
+        assert_eq!(
+            final_subscriptions, 10,
+            "Final watcher release must not resubscribe"
+        );
+        assert_eq!(
+            *frames.lock().unwrap(),
+            vec![
+                vec![0, 0, 0, 0, 7, 10, 5, 16, 128, 132, 175, 95],
+                vec![0, 0, 0, 0, 7, 10, 5, 16, 128, 132, 175, 95],
+                vec![0, 0, 0, 0, 7, 10, 5, 16, 128, 132, 175, 95],
+                vec![0, 0, 0, 0, 7, 10, 5, 16, 128, 132, 175, 95],
+                vec![0, 0, 0, 0, 7, 10, 5, 16, 128, 132, 175, 95],
+                vec![0, 0, 0, 0, 7, 10, 5, 16, 128, 132, 175, 95],
+                vec![0, 0, 0, 0, 7, 10, 5, 16, 128, 132, 175, 95],
+                vec![0, 0, 0, 0, 7, 10, 5, 16, 128, 132, 175, 95],
+                vec![0, 0, 0, 0, 8, 10, 6, 16, 128, 136, 222, 190, 1],
+                vec![0, 0, 0, 0, 8, 10, 6, 16, 128, 136, 222, 190, 1]
+            ],
+            "Shared minimum interval must survive reconnect and expand after faster owner release"
+        );
+        for index in [0, 2] {
+            assert!(
+                backoff_gaps[index] >= Duration::from_millis(950)
+                    && backoff_gaps[index] <= Duration::from_millis(1250),
+                "Initial/reset ORCA backoff must remain1s: {:?}",
+                backoff_gaps
+            );
+        }
+        assert!(
+            backoff_gaps[1] >= Duration::from_millis(1200)
+                && backoff_gaps[1] <= Duration::from_millis(2300),
+            "Second ORCA backoff must grow with jitter: {:?}",
+            backoff_gaps
+        );
+        assert!(replaced.is_ok(),"Weighted OOB must replace its stream: TCP connections={connections}, subscriptions={subscriptions}");
     }
 }

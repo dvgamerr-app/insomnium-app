@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {withNativeApp,poll,integrationProbeIdentifier,selectedNativeProbeIdentifier} from './helpers/native-app.js';
 import {preserveNativeProfile} from './helpers/native-profile-preservation.js';
-import {withResourceProbePreserved,registerResourceProbeCollection} from './helpers/resource-manager-cases.js';
+import {withResourceProbePreserved,registerResourceProbeCollection,resourceSaved} from './helpers/resource-manager-cases.js';
 import {newRequest,id} from '../../src/lib/model.js';
 
 assert.equal(selectedNativeProbeIdentifier(),integrationProbeIdentifier);
@@ -43,6 +43,57 @@ await preserveNativeProfile(()=>withResourceProbePreserved(async()=>{
     const workspaceId=id('wrk'),protoId=id('pf'),extensionProtoId=id('pf'),name='Owned saved proto examples';
     registerResourceProbeCollection(workspaceId,name);
     const checks=[];
+    if(process.env.INSOMNIUM_GRPC_SCHEMA_CACHE_NATIVE==='1'){
+      const requests=['A','B','C','D'].map(letter=>newRequest(workspaceId,{_type:'grpc_request',name:'Schema cache '+letter,
+        url:'grpc://127.0.0.1:1',protoFileId:protoId,protoMethodName:'/savedexample.Examples/Call',
+        metadata:[],body:{text:'{}'}}));
+      const data=structuredClone(original);
+      data.resources.push({_id:workspaceId,_type:'workspace',parentId:null,name,scope:'collection'},
+        {_id:protoId,_type:'proto_file',parentId:workspaceId,name:'example.proto',protoText:proto},
+        {_id:extensionProtoId,_type:'proto_file',parentId:workspaceId,name:'extensions.proto',protoText:extensions},...requests);
+      Object.assign(data,{activeWorkspaceId:workspaceId,activeRequestId:requests[0]._id,activeEnvironmentId:'',openTabs:requests.map(request=>request._id)});
+      await invoke('save_workspace',{data});
+      const commands=/** @type {string[]} */([]);
+      page.on('request',request=>{const url=new URL(request.url());if(url.hostname==='ipc.localhost')commands.push(decodeURIComponent(url.pathname.slice(1)));});
+      const select=async(/** @type {string} */letter)=>{
+        await page.locator('.tree-request').filter({hasText:'Schema cache '+letter}).click();
+        return page.getByLabel('gRPC method',{exact:true});
+      };
+      const base=Date.parse('2026-10-26T00:00:00Z');
+      for(const test of [
+        {name:'same-time reload refreshes age',loads:['A','B','C','A','D'],times:[0,0,0,0,0],kept:['A','C','D']},
+        {name:'backward clock preserves load order',loads:['A','B','C','D'],times:[4000,3000,2000,1000],kept:['B','C','D']},
+      ]){
+        await page.reload();
+        await page.getByRole('button',{name:'Load methods',exact:true}).waitFor();
+        for(const letter of ['A','B','C','D'])assert.equal(await(await select(letter)).isEnabled(),false,'Reload leaves schemas unloaded');
+        for(const [index,letter]of test.loads.entries()){
+          await page.clock.setFixedTime(new Date(base+test.times[index]));
+          const method=await select(letter),count=commands.filter(command=>command==='load_grpc_schema').length;
+          await resourceSaved(page);
+          const beforeLoad=await invoke('load_workspace');
+          await page.getByRole('button',{name:'Load methods',exact:true}).click();
+          await poll(async()=>commands.filter(command=>command==='load_grpc_schema').length===count+1,'Actual native proto compilation admitted');
+          await poll(()=>page.getByRole('button',{name:'Load methods',exact:true}).isEnabled(),'Actual method load retires');
+          assert.equal(await method.isEnabled(),true);
+          assert.equal(await page.getByRole('button',{name:'Use example',exact:true}).isEnabled(),true);
+          await resourceSaved(page);
+          const afterLoad=await invoke('load_workspace');
+          assert.deepEqual(afterLoad.resources,beforeLoad.resources,'Loading methods never changes resources, including current navigation metadata');
+          assert.deepEqual(afterLoad.history,beforeLoad.history);
+        }
+        for(const letter of ['A','B','C','D'])assert.equal(await(await select(letter)).isEnabled(),test.kept.includes(letter),test.name+': '+letter);
+        const saved=await invoke('load_workspace');
+        for(const resource of data.resources)assert.deepEqual(saved.resources.find((/** @type {any} */ row)=>row._id===resource._id),resource);
+        assert.deepEqual(saved.history,original.history);
+        checks.push({name:test.name,kept:test.kept,loads:test.loads.length,authoredResourcesAndHistoryUnchanged:true,fullResourcesUnchangedAcrossEachLoad:true});
+      }
+      assert.equal(commands.filter(command=>command==='load_grpc_schema').length,9);
+      assert.equal(commands.filter(command=>command==='connect_grpc').length,0);
+      await Bun.write(output+'/acceptance.json',JSON.stringify({status:'passed',renderingMode:'native-hidden',
+        scope:'Actual native local proto schema compilation/cache UI, controlled WebView Date; no RPC/reflection-provider or OS-clock claim',checks,commands},null,2));
+      return;
+    }
     for(const mode of ['legacy','protoJson']){
       const request=newRequest(workspaceId,{_type:'grpc_request',name:'Saved example '+mode,
         url:'grpc://127.0.0.1:1',protoFileId:protoId,protoMethodName:'/savedexample.Examples/Call',

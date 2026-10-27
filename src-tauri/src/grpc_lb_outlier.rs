@@ -362,7 +362,10 @@ impl Call {
     pub(super) fn start(&mut self) {
         self.ended = false;
     }
-    pub(super) fn observe(&mut self, headers: &tonic::codegen::http::HeaderMap) {
+    pub(super) fn observe(&mut self, headers: &tonic::codegen::http::HeaderMap, terminal: bool) {
+        if !terminal {
+            return;
+        }
         if let Some(status) = headers.get("grpc-status") {
             self.finish(status.as_bytes() == b"0");
         }
@@ -380,5 +383,51 @@ impl Call {
 impl Drop for Call {
     fn drop(&mut self) {
         self.finish(false);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn counts_only_terminal_status_and_retains_drop_failure() {
+        for final_status in [Some("0"), Some("7"), None] {
+            let stats = Arc::new(Mutex::new(Stats::default()));
+            let mut call = Call {
+                counters: vec![Counter(stats.clone())],
+                ended: true,
+            };
+            call.start();
+            let mut headers = tonic::codegen::http::HeaderMap::new();
+            for status in ["7", "0", "NaN"] {
+                headers.insert("grpc-status", status.parse().unwrap());
+                call.observe(&headers, false);
+                assert_eq!(stats.lock().unwrap().active, [0.0, 0.0]);
+            }
+            if let Some(status) = final_status {
+                headers.insert("grpc-status", status.parse().unwrap());
+                call.observe(&headers, true);
+                assert_eq!(
+                    stats.lock().unwrap().active,
+                    if status == "0" {
+                        [1.0, 0.0]
+                    } else {
+                        [0.0, 1.0]
+                    }
+                );
+                headers.insert("grpc-status", "7".parse().unwrap());
+                call.observe(&headers, true);
+            }
+            drop(call);
+            assert_eq!(
+                stats.lock().unwrap().active,
+                if final_status == Some("0") {
+                    [1.0, 0.0]
+                } else {
+                    [0.0, 1.0]
+                }
+            );
+        }
     }
 }

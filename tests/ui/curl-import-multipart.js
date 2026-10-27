@@ -13,7 +13,8 @@ import {
   registerResourceProbeCollection,
 } from "./helpers/resource-manager-cases.js";
 const encodingMode = process.env.INSOMNIUM_CURL_PART_ENCODING === "1";
-if (encodingMode) {
+const partHeaderFilesMode = process.env.INSOMNIUM_CURL_PART_HEADER_FILES === "1";
+if (encodingMode || partHeaderFilesMode) {
   assert.equal(selectedNativeProbeIdentifier(), integrationProbeIdentifier);
   assert.ok(
     process.env.INSOMNIUM_UI_BUILD_STATE,
@@ -52,7 +53,7 @@ try {
     withResourceProbePreserved(
       async () => {
         await withNativeApp(
-          encodingMode
+          partHeaderFilesMode ? "curl-import-part-header-files" : encodingMode
             ? "curl-import-multipart-encoding"
             : "curl-import-multipart",
           async ({ page, invoke, output }) => {
@@ -69,6 +70,69 @@ try {
                 registered.add(row._id);
               }
             };
+            if (partHeaderFilesMode) {
+              const url=`http://127.0.0.1:${server.port}/part-header-files`;
+              const command=`curl '${url}' -F 'text=value;headers="X-First: before";headers=@"one; ไทย.txt";headers="X-Middle:  middle  ";headers=<two.txt;headers="X-Last: after"' -F 'bundle=(;headers=@group.txt' -F 'inner=value;headers=@child.txt' -F '=)'`;
+              await page.getByRole("button",{name:"Import collection",exact:true}).click();
+              const dialog=page.getByRole("dialog");await dialog.getByLabel("Import collection or cURL commands").fill(command);
+              await dialog.getByRole("button",{name:"Review import",exact:true}).click();
+              await dialog.getByRole("button",{name:"Import",exact:true}).click();await dialog.waitFor({state:"detached"});await registerImportedCollections();
+              await page.locator(".tree-request").filter({hasText:url}).click();
+              const load=()=>invoke("load_workspace");
+              /** @type {any} */ let request;
+              await poll(async()=>{request=(await load()).resources.find((/** @type {any} */row)=>row._type==="request"&&row.url===url);return !!request;},"Imported header-file request persisted");
+              const originalBody=structuredClone(request.body);
+              await page.getByRole("button",{name:"Send",exact:true}).click();
+              await page.getByText("Select all multipart header files before sending.",{exact:false}).first().waitFor();
+              assert.equal(received.length,0);
+              for (const details of await page.locator("details.multipart-options").all()) {
+                if(!await details.evaluate(el=>/** @type {HTMLDetailsElement} */(el).open))await details.locator("summary").click();
+              }
+              const first=page.getByLabel("Part header file for text 2",{exact:true});
+              await first.setInputFiles({name:"invalid.txt",mimeType:"text/plain",buffer:Buffer.from([255])});
+              await page.getByRole("alert").filter({hasText:"Select a UTF-8 multipart header file."}).waitFor();
+              assert.equal(await first.getAttribute("aria-invalid"),"true");
+              assert.deepEqual((await load()).resources.find((/** @type {any} */row)=>row._id===request._id).body,originalBody);
+              const inputs=[
+                {label:"Part header file for text 4",name:"two.txt",text:" folded\r\nX-Duplicate: b\r\nX-Empty:\r\n"},
+                {label:"Part header file for text 2",name:"one; ไทย.txt",text:"# ignored\r\n continuation  \t\r\nX-File:  first\r\nX-Duplicate: a\n"},
+                {label:"Part header file for bundle 1",name:"group.txt",text:"X-Group:  yes  \r\n"},
+                {label:"Part header file for inner 1",name:"child.txt",text:"X-Child:  child\r\n"},
+              ];
+              for(const item of inputs){
+                await page.getByLabel(item.label,{exact:true}).setInputFiles({name:item.name,mimeType:"text/plain",buffer:Buffer.from(item.text)});
+                await poll(async()=>{
+                  const current=(await load()).resources.find((/** @type {any} */row)=>row._id===request._id);
+                  const parent=item.name==="group.txt"?current.body.params[1]:item.name==="child.txt"?current.body.params[1].params[0]:current.body.params[0];
+                  return !parent._curlPartHeaderSources||parent._curlPartHeaderSources.some((/** @type {any} */s)=>s.fileName===item.name&&s.text===item.text);
+                },"Selected multipart header snapshot persisted");
+                await Bun.write(join(output,item.name),item.text);
+              }
+              request=(await load()).resources.find((/** @type {any} */row)=>row._id===request._id);
+              assert.equal(request.body.params[0]._curlPartHeaderSources,undefined);
+              assert.equal(request.body.params[0].partHeaders,"X-First: before continuation\nX-File:  first\nX-Duplicate: a\nX-Middle:  middle   folded\nX-Duplicate: b\nX-Empty:\nX-Last: after");
+              await page.reload();await page.getByRole("button",{name:"Send",exact:true}).click();
+              await poll(()=>Promise.resolve(received.length===1),"Actual native multipart header-file Send");
+              await poll(async()=>(await load()).history.some((/** @type {any} */row)=>row.requestId===request._id&&row.status===200),"Successful native response persisted");
+              const native=received[0];
+              const forms=[`text=value;headers="X-First: before";headers=@"${join(output,"one; ไทย.txt")}";headers="X-Middle:  middle  ";headers=<"${join(output,"two.txt")}";headers="X-Last: after"`,`bundle=(;headers=@"${join(output,"group.txt")}"`,`inner=value;headers=@"${join(output,"child.txt")}"`,"=)"];
+              const curl=Bun.spawn(["curl.exe","--silent","--show-error","--noproxy","*",...forms.flatMap(form=>["-F",form]),url],{stdout:"pipe",stderr:"pipe"});assert.equal(await curl.exited,0);assert.equal(received.length,2);
+              /** @param {{type:string,body:Buffer}} record */
+              const canonical=record=>{
+                let body=record.body.toString("latin1");const first=/boundary=(?:"([^"]+)"|([^;\s]+))/.exec(record.type);assert.ok(first);
+                const boundaries=[first[1]||first[2],...Array.from(body.matchAll(/boundary=(?:"([^"]+)"|([^;\s\r\n]+))/g),m=>m[1]||m[2])];
+                for(const [index,boundary]of [...new Set(boundaries)].entries())body=body.replaceAll(boundary,"BOUNDARY"+index);return Buffer.from(body,"latin1");
+              };
+              assert.deepEqual(canonical(native),canonical(received[1]),"Native/curl MIME differs only in random boundaries");
+              await Bun.write(join(output,"native-multipart.bin"),native.body);await Bun.write(join(output,"curl-multipart.bin"),received[1].body);
+              await page.reload();await page.getByRole("button",{name:"Send",exact:true}).waitFor();
+              await poll(async()=>await page.getByLabel("Request URL",{exact:true}).inputValue()===url,"Reloaded header-file request mounted");
+              for(const details of await page.locator("details.multipart-options").all())if(!await details.evaluate(el=>/** @type {HTMLDetailsElement} */(el).open))await details.locator("summary").click();
+              assert.equal(await page.getByLabel("Part headers for text",{exact:true}).inputValue(),request.body.params[0].partHeaders);
+              assert.deepEqual((await load()).resources.find((/** @type {any} */row)=>row._id===request._id).body,request.body);assert.equal(received.length,2);
+              await page.screenshot({path:join(output,"part-header-files.png")});
+              await Bun.write(join(output,"part-header-files-acceptance.json"),JSON.stringify({passed:true,renderingMode:"native-hidden",missingFileRefusal:true,invalidUtf8PreservesBody:true,associatedFieldError:true,orderedOutOfOrderSelection:true,nestedGroupAndChild:true,rawHeaderWhitespace:true,selectedFiles:4,nativeRequests:1,curlRequests:1,exactMimeExceptBoundaries:true,reload:true,noImplicitResend:true},null,2));return;
+            }
             if (refererMode) {
               const original = await invoke("load_workspace");
               try {

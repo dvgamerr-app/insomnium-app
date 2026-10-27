@@ -12,6 +12,10 @@ await withComponentFixture("collection-index", async (page, output) => {
     if (row.name === "deep-chain") {
       assert.equal(row.size, row.count);
       assert.ok(row.reads <= row.readLimit, "Bounded topology reads");
+      assert.equal(row.lookup,row.expected);
+      assert.equal(row.selected,'deep-request');
+      assert.ok(row.lookupReads<=row.selectionReadLimit,'Single lookup has bounded topology reads');
+      assert.ok(row.selectionReads<=row.selectionReadLimit,'Remembered selection has bounded topology reads');
     }
   }
   const read = async () =>

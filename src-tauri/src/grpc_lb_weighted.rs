@@ -1,10 +1,9 @@
 //! Policy-local ORCA weights and the pinned grpc-js deadline-heap picker.
 use crate::grpc_legacy::Json as Value;
-use prost::Message;
 use std::{
     collections::BTreeMap,
     net::SocketAddr,
-    sync::{Arc, Mutex, RwLock, Weak},
+    sync::{Arc, Mutex, OnceLock, RwLock, Weak},
     time::Duration,
 };
 use tonic::transport::{Connectivity, ConnectivityState};
@@ -82,16 +81,72 @@ impl Config {
     }
 }
 
-// Projection of xds.data.orca.v3.OrcaLoadReport. Unknown protobuf fields are
-// skipped by Prost; weights use exactly these three fields in grpc-js1.14.4.
-#[derive(Clone, Message)]
+// Only these fields affect weights, but decode the complete report schema so
+// malformed unused fields follow the same reader semantics as grpc-js.
+#[derive(Clone)]
 pub(super) struct Report {
-    #[prost(double, tag = "6")]
     qps: f64,
-    #[prost(double, tag = "7")]
     eps: f64,
-    #[prost(double, tag = "9")]
     utilization: f64,
+}
+impl Report {
+    pub(super) fn decode_legacy(bytes: &[u8]) -> Result<Self, String> {
+        use prost_reflect::{MessageDescriptor, Value};
+        static DESCRIPTORS: OnceLock<Result<(MessageDescriptor, MessageDescriptor), String>> =
+            OnceLock::new();
+        let (original, view) = DESCRIPTORS
+            .get_or_init(|| {
+                // Wire fields from xds.data.orca.v3.OrcaLoadReport. Validation
+                // annotations/options do not run in the pinned proto-loader.
+                let name = "orca_load_report.proto".to_owned();
+                let pool = crate::grpc_schema::compile_mode(
+                    crate::grpc_schema::ProtoInput {
+                        entry: name.clone(),
+                        include_paths: Vec::new(),
+                        files: vec![crate::grpc_schema::ProtoFile {
+                            name,
+                            text: r#"syntax="proto3";
+package xds.data.orca.v3;
+message OrcaLoadReport {
+ double cpu_utilization=1;
+ double mem_utilization=2;
+ uint64 rps=3;
+ map<string,double> request_cost=4;
+ map<string,double> utilization=5;
+ double rps_fractional=6;
+ double eps=7;
+ map<string,double> named_metrics=8;
+ double application_utilization=9;
+}"#
+                            .to_owned(),
+                        }],
+                    },
+                    crate::grpc_schema::JsonMode::ProtoJson,
+                )?;
+                let original = pool
+                    .get_message_by_name("xds.data.orca.v3.OrcaLoadReport")
+                    .ok_or_else(|| "Missing ORCA report descriptor.".to_owned())?;
+                let view = crate::grpc_legacy::legacy_descriptor(original.clone())?;
+                Ok((original, view))
+            })
+            .as_ref()
+            .map_err(|error| error.clone())?;
+        let message = crate::grpc_schema::decode_legacy_response_original(view, original, bytes)?;
+        let number = |tag| -> Result<f64, String> {
+            let field = view
+                .get_field(tag)
+                .ok_or_else(|| "Missing ORCA report field.".to_owned())?;
+            match message.get_field(&field).as_ref() {
+                Value::F64(value) => Ok(*value),
+                _ => Err("Invalid ORCA report field.".to_owned()),
+            }
+        };
+        Ok(Self {
+            qps: number(6)?,
+            eps: number(7)?,
+            utilization: number(9)?,
+        })
+    }
 }
 struct EndpointWeight {
     updated: i64,
@@ -120,7 +175,7 @@ impl Sink {
         let Some(bytes) = crate::grpc_transport::decode_binary_metadata(encoded) else {
             return;
         };
-        let Ok(report) = Report::decode(bytes.as_slice()) else {
+        let Ok(report) = Report::decode_legacy(bytes.as_slice()) else {
             return;
         };
         self.report(report);
@@ -212,13 +267,17 @@ impl Queue {
         Some(key)
     }
 }
+struct Subscription {
+    registration: super::orca::Registration,
+    ready_generation: Option<u64>,
+}
 pub(super) struct Weights {
     config: Arc<RwLock<Config>>,
     addresses: Vec<SocketAddr>,
     endpoints: Arc<Mutex<BTreeMap<SocketAddr, Arc<Mutex<EndpointWeight>>>>>,
     ready: Vec<usize>,
     queue: Queue,
-    subscriptions: BTreeMap<SocketAddr, super::orca::Registration>,
+    subscriptions: BTreeMap<SocketAddr, Subscription>,
 }
 impl Weights {
     pub(super) fn new(config: Config, addresses: &[SocketAddr]) -> Self {
@@ -240,11 +299,32 @@ impl Weights {
             .unwrap_or_else(|error| error.into_inner()) = config;
     }
     pub(super) fn subscribe(&mut self, key: usize, pool: &super::Pool, replace: bool) {
+        let transport = pool.singleton_state();
+        let address = self.addresses[key];
+        let lost_pick = self
+            .subscriptions
+            .get(&address)
+            .and_then(|subscription| subscription.ready_generation)
+            .is_some_and(|generation| {
+                transport.state != ConnectivityState::Ready || generation != transport.generation
+            });
+        if transport.state != ConnectivityState::Ready {
+            // A wrapper is referenced only after PickFirst has a READY pick.
+            // Recreating it while disconnected can keep a shared old producer
+            // alive forever as independent policy tasks replace their watchers.
+            self.subscriptions.remove(&address);
+            return;
+        }
+        if lost_pick {
+            // PickFirst unreferences its old pick on physical READY loss. Its
+            // last watcher must retire the producer even while dispatched RPCs
+            // drain. Synthetic outlier health does not retire that transport.
+            self.subscriptions.remove(&address);
+        }
         let config = self
             .config
             .read()
             .unwrap_or_else(|error| error.into_inner());
-        let address = self.addresses[key];
         if !config.oob {
             self.subscriptions.remove(&address);
             return;
@@ -267,9 +347,19 @@ impl Weights {
             // pick. Keep a watcher alive throughout replacement so the shared
             // producer retains its support/backoff state and min interval.
             let registration = super::orca::Registration::new(pool, config.reporting, sink);
-            self.subscriptions.insert(address, registration);
-        } else if let Some(registration) = self.subscriptions.get(&address) {
-            registration.interval(config.reporting);
+            self.subscriptions.insert(
+                address,
+                Subscription {
+                    registration,
+                    ready_generation: (transport.state == ConnectivityState::Ready)
+                        .then_some(transport.generation),
+                },
+            );
+        } else if let Some(subscription) = self.subscriptions.get_mut(&address) {
+            subscription.registration.interval(config.reporting);
+            if transport.state == ConnectivityState::Ready {
+                subscription.ready_generation = Some(transport.generation);
+            }
         }
     }
     pub(super) fn interval(&self) -> Duration {
@@ -398,5 +488,73 @@ impl Weights {
             config: self.config.clone(),
         });
         Some((key, sink))
+    }
+}
+
+#[cfg(test)]
+mod report_tests {
+    use super::*;
+    use base64::{engine::general_purpose::STANDARD, Engine};
+    #[test]
+    fn report_decoding_and_metadata_match_pinned_loader() {
+        // Actual grpc-js1.14.4/proto-loader0.8.1/protobuf.js7.2.4 vectors.
+        let wrong = vec![
+            48, 0, 0, 0, 0, 0, 0, 89, 64, 72, 154, 153, 153, 153, 153, 153, 169, 63,
+        ];
+        let mut canonical = wrong.clone();
+        canonical[0] = 49;
+        canonical[9] = 73;
+        let mut cpu = vec![8];
+        cpu.extend_from_slice(&0.25_f64.to_le_bytes());
+        cpu.extend_from_slice(&wrong);
+        let mut map = vec![34, 12, 10, 1, 120, 16];
+        map.extend_from_slice(&1_f64.to_le_bytes());
+        map.extend_from_slice(&wrong);
+        let mut missing = vec![34, 3, 10, 1, 120];
+        missing.extend_from_slice(&wrong);
+        for bytes in [canonical, wrong.clone(), cpu, map, missing] {
+            let report = Report::decode_legacy(&bytes).unwrap();
+            assert_eq!(
+                (report.qps, report.eps, report.utilization),
+                (100.0, 0.0, 0.05)
+            );
+        }
+        for bytes in [&[49, 0, 0, 0][..], &[9, 0, 0][..]] {
+            assert!(Report::decode_legacy(bytes).is_err());
+        }
+        let address = "127.0.0.1:1".parse().unwrap();
+        let weights = Weights::new(Config::default(), &[address]);
+        let sink = Sink {
+            endpoints: Arc::downgrade(&weights.endpoints),
+            bound: None,
+            address,
+            config: weights.config.clone(),
+        };
+        let mut headers = tonic::codegen::http::HeaderMap::new();
+        headers.insert(
+            "endpoint-load-metrics-bin",
+            STANDARD.encode(&wrong).parse().unwrap(),
+        );
+        sink.observe(&headers);
+        assert_eq!(
+            weights.endpoints.lock().unwrap()[&address]
+                .lock()
+                .unwrap()
+                .weight,
+            2000.0
+        );
+        headers.insert(
+            "endpoint-load-metrics-bin",
+            STANDARD.encode([49, 0, 0, 0]).parse().unwrap(),
+        );
+        sink.observe(&headers);
+        assert_eq!(
+            weights.endpoints.lock().unwrap()[&address]
+                .lock()
+                .unwrap()
+                .weight,
+            2000.0,
+            "Malformed metadata must not replace the last good weight"
+        );
     }
 }

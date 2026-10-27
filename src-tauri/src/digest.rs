@@ -2,7 +2,7 @@ use digest_auth::{Algorithm, AuthContext, Charset, HttpMethod, Qop, WwwAuthentic
 use http_body_util::{BodyExt, Limited};
 use reqwest::{header, Method, Request, Response, StatusCode};
 use serde::Deserialize;
-use std::{borrow::Cow, collections::HashMap, future::Future};
+use std::{borrow::Cow, collections::HashMap, future::Future, sync::Arc};
 use unicode_normalization::UnicodeNormalization;
 
 #[derive(Deserialize)]
@@ -148,6 +148,17 @@ pub(crate) fn authorization(
     body: &[u8],
     method: &Method,
 ) -> Result<header::HeaderValue, String> {
+    signed_authorization(prompt, username, password, target, body, method).map(|(header, _)| header)
+}
+
+fn signed_authorization(
+    prompt: &mut WwwAuthenticateHeader,
+    username: &str,
+    password: &str,
+    target: &str,
+    body: &[u8],
+    method: &Method,
+) -> Result<(header::HeaderValue, crate::digest_response::Proof), String> {
     let normalize = |value: &str| -> String { value.nfc().collect() };
     let (username, password) = if prompt.charset == Charset::UTF8 {
         (
@@ -170,6 +181,7 @@ pub(crate) fn authorization(
     let mut answer = prompt
         .respond(&context)
         .map_err(|_| "Could not calculate Digest response")?;
+    let proof = crate::digest_response::Proof::new(&answer, &context, *method == Method::HEAD);
     // RFC 7616 / RFC 5987: preserve normalized UTF-8 in username*.
     let value = if !answer.userhash && !answer.username.is_ascii() {
         let username = std::mem::take(&mut answer.username);
@@ -184,7 +196,25 @@ pub(crate) fn authorization(
     let mut value =
         header::HeaderValue::from_str(&value).map_err(|_| "Invalid Digest authorization value")?;
     value.set_sensitive(true);
-    Ok(value)
+    Ok((value, proof))
+}
+
+async fn drain_authenticated(mut response: Response) -> Result<(), String> {
+    let mut size = 0usize;
+    while let Some(bytes) = response
+        .chunk()
+        .await
+        .map_err(|error| crate::digest_response::body_error(&error))?
+    {
+        size = size
+            .checked_add(bytes.len())
+            .ok_or("Digest response drain exceeds 20 MiB")?;
+        if size > 20 * 1024 * 1024 {
+            return Err("Digest response drain exceeds 20 MiB".into());
+        }
+    }
+    crate::digest_response::check_complete(response.extensions().get())?;
+    Ok(())
 }
 
 /// A single request operation, including bounded challenge retries and redirects.
@@ -271,6 +301,7 @@ where
     let original_origin = outgoing.url().origin();
     let mut redirects = 0;
     let mut attempts = 0;
+    let mut digest_proof: Option<Arc<crate::digest_response::Proof>> = None;
     let mut body_was_dropped = false;
     loop {
         if let Some(session) = &netrc {
@@ -316,6 +347,9 @@ where
             }
         })?;
         let response = reply.response();
+        if let Some(proof) = &digest_proof {
+            proof.check()?;
+        }
         if let Some(c) = ntlm.filter(|_| {
             response.status() == StatusCode::UNAUTHORIZED
                 && outgoing.url().origin() == original_origin
@@ -354,7 +388,7 @@ where
                 .body()
                 .and_then(|body| body.as_bytes())
                 .unwrap_or(&[]);
-            let value = authorization(
+            let (value, proof) = signed_authorization(
                 &mut prompt,
                 &credentials.username,
                 &credentials.password,
@@ -362,6 +396,14 @@ where
                 body,
                 outgoing.method(),
             )?;
+            if digest_proof.is_some() {
+                drain_authenticated(reply.into_response()).await?;
+            }
+            let proof = Arc::new(proof);
+            outgoing
+                .extensions_mut()
+                .insert(proof.clone() as Arc<dyn reqwest::ResponseVerifier>);
+            digest_proof = Some(proof);
             outgoing.headers_mut().insert(header::AUTHORIZATION, value);
             attempts += 1;
             continue;
@@ -439,7 +481,12 @@ where
                 outgoing.headers_mut().remove(name);
             }
         }
-        if let Some(c) = ntlm {
+        if digest_proof.take().is_some() {
+            drain_authenticated(reply.into_response()).await?;
+            outgoing
+                .extensions_mut()
+                .remove::<Arc<dyn reqwest::ResponseVerifier>>();
+        } else if let Some(c) = ntlm {
             crate::ntlm::drain(reply.into_response()).await?;
             c.connection.release();
             ntlm_round = 0;

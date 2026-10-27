@@ -1,47 +1,55 @@
 import assert from "node:assert/strict";
 import { dlopen, ptr } from "bun:ffi";
 import { lstat, realpath } from "node:fs/promises";
-import { resolve, sep, basename } from "node:path";
+import { resolve, sep, basename, dirname } from "node:path";
 
 /** Select/cancel only an exact PID-owned chooser using closed existing fixture
  * paths. No foreground typing, activation, title selection or overwrite.
  * Known control IDs follow the SAME saved Windows Save helper; this is bounded
  * chooser acceptance, not a universal modern/legacy-dialog identity claim.
- * @param {number} pid @param {string} output @param {string|null} path
- * @param {'file'|'folder'} kind */
-export async function respondToOwnedOpenDialog(pid, output, path, kind) {
+ * @param {number} pid @param {string} output @param {string|string[]|null} path
+ * @param {'file'|'folder'} kind @param {'.db'|'.json'} [extension] */
+export async function respondToOwnedOpenDialog(pid, output, path, kind, extension = ".db") {
   assert.equal(process.platform, "win32");
   assert.ok(Number.isSafeInteger(pid) && pid > 0);
   assert.ok(["file", "folder"].includes(kind));
-  const root = resolve(output),
-    selected = path === null ? null : resolve(path);
+  assert.ok([".db", ".json"].includes(extension));
+  const root = resolve(output), multiple = Array.isArray(path);
+  assert.ok(!multiple || kind === "file" && path.length >= 2 && path.length <= 16);
+  const paths = path === null ? [] : (Array.isArray(path) ? path : [path]).map(value => resolve(value));
+  assert.equal(new Set(paths.map(value => value.toLowerCase())).size, paths.length);
+  for (const value of paths) assert.match(value, /^[\x20-\x21\x23-\x7e]{1,1024}$/, "Only bounded ASCII fixture paths without quotes");
+  const directory = multiple ? dirname(paths[0]) : undefined;
+  assert.ok(!multiple || paths.every(value => dirname(value) === directory), "Multiple fixtures must share one directory");
+  const selected = path === null ? null : multiple ? paths.map(value => '"' + basename(value) + '"').join(" ") : paths[0];
   const verifyPath = async () => {
-    if (selected === null) return;
-    assert.ok(
-      selected.startsWith(root + sep),
-      "Only this scenario's existing fixtures",
-    );
-    let current = selected;
-    for (;;) {
-      const info = await lstat(current);
-      assert.equal(info.isSymbolicLink(), false);
-      assert.equal(
-        (await realpath(current)).toLowerCase(),
-        current.toLowerCase(),
+    for (const selected of paths) {
+      assert.ok(
+        selected.startsWith(root + sep),
+        "Only this scenario's existing fixtures",
       );
-      if (current === selected)
+      let current = selected;
+      for (;;) {
+        const info = await lstat(current);
+        assert.equal(info.isSymbolicLink(), false);
         assert.equal(
-          kind === "folder" ? info.isDirectory() : info.isFile(),
-          true,
+          (await realpath(current)).toLowerCase(),
+          current.toLowerCase(),
         );
-      else assert.equal(info.isDirectory(), true);
-      if (current === root) break;
-      const parent = resolve(current, "..");
-      assert.ok(parent === root || parent.startsWith(root + sep));
-      current = parent;
+        if (current === selected)
+          assert.equal(
+            kind === "folder" ? info.isDirectory() : info.isFile(),
+            true,
+          );
+        else assert.equal(info.isDirectory(), true);
+        if (current === root) break;
+        const parent = resolve(current, "..");
+        assert.ok(parent === root || parent.startsWith(root + sep));
+        current = parent;
+      }
+      if (kind === "file")
+        assert.ok(selected.endsWith(extension), "Only owned " + extension + " input");
     }
-    if (kind === "file")
-      assert.ok(selected.endsWith(".db"), "Only owned legacy database input");
   };
   await verifyPath();
   const library = dlopen("user32.dll", {
@@ -148,7 +156,8 @@ export async function respondToOwnedOpenDialog(pid, output, path, kind) {
     let edit = 0n,
       button = 0n,
       combo = 0n,
-      comboEx = 0n;
+      comboEx = 0n,
+      address = 0n;
     const folderParents = /** @type {{hwnd:bigint,cls:string,id:number,parent:bigint}[]} */ ([]);
     const readinessDeadline = Date.now() + 5000;
     let lastControls = "";
@@ -215,6 +224,11 @@ export async function respondToOwnedOpenDialog(pid, output, path, kind) {
         if (kind === "file") {
           combo = edits[0].parent;
           comboEx = api.GetParent(combo);
+          if (multiple) {
+            const addresses = rows.filter(row => row.cls === "ToolbarWindow32" && cls(row.parent) === "Breadcrumb Parent");
+            assert.equal(addresses.length, 1, "One owned native address toolbar: " + lastControls);
+            address = addresses[0].hwnd;
+          }
         } else {
           let parent = edits[0].parent;
           const parentsSeen = new Set();
@@ -299,7 +313,7 @@ export async function respondToOwnedOpenDialog(pid, output, path, kind) {
     assert.equal(label, kind === "folder" ? "select folder" : "open");
     const before = text(edit);
     assert.ok(
-      ["", selected, basename(selected)].includes(before),
+      ["", selected, multiple ? paths.map(value => '"' + basename(value) + '"').join(" ") : basename(selected)].includes(before),
       "Refuse unknown prior chooser value",
     );
     assert.match(
@@ -333,14 +347,43 @@ export async function respondToOwnedOpenDialog(pid, output, path, kind) {
       );
       verifyControls(false);
     };
-    if (before !== "") {
-      sendEdit(0x00b1, 0n, -1n); // EM_SETSEL selects only this Edit's text.
-      sendEdit(0x0102, 8n, 1n); // WM_CHAR backspace removes the selection.
-      assert.equal(text(edit), "", "Owned previous path was fully removed");
+    const setText = (/** @type {string} */ value) => {
+      assert.ok(["", before, directory, selected].includes(text(edit)), "Refuse unknown current chooser value");
+      // One system-marshaled replacement avoids focus selection deleting a typed prefix.
+      const buffer = Buffer.from(value + "\0", "utf16le");
+      sendEdit(0x000c, 0n, BigInt(ptr(buffer)));
+      assert.notEqual(returned[0], 0n, "Owned WM_SETTEXT succeeded");
+      assert.equal(text(edit), value, "Exact fixture text after owned WM_SETTEXT");
+    };
+    let navigated = false;
+    if (directory) {
+      const folder = () => {
+        authenticate();
+        owned(address);
+        assert.ok(api.IsChild(chooser, address));
+        assert.equal(cls(address), "ToolbarWindow32");
+        assert.equal(cls(api.GetParent(address)), "Breadcrumb Parent");
+        const value = text(address);
+        assert.match(value, /^Address: /, "Native address toolbar text");
+        return resolve(value.slice(9)).toLowerCase();
+      };
+      // Navigate first: the native filename Edit truncates combined absolute paths.
+      if (folder() !== directory.toLowerCase()) {
+        setText(directory);
+        await verifyPath();
+        verifyControls();
+        assert.notEqual(api.PostMessageW(button, 0x00f5, 0n, 0n), 0, "ONE owned directory navigation");
+        navigated = true;
+        while (folder() !== directory.toLowerCase() || !api.IsWindowEnabled(edit)) {
+          assert.ok(Date.now() < inputDeadline, "Owned directory navigation settles");
+          await Bun.sleep(25);
+        }
+      }
+      hideMain();
+      verifyControls();
+      assert.equal(text(button).replaceAll("&", "").trim().toLowerCase(), label);
     }
-    for (let index = 0; index < selected.length; index++)
-      sendEdit(0x0102, BigInt(selected.charCodeAt(index)), 1n);
-    assert.equal(text(edit), selected, "Exact full path after owned WM_CHAR");
+    setText(selected);
     await verifyPath();
     hideMain();
     verifyControls();
@@ -358,6 +401,7 @@ export async function respondToOwnedOpenDialog(pid, output, path, kind) {
       kind,
       action: "open",
       path: selected,
+      paths: multiple ? paths : undefined,
       mainHidden: true,
       dialogHidden: false,
       controlChain: kind === "file" ? "ComboBoxEx32/ComboBox/Edit1148" : "OwnedParent0/Edit1152",
@@ -365,10 +409,11 @@ export async function respondToOwnedOpenDialog(pid, output, path, kind) {
         hwnd: String(row.hwnd), cls: row.cls, id: row.id, parent: String(row.parent),
       })) : undefined,
       readback: true,
-      submissions: 1,
+      submissions: navigated ? 2 : 1,
+      navigation: directory ? { directory, submissions: navigated ? 1 : 0, addressReadback: true } : undefined,
       input: {
-        method: "owned-edit-WM_CHAR",
-        asciiCodeUnits: selected.length,
+        method: "owned-edit-WM_SETTEXT",
+        asciiCodeUnits: selected.length + (navigated ? directory?.length ?? 0 : 0),
         clearedPriorSelection: before !== "",
         elapsedMs: Date.now() - inputStarted,
         deadlineMs: 5000,

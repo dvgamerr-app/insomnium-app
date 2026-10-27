@@ -16,7 +16,7 @@ if(process.env.INSOMNIUM_RUNNER_MODULES==='1'){
       worker.onmessage=({data})=>{if(data.type==='send')finish(null,'Unexpected network request');if(data.type==='result')finish(data.value,data.error);};
       worker.postMessage({type:'run',suite:{name:'Legacy module compatibility',tests:[
         {name:'Buffer imports and Unicode',code:"const {expect}=require('chai');expect(require('node:buffer').Buffer).to.equal(Buffer);expect(require('buffer').Buffer.from('ภาษาไทย').toString('base64')).to.equal('4Lig4Liy4Lip4Liy4LmE4LiX4Lii');"},
-        {name:'Unsupported host modules',code:"expect(()=>require('fs')).to.throw('Unsupported runner module: fs');expect(typeof process).to.equal('undefined');"},
+        {name:'Unsupported host modules',code:"expect(()=>require('fs')).to.throw('Unsupported runner module: fs');expect(typeof process).to.equal('undefined');expect(typeof globalThis.__pluginGuestDom).to.equal('undefined');expect(typeof URL.createObjectURL).to.equal('undefined');expect(new URL('https://owned.invalid/path').pathname).to.equal('/path');"},
       ]},options:{timeoutMs:1000}});
     }),new URL('/_app/immutable/workers/'+workers[0],page.url()).href);
     assert.equal(/** @type {any} */(result).stats.passes,2);

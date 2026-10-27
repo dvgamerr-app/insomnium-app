@@ -209,14 +209,16 @@ impl PersistentJar {
             .map_err(|e| e.to_string())?;
         if !data.backed_up {
             match fs::read(&self.path) {
-                Ok(bytes) => crate::storage::atomic_write(
-                    &self.path.with_extension("previous.json"),
-                    &bytes,
-                )?,
+                Ok(bytes) => {
+                    crate::storage::atomic_write(
+                        &self.path.with_extension("previous.json"),
+                        &bytes,
+                    )?;
+                    data.backed_up = true;
+                }
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => (),
                 Err(e) => return Err(e.to_string()),
             }
-            data.backed_up = true;
         }
         // Model persistence retains session and expired entries, as legacy
         // getAllCookies does. Request snapshots/providers filter expiry separately.
@@ -433,6 +435,61 @@ fn matching_cookies<'a>(
 #[cfg(test)]
 mod ordering_tests {
     use super::*;
+
+    #[test]
+    fn initial_cookie_write_keeps_backup_opportunity() {
+        let root =
+            std::env::temp_dir().join(format!("insomnium-cookie-backup-{}", uuid::Uuid::new_v4()));
+        fs::create_dir(&root).unwrap();
+        let path = root.join("cookies.json");
+        let backup = path.with_extension("previous.json");
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let jar = PersistentJar {
+                path: path.clone(),
+                root: root.clone(),
+                owner: "owned".into(),
+                identity: "owned".into(),
+                retired: AtomicBool::new(false),
+                inner: Mutex::new(JarData {
+                    store: CookieStore::default(),
+                    backed_up: false,
+                    generation: 0,
+                }),
+            };
+            let mut data = jar.inner.lock().unwrap();
+            let url = Url::parse("https://example.invalid/").unwrap();
+            let mut store = CookieStore::default();
+            store.parse("session=first; Path=/", &url).unwrap();
+            jar.save(&mut data, &store).unwrap();
+            let first = fs::read(&path).unwrap();
+            assert!(!data.backed_up, "No original cookie file was backed up");
+            assert!(!backup.exists());
+            fs::create_dir(&backup).unwrap();
+            store.parse("session=second; Path=/", &url).unwrap();
+            assert!(jar.save(&mut data, &store).is_err());
+            assert_eq!(fs::read(&path).unwrap(), first);
+            assert!(!data.backed_up);
+            #[cfg(windows)]
+            assert_eq!(
+                fs::read_dir(&root).unwrap().count(),
+                2,
+                "Failed backup must not retain a staged cookie file"
+            );
+            fs::remove_dir(&backup).unwrap();
+            jar.save(&mut data, &store).unwrap();
+            assert_eq!(fs::read(&backup).unwrap(), first);
+            jar.save(&mut data, &CookieStore::default()).unwrap();
+            assert_eq!(fs::read(&backup).unwrap(), first);
+        }));
+        assert_eq!(
+            fs::canonicalize(&root).unwrap().parent(),
+            Some(fs::canonicalize(std::env::temp_dir()).unwrap().as_path())
+        );
+        fs::remove_dir_all(&root).unwrap();
+        if let Err(error) = result {
+            std::panic::resume_unwind(error);
+        }
+    }
 
     #[test]
     fn rendered_snapshot_lookup_preserves_scope_and_live_store() {

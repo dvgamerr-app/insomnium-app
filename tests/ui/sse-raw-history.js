@@ -125,7 +125,7 @@ const fullHistory = {
     },
   ],
   headers: [["content-type", "text/event-stream"]],
-  size: exact.length,
+  size: Buffer.byteLength("ไทย β\nsecond line"),
 };
 const partialHistory = {
   ...capped,
@@ -146,6 +146,18 @@ const selectionHistory={_id:'res_stream_selection',requestId:request._id,protoco
     {...fullHistory.events[0],_id:'parsed_latest_selection',data:'latest selected history event'}]};
 seed.history = [partialHistory, fullHistory,selectionHistory];
 seed.responseSelections = { [request._id]: fullHistory._id };
+const wsRequest = newRequest(workspaceId, {
+  _id:"req_stream_metric_ws", _type:"websocket_request", name:"Owned stream byte metrics", url:"ws://127.0.0.1:1/never-connect",
+});
+seed.resources.push(wsRequest);
+const metricCases = [
+  {name:"unicode",data:"βไทย😀",format:"text",size:Buffer.byteLength("βไทย😀"),dropped:0},
+  {name:"binary",data:Buffer.from([0,1,255,127]).toString("base64"),format:"binary",size:4,dropped:0},
+  {name:"retained-total",data:"fresh",format:"text",size:9*1024*1024+5,dropped:1},
+].map((row,index)=>({...row,_id:"res_stream_metric_"+row.name,requestId:wsRequest._id,protocol:"websocket",environmentId:null,
+  created:1700000003000+index,connectionState:"closed",status:101,headers:[],
+  events:[{_id:"evt_metric_"+row.name,kind:"message",direction:"received",format:row.format,data:row.data,size:row.name==='retained-total'?5:row.size,created:1700000003000+index}]}));
+seed.history.push(...metricCases);
 const label = process.env.INSOMNIUM_UI_RUN_LABEL || "";
 assert.match(label, /^[a-zA-Z0-9_-]{0,80}$/);
 await withPreview(
@@ -167,6 +179,15 @@ await withPreview(
       history = pane.getByLabel("Connection history", { exact: true });
     await history.waitFor();
     assert.equal(await history.inputValue(), fullHistory._id);
+    const metric = pane.locator('[title^="Time to first message / total time /"]');
+    const metricResults = /** @type {Record<string,any>[]} */([]);
+    const assertMetric = async (/** @type {number} */bytes,/** @type {string} */label) => {
+      const expected=bytes<1024?bytes+' B':bytes<1048576?(bytes/1024).toFixed(1)+' KB':(bytes/1048576).toFixed(1)+' MB';
+      const displayed=await metric.innerText();
+      assert.ok(displayed.endsWith(expected),label+': '+displayed+' must end with '+expected);
+      metricResults.push({label,bytes,displayed});
+    };
+    await assertMetric(fullHistory.size,"SSE UTF8 payload");
     const raw = () => pane.getByRole("tab", { name: "Raw", exact: true });
     await raw().click();
     assert.equal(
@@ -254,6 +275,17 @@ await withPreview(
     );
     assert.deepEqual(saved.history, seed.history);
     assert.equal(saved.responseSelections[request._id], partialHistory._id);
+    await page.locator('.tree-request').filter({hasText:wsRequest.name}).click();
+    await history.waitFor();
+    for(const entry of metricCases){
+      await history.selectOption(entry._id);
+      await assertMetric(entry.size,entry.name);
+    }
+    await page.reload();await history.waitFor();
+    assert.equal(await history.inputValue(),metricCases.at(-1)?._id);
+    await assertMetric(metricCases.at(-1)?.size??0,"retained total after reload");
+    const afterMetrics=await page.evaluate(()=>JSON.parse(localStorage.getItem("insomnium-tauri-preview-v1")||"{}"));
+    assert.deepEqual(afterMetrics.history,seed.history);
     await Bun.write(
       resolve(output, "result.json"),
       JSON.stringify(
@@ -274,6 +306,7 @@ await withPreview(
           lateCopyFailureIgnored: true,
           currentCopyFailureVisible: true,
           reload: true,
+          metricResults,
           scope:
             "Seeded durable raw capture UI; native capture verified separately",
         },

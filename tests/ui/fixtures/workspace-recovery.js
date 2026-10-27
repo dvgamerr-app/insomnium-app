@@ -9,6 +9,8 @@ const fixture = {
   restored: false,
   saves: 0,
   saved: /** @type {any} */ (null),
+  failNextLoad: false,
+  loaded: /** @type {any} */ (null),
 };
 owner.workspaceRecoveryFixture = fixture;
 owner.isTauri = true;
@@ -16,8 +18,14 @@ owner.__TAURI_INTERNALS__ = {
   async invoke(/** @type {string} */ command, /** @type {any} */ args = {}) {
     fixture.calls.push({ command, args });
     if (command === "load_workspace") {
+      if (fixture.failNextLoad) {
+        fixture.failNextLoad = false;
+        return new Promise((_, reject) => {
+          owner.failPendingWorkspaceLoad = () => reject(new Error("Controlled reload failure"));
+        });
+      }
       if (!fixture.restored) throw new Error("Controlled damaged workspace");
-      return structuredClone(data);
+      return structuredClone(fixture.loaded || data);
     }
     if (command === "inspect_workspace_backup")
       return {

@@ -55,7 +55,7 @@ function requestScope(request) {
           .match(/^([a-z][a-z0-9+.-]*):/i)?.[1]
           .toLowerCase()
       : undefined;
-  if (protocol !== "http" || (scheme && !["http", "https"].includes(scheme)))
+  if (!["http", "sse"].includes(protocol) || (scheme && !["http", "https"].includes(scheme)))
     return "non-HTTP request file activation is outside this preview";
   return null;
 }

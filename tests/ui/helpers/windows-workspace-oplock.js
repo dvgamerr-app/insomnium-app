@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { dlopen, ptr } from "bun:ffi";
-import { realpath } from "node:fs/promises";
-import { resolve } from "node:path";
+import { realpath, lstat } from "node:fs/promises";
+import { resolve, basename } from "node:path";
 import { probeIdentifier } from "./native-app.js";
 
 /** Read/handle oplock on exactly the existing isolated probe workspace. A
@@ -52,8 +52,26 @@ export async function gateProbeMainRefReplacement(repositoryId) {
   return gateExistingFile(path);
 }
 
-/** @param {string} path */
-function gateExistingFile(path) {
+/** Hold only a newly authored database/body in the saved import-close scenario.
+ * @param {string} output @param {"insomnia.Request.db"|"close.body"|"later.body"} [filename] */
+export async function gateLegacyImportRead(output, filename = "insomnia.Request.db") {
+  assert.equal(process.platform, "win32");
+  assert.equal(process.arch, "x64");
+  assert.ok(["insomnia.Request.db", "close.body", "later.body"].includes(filename));
+  const root = resolve(output);
+  assert.equal(resolve(root, ".."), resolve("artifacts/playwright"));
+  assert.match(basename(root), /^legacy-response-import-close-native-\d+$/);
+  const expected = resolve(root, "legacy-assets", filename);
+  for (const path of [root, resolve(root, "legacy-assets"), expected]) {
+    assert.equal((await realpath(path)).toLowerCase(), path.toLowerCase());
+    const stat = await lstat(path);
+    assert.ok(!stat.isSymbolicLink() && (path === expected ? stat.isFile() : stat.isDirectory()));
+  }
+  return gateExistingFile(expected, true);
+}
+
+/** @param {string} path @param {boolean} [blockReads] */
+function gateExistingFile(path, blockReads = false) {
   const library = dlopen("kernel32.dll", {
     CreateFileW: {
       args: ["buffer", "u32", "u32", "ptr", "u32", "u32", "u64"],
@@ -73,7 +91,7 @@ function gateExistingFile(path) {
   const api = library.symbols;
   const handle = api.CreateFileW(
     Buffer.from(path + "\0", "utf16le"),
-    0x80000000,
+    blockReads ? 0xc0000000 : 0x80000000,
     7,
     null,
     3,
@@ -96,7 +114,7 @@ function gateExistingFile(path) {
   const request = new DataView(input.buffer);
   request.setUint16(0, 1, true);
   request.setUint16(2, 12, true);
-  request.setUint32(4, 3, true); // READ|HANDLE
+  request.setUint32(4, blockReads ? 7 : 3, true); // RWH blocks another reader; RH blocks replacement.
   request.setUint32(8, 1, true); // REQUEST
   const output = new Uint8Array(24);
   const overlapped = new Uint8Array(32);
