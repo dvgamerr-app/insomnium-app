@@ -1,5 +1,9 @@
 # GIT migration
 
+Shared snapshot application (2026-10-26): checkout/clone/restore/merge and initialization use applyWorkspace. Restored stream history itself becomes closed before selected responses refresh; error/closed terminal states and Git queue/drain/validation/recovery barriers remain. [Controlled frontend proof](../../artifacts/workspace-snapshot-20261026/verification.json) covers old cache/error removal and open-history normalization.
+
+Current normal release appa3036e5d passes maintained native create-and-switch: actual checkout/same HEAD/local edit/resources/history/cleared intent/reload, plus exact actual SSE/WSS malformed-CA error history/error badges/enabled Reconnect with0TCP connections after checkout/reload. Current recovery7hosts also passes. [Native receipt](../../artifacts/git-snapshot-native-20261026/verification.json). Scenario requires an explicit current build-state and integration identity, preserves complete workspace/cookies/TLS/profile, then archives only the proven newly created fixture repo after host exit. Both43-entry archives and exact two-file profile/hash are independently verified; existing repos/journals remain untouched. Old Connect-label failure is retained and the exact Reconnect supplement documented. Project work is not committed; synthetic fixture commits remain confined to the test repos. Native open-stream/cache reset, other transition/fault/provider/OS-close/platform cases remain required.
+
 ## Empty Clone display-name fallback — 2026-10-17
 
 planGitClone no longer lets decodeURIComponent reject an accepted remote URL while naming a new empty-repository collection. gitCloneName decodes valid UTF8 paths, preserves encoded display text for malformed UTF8/percent sequences or decoded control characters, strips the .git display suffix and supplies Cloned repository for an empty name. Explicit user names keep their existing precedence. Remote URLs, native repository paths, receipts and install coordination are unchanged.
@@ -21,7 +25,7 @@ See [current status](STATUS.md), [execution plan](PLAN.md) and [complete parity 
 
 # Git checkout transaction and recovery
 
-Updated: 2026-09-29  
+Updated: 2026-09-29
 Status: **partially implemented** — saveData queue barrier implemented and checked; tracked-run coordination is implemented for shutdown; mutation/writer guards and native journal recovery reader are implemented; checkout producer, frontend coordination and runtime acceptance remain incomplete.
 
 ## Evidence and decision

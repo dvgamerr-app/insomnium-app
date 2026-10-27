@@ -118,7 +118,7 @@ Additional native evidence (2026-10-01): tests/ui/graphql-schema-import.js passe
 - [ ] Wrong credentials stop after the authenticated response; stale=true permits one more retry. No automatic Basic fallback. Session variants without qop and proxy 407 remain explicit unsupported cases.
 - [ ] Verify redirect on/off, 307 body preservation, 302 POST/303 conversion, ten-redirect limit, cookie rules and original-origin credential scope. Cross-origin destination must not receive Digest credentials or manually specified cookies. Client-certificate redirect restriction remains in force.
 - [ ] Cancel during challenge/retry/body read and close during a Digest stream handshake. Total HTTP timeout covers all attempts; stream handshake timeout does not stop an established stream. Cookie flush/reload and proxy/TLS checks still need native application acceptance.
-- [ ] Authentication-Info/rspauth validation, legacy non-UTF8 header encodings, nonce caching and proxy Digest require follow-up before claiming complete legacy authentication parity.
+- [ ] Origin Authentication-Info/rspauth now has bounded Windows HTTP/SSE/WebSocket acceptance ([scope/evidence](AUTHENTICATION.md#origin-digest-response-proof--2026-10-27)). Broader provider/platform acceptance, legacy non-UTF8 header encodings, nonce caching and proxy response-proof compatibility still require follow-up before claiming complete legacy authentication parity.
 
 ## OAuth token exchange gate
 
