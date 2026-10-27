@@ -1,4 +1,5 @@
 fn main() {
+    plugin_runtime_binding();
     tauri_build::try_build(tauri_build::Attributes::new().app_manifest(
         tauri_build::AppManifest::new().commands(&[
             "reserve_spectral_lint",
@@ -44,6 +45,13 @@ fn main() {
             "discover_plugins",
             "discover_plugin_sources",
             "read_plugin_package",
+            "reserve_plugin_inspection",
+            "run_plugin_inspection",
+            "cancel_plugin_inspection",
+            "open_bun_plugin_session",
+            "invoke_bun_plugin_callback",
+            "reply_bun_plugin_helper",
+            "set_bun_plugin_interaction",
             "plugin_store",
             "import_legacy_plugin_data",
             "git_remote_advertise",
@@ -76,4 +84,73 @@ fn main() {
         ]),
     ))
     .expect("build Tauri application permissions")
+}
+
+fn plugin_runtime_binding() {
+    use sha2::{Digest, Sha256};
+    use std::{env, fs, path::Path};
+    let target = env::var("TARGET").expect("Cargo target");
+    let binary = format!("binaries/plugin-runtime-{target}.exe");
+    let manifest = format!("{binary}.manifest.json");
+    println!("cargo:rerun-if-changed={binary}");
+    println!("cargo:rerun-if-changed={manifest}");
+    let inputs = [
+        "scripts/build-plugin-runtime.mjs",
+        "tools/plugin-runtime/host.js",
+        "tools/plugin-runtime/session.js",
+        "tools/plugin-runtime/input.js",
+        "tools/plugin-runtime/dom.js",
+        "tools/plugin-runtime/files.js",
+        "scripts/plugin-file-runtime.js",
+        "src/lib/plugin-guest-dom.js",
+        "src/lib/plugin-call-context.js",
+        "src/lib/plugin-request-context.js",
+        "src/lib/plugin-response-context.js",
+        "src/lib/plugin-run-helpers.js",
+        "src/lib/plugin-app-async.js",
+        "src/lib/plugin-app-sync.js",
+        "src/lib/plugin-metadata.js",
+        "src/lib/plugin-tag-metadata.js",
+        "src/lib/plugin-values.js",
+        "package.json",
+    ];
+    for path in inputs {
+        println!("cargo:rerun-if-changed=../{path}");
+    }
+    if target != "x86_64-pc-windows-msvc" || !Path::new(&manifest).exists() {
+        println!("cargo:rustc-env=INSOMNIUM_PLUGIN_RUNTIME_SHA256=");
+        return;
+    }
+    let stamp: serde_json::Value =
+        serde_json::from_slice(&fs::read(&manifest).expect("Bun runtime manifest"))
+            .expect("Valid Bun runtime manifest");
+    assert_eq!(stamp["schema"], 1);
+    assert_eq!(stamp["target"], target);
+    let package: serde_json::Value =
+        serde_json::from_slice(&fs::read("../package.json").unwrap()).unwrap();
+    assert_eq!(
+        package["packageManager"].as_str().unwrap(),
+        format!("bun@{}", stamp["bunVersion"].as_str().unwrap())
+    );
+    assert_eq!(stamp["sources"].as_object().unwrap().len(), inputs.len());
+    for path in inputs {
+        let digest = format!(
+            "{:x}",
+            Sha256::digest(fs::read(format!("../{path}")).unwrap())
+        );
+        assert_eq!(
+            stamp["sources"][path], digest,
+            "Stale Bun runtime input: {path}"
+        );
+    }
+    assert!(!fs::symlink_metadata(&binary)
+        .unwrap()
+        .file_type()
+        .is_symlink());
+    let bytes = fs::read(&binary).expect("Compiled Bun inspection runtime");
+    assert!(bytes.len() <= 256 * 1024 * 1024);
+    assert_eq!(stamp["bytes"].as_u64(), Some(bytes.len() as u64));
+    let digest = format!("{:x}", Sha256::digest(&bytes));
+    assert_eq!(stamp["sha256"], digest, "Bun runtime binary mismatch");
+    println!("cargo:rustc-env=INSOMNIUM_PLUGIN_RUNTIME_SHA256={digest}");
 }

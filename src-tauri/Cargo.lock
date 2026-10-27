@@ -2703,8 +2703,6 @@ dependencies = [
 [[package]]
 name = "hyper"
 version = "1.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c3e324da4c95177d6291d4c8730197c0d1822f8a9766814a4a44fa5ab797c9c"
 dependencies = [
  "atomic-waker",
  "bytes",
@@ -3007,6 +3005,7 @@ dependencies = [
  "jsonwebtoken",
  "libuv-sys2",
  "md-5 0.11.0",
+ "nix",
  "oauth2",
  "objc2",
  "objc2-app-kit",
@@ -3044,6 +3043,7 @@ dependencies = [
  "tonic-prost",
  "tonic-reflection",
  "tower",
+ "tower-http",
  "tungstenite",
  "uds_windows",
  "unicode-normalization",

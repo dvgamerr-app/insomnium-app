@@ -17,5 +17,9 @@ vite.config.ts.timestamp-*
 /src/lib/generated/
 /tools/spectral-linter/dist/
 /src-tauri/binaries/spectral-linter-*
+/src-tauri/binaries/plugin-runtime-*
 /src-tauri/notices/spectral/
 /src-tauri/notices/native/
+
+# Restored from pinned upstream archives and project overrides before building.
+/src-tauri/vendor/

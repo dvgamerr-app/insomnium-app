@@ -1,7 +1,5 @@
 # Preserve authenticated upstream notice/evidence bytes across Windows checkouts.
-src-tauri/vendor/protobufjs-google/*.proto -text
-src-tauri/vendor/protobufjs-google/*.json -text
-src-tauri/vendor/protobufjs-google/LICENSE -text
+tools/vendor/overrides/** -text
 tools/spectral-linter/notice-sources/libarchive-ded822-COPYING -text
 tools/spectral-linter/notice-sources/bun-1.4.2-LICENSE.md -text
 tools/spectral-linter/notice-sources/spectral-runtime-1.1.6-repository-LICENSE -text
@@ -20,8 +18,6 @@ tools/native-notices/repository-sources/41b5c8fdd6494e98c73563f5d989dbc3f7418417
 tools/native-notices/repository-sources/f6eab0a90a5ab759040c82f16e9507c1c8425422667ec642eb722c7f973df41d -text
 tools/native-notices/repository-sources/0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594 -text
 tools/native-notices/repository-sources/9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d -text
-# Keep the complete pinned proxy-matcher crate byte-identical on checkout.
-src-tauri/vendor/hyper-util/** -text
 tools/spectral-linter/notice-sources/libdeflate-c8c56a-COPYING -text
 tools/spectral-linter/notice-sources/libspng-fb7680-LICENSE -text
 tools/spectral-linter/notice-sources/libjpeg-turbo-e352b0-LICENSE.md -text
