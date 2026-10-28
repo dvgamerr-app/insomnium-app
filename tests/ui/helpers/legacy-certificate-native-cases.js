@@ -6,6 +6,8 @@ import {
   withNativeApp,
   poll,
   resourceCrudProbeIdentifier,
+  selectedNativeProbeIdentifier,
+  integrationProbeIdentifier,
 } from "./native-app.js";
 import {
   withResourceProbePreserved,
@@ -24,11 +26,12 @@ import {
 /** Genuine imported certificate bytes through real pickers and owned mTLS. */
 export async function runLegacyCertificateNativeCases() {
   assert.equal(process.platform, "win32");
+  const integration=selectedNativeProbeIdentifier()===integrationProbeIdentifier;
   const markerPath = process.env.INSOMNIUM_UI_PROFILE_OWNERSHIP;
-  assert.ok(markerPath);
+  if(!integration)assert.ok(markerPath);
   assert.ok(process.env.INSOMNIUM_UI_BUILD_STATE);
   const options = {
-    expectedIdentifier: resourceCrudProbeIdentifier,
+    expectedIdentifier: integration?integrationProbeIdentifier:resourceCrudProbeIdentifier,
     profileOwnershipPath: markerPath,
   };
   /** @type {Awaited<ReturnType<typeof clientCertificateFixture>>|undefined} */ let fixture;
@@ -42,12 +45,14 @@ export async function runLegacyCertificateNativeCases() {
           "legacy-certificate-import-native",
           async ({ page, invoke, output, pid }) => {
             evidenceOutput = output;
-            const marker = await Bun.file(markerPath).json();
-            assert.equal(marker.identifier, resourceCrudProbeIdentifier);
-            assert.equal(marker.launches.at(-1)?.pid, pid);
-            assert.equal(marker.launches.at(-1)?.directoryAbsentAtBind, false);
+            if(!integration){
+              const marker = await Bun.file(/** @type {string} */(markerPath)).json();
+              assert.equal(marker.identifier, resourceCrudProbeIdentifier);
+              assert.equal(marker.launches.at(-1)?.pid, pid);
+              assert.equal(marker.launches.at(-1)?.directoryAbsentAtBind, false);
+            }
             await resourceSaved(page);
-            await capture();
+            if(!integration)await capture();
             const original = await invoke("load_workspace");
             const layoutKeys = [
               "nocturne:split:workspace-left",
@@ -375,6 +380,10 @@ export async function runLegacyCertificateNativeCases() {
                   .locator(".tree-request")
                   .filter({ hasText: request.name })
                   .click();
+                await poll(async()=>{
+                  const saved=await invoke('load_workspace');
+                  return saved.activeRequestId===request._id && saved.resources.some((/** @type {any} */row)=>['request_meta','grpc_request_meta'].includes(row._type)&&row.parentId===request._id);
+                },'Selected HTTP request metadata persisted');
               };
               const execute = async (
                 /** @type {typeof source.definitions[number]} */ definition,
@@ -709,13 +718,17 @@ export async function runLegacyCertificateNativeCases() {
               const roundtrip = await invoke("load_workspace");
               registerNew(roundtrip, beforeRoundtrip.resources);
               assert.deepEqual(roundtrip.history, beforeRoundtrip.history);
-              for (const old of beforeRoundtrip.resources)
-                assert.deepEqual(
-                  roundtrip.resources.find(
-                    (/** @type {any} */ row) => row._id === old._id,
-                  ),
-                  old,
-                );
+              for (const old of beforeRoundtrip.resources) {
+                const current=roundtrip.resources.find((/** @type {any} */ row)=>row._id===old._id);
+                if(old._type==='workspace_meta'&&old.parentId===beforeRoundtrip.activeWorkspaceId){
+                  assert.ok(current);
+                  assert.equal(current.activeEnvironmentId,beforeRoundtrip.activeEnvironmentId);
+                  assert.ok(current.modified>=old.modified);
+                  const {activeEnvironmentId:_environment,modified:_modified,...rest}=current;
+                  const {activeEnvironmentId:_oldEnvironment,modified:_oldModified,...oldRest}=old;
+                  assert.deepEqual(rest,oldRest);
+                }else assert.deepEqual(current,old);
+              }
               if (remembersOutgoing) {
                 const oldIds = new Set(
                   beforeRoundtrip.resources.map(
@@ -805,7 +818,7 @@ export async function runLegacyCertificateNativeCases() {
           options,
         );
       },
-      { ...options, lazyCapture: true },
+      { ...options, lazyCapture: !integration },
     );
   } catch (error) {
     failures.push(error);

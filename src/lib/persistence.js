@@ -14,7 +14,9 @@ export async function loadData() {
     value = await invoke("load_workspace");
   } else {
     const raw = localStorage.getItem(key);
-    value = raw ? JSON.parse(raw) : null;
+    value = raw === null ? null : JSON.parse(raw);
+    if (raw !== null && value === null)
+      throw new Error("Unsupported or damaged workspace data. The existing file has not been replaced.");
   }
   if (value == null) return null;
   const data = validateData(value);

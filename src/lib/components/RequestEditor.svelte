@@ -260,6 +260,8 @@
               mimeType: event.currentTarget.value,
               binary: undefined,
               _openapiSerialization: undefined,
+              _postmanUrlencodedString: undefined,
+              _postmanGraphqlBody: undefined,
               ...(binaryBody && event.currentTarget.value !== "application/octet-stream"
                 ? { base64: undefined, fileName: undefined, _legacyFilePath: undefined,
                     _legacyFileAsset: undefined, _legacyFileAssetError: undefined }

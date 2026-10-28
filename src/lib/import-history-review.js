@@ -53,9 +53,15 @@ export function applyImportedData(data,review,options = {}){
   }
   // A valid import can contain more resources than the engine's call argument limit.
   for (const resource of review.resources) data.resources.push(resource);
-  data.history.push(...checked.accepted);
-  for(const meta of review.resources.filter(r=>r._type==='request_meta'))
-    if(checked.accepted.some(entry=>entry._id===meta.activeResponseId&&entry.requestId===meta.parentId))
+  for(const entry of checked.accepted) data.history.push(entry);
+  const selections=new Map();
+  for(const entry of checked.accepted){
+    let responses=selections.get(entry.requestId);
+    if(!responses)selections.set(entry.requestId,responses=new Set());
+    responses.add(entry._id);
+  }
+  for(const meta of review.resources)
+    if(meta._type==='request_meta'&&selections.get(meta.parentId)?.has(meta.activeResponseId))
       data.responseSelections[meta.parentId]=meta.activeResponseId;
   Object.assign(data.settings,checked.settingsPatch);
   return checked;

@@ -14,6 +14,17 @@ import {initialData,newRequest} from '../../src/lib/model.js';
 import {addWideCollectionFixture} from './helpers/collection-actions-cases.js';
 
 const tabsOnly=process.env.INSOMNIUM_WORKSPACE_TABS_ONLY==='1';
+const nestedNetwork=process.env.INSOMNIUM_RUNNER_NESTED_NETWORK==='1';
+const nestedDelete=process.env.INSOMNIUM_RUNNER_NESTED_DELETE==='1';
+const nestedDeleteSuite=process.env.INSOMNIUM_RUNNER_NESTED_DELETE_SUITE==='1';
+const nestedRoundtrip=process.env.INSOMNIUM_RUNNER_NESTED_ROUNDTRIP==='1';
+const nestedAmbiguous=process.env.INSOMNIUM_RUNNER_NESTED_AMBIGUOUS==='1';
+const nestedEnvironment=process.env.INSOMNIUM_RUNNER_NESTED_ENVIRONMENT==='1';
+assert.ok(!nestedEnvironment||nestedRoundtrip&&!nestedAmbiguous);
+assert.ok(!nestedAmbiguous||nestedRoundtrip);
+assert.ok([nestedDelete,nestedDeleteSuite,nestedRoundtrip].filter(Boolean).length<=1&&(!(nestedDelete||nestedDeleteSuite||nestedRoundtrip)||nestedNetwork));
+const runnerNetwork={requests:/** @type {string[]} */ ([]),labels:/** @type {(string|null)[]} */ ([]),environment:nestedEnvironment,aborted:false,finished:false,deleteRequest:nestedDelete,deleteSuite:nestedDeleteSuite,roundtrip:nestedRoundtrip,ambiguous:nestedAmbiguous,release:()=>{}};
+const heldDelete={entered:false,aborted:false,completed:false,release:()=>{}};
 const tabData=initialData(),foreignTabs=initialData();
 const firstTab=tabData.resources.find(row=>row._id===tabData.activeRequestId);assert.ok(firstTab);firstTab.name='Owned restored first';
 const secondTab=newRequest(tabData.activeWorkspaceId,{name:'Owned restored second'});
@@ -28,7 +39,7 @@ const tabEnvironment=tabData.resources.find(row=>row._type==='environment');asse
 tabData.openTabs=[firstTab._id,secondTab._id,firstTab._id,folder._id,foreignTabs.activeRequestId,'req_missing_tab',secondTab._id,tabEnvironment._id];
 
 await withPreview(
-  "nocturne-workspace",
+  nestedEnvironment?"nocturne-workspace-nested-environment":nestedAmbiguous?"nocturne-workspace-nested-ambiguous":nestedRoundtrip?"nocturne-workspace-nested-roundtrip":nestedDeleteSuite?"nocturne-workspace-nested-delete-suite":nestedDelete?"nocturne-workspace-nested-delete":"nocturne-workspace",
   async (page, output) => {
     const errors = /** @type {string[]} */ ([]);
     page.on("pageerror", (error) => errors.push(error.message));
@@ -52,15 +63,80 @@ await withPreview(
       await page.getByRole('combobox',{name:'Collection',exact:true}).selectOption(tabData.activeWorkspaceId);
       await page.waitForFunction(id=>JSON.parse(localStorage.getItem('insomnium-tauri-preview-v1')||'{}').activeWorkspaceId===id,tabData.activeWorkspaceId);
       saved=await read();assert.equal(saved.activeRequestId,'');assert.deepEqual(saved.openTabs,[foreignTabs.activeRequestId]);assert.deepEqual(saved.history,tabData.history);assert.deepEqual(errors,[]);
-      await Bun.write(output+'/tabs.json',JSON.stringify({passed:true,duplicateTabsRemoved:true,nonRequestAndMissingTabsRemoved:true,stableOrder:true,closeActiveFallback:true,closeLastAndReloadEmpty:true,foreignTabsRetained:true,largeCollectionRequests:10000,rememberedLastRequest:true,authoredResourcesUnchanged:true,historyUnchanged:true},null,2));
+      for(const invalid of ['req_missing_owned',foreignTabs.activeRequestId,folder._id]){
+        await page.evaluate(({workspaceId,invalid})=>{
+          const data=JSON.parse(localStorage.getItem('insomnium-tauri-preview-v1')||'{}');
+          data.activeWorkspaceId=workspaceId;data.activeRequestId=invalid;data.openTabs=[];
+          const meta=data.resources.find((/** @type {any} */ row)=>row._type==='workspace_meta'&&row.parentId===workspaceId);
+          meta.activeRequestId=invalid;localStorage.setItem('insomnium-tauri-preview-v1',JSON.stringify(data));
+        },{workspaceId:tabData.activeWorkspaceId,invalid});
+        await page.reload();
+        await tabs.getByRole('button',{name:'Close Owned restored first',exact:true}).waitFor();
+        assert.equal(await tabs.locator('.request-tab').count(),1,'Invalid remembered request falls back to a request in its own collection');
+        await page.getByRole('combobox',{name:'Collection',exact:true}).selectOption(foreignTabs.activeWorkspaceId);
+        await page.getByRole('combobox',{name:'Collection',exact:true}).selectOption(tabData.activeWorkspaceId);
+        await page.waitForFunction(id=>JSON.parse(localStorage.getItem('insomnium-tauri-preview-v1')||'{}').activeRequestId===id,firstTab._id);
+        assert.deepEqual((await read()).history,tabData.history);
+      }
+      const beforeImport=await read();
+      const imported={resources:[
+        {_id:'wrk_import_selection',_type:'workspace',parentId:null,name:'Owned imported selection',scope:'collection'},
+        {_id:'fld_import_selection',_type:'request_group',parentId:'wrk_import_selection',name:'Owned imported folder'},
+        {_id:'req_import_first',_type:'request',parentId:'wrk_import_selection',name:'Owned imported first',method:'GET',url:'https://owned.invalid/first'},
+        {_id:'req_import_selected',_type:'request',parentId:'fld_import_selection',name:'Owned imported selected',method:'GET',url:new URL('/owned-delete-held',page.url()).href},
+        {_id:'env_import_selected',_type:'environment',parentId:'wrk_import_selection',name:'Owned imported environment',data:{owned:'value'}},
+        {_id:'wrkm_import_selection',_type:'workspace_meta',parentId:'wrk_import_selection',activeRequestId:'req_import_selected',activeEnvironmentId:'env_import_selected'}
+      ]};
+      await page.getByRole('button',{name:'Import collection',exact:true}).click();
+      const importDialog=page.getByRole('dialog');
+      await importDialog.getByLabel('Import collection or cURL commands',{exact:true}).fill(JSON.stringify(imported));
+      await importDialog.getByRole('button',{name:'Review import',exact:true}).click();
+      await importDialog.getByRole('button',{name:'Import',exact:true}).click();
+      await importDialog.waitFor({state:'detached'});
+      await tabs.getByRole('button',{name:'Close Owned imported selected',exact:true}).waitFor();
+      await page.waitForFunction(()=>JSON.parse(localStorage.getItem('insomnium-tauri-preview-v1')||'{}').resources.some((/** @type {any} */ row)=>row.name==='Owned imported selection'));
+      let afterImport=await read();
+      const importedWorkspace=afterImport.resources.find((/** @type {any} */ row)=>row.name==='Owned imported selection');
+      const importedRequest=afterImport.resources.find((/** @type {any} */ row)=>row.name==='Owned imported selected');
+      const importedEnvironment=afterImport.resources.find((/** @type {any} */ row)=>row.name==='Owned imported environment');
+      assert.notEqual(importedWorkspace._id,'wrk_import_selection');assert.notEqual(importedRequest._id,'req_import_selected');assert.notEqual(importedEnvironment._id,'env_import_selected');
+      assert.equal(afterImport.activeWorkspaceId,importedWorkspace._id);assert.equal(afterImport.activeRequestId,importedRequest._id);assert.equal(afterImport.activeEnvironmentId,importedEnvironment._id);
+      assert.deepEqual(afterImport.history,beforeImport.history);
+      await page.reload();await tabs.getByRole('button',{name:'Close Owned imported selected',exact:true}).waitFor();
+      afterImport=await read();assert.equal(afterImport.activeRequestId,importedRequest._id);assert.equal(afterImport.activeEnvironmentId,importedEnvironment._id);
+      await page.getByRole('button',{name:'Send',exact:true}).click();
+      try {
+        await page.waitForFunction(()=>document.querySelector('button[aria-label="Delete request"]')!==null);
+        for(let attempt=0;attempt<100&&!heldDelete.entered;attempt++)await page.waitForTimeout(50);
+        assert.equal(heldDelete.entered,true,'Selected request reached the held endpoint');
+        await page.getByRole('button',{name:'Delete request',exact:true}).click();
+        const deleteDialog=page.getByRole('dialog',{name:'Delete request?',exact:true});
+        await deleteDialog.getByRole('button',{name:'Delete request',exact:true}).click();
+        await deleteDialog.waitFor({state:'detached'});
+      } finally {heldDelete.release();}
+      for(let attempt=0;attempt<100&&!heldDelete.completed;attempt++)await page.waitForTimeout(50);
+      assert.equal(heldDelete.completed,true,'Held response was released');
+      await page.waitForTimeout(250);
+      assert.equal(heldDelete.aborted,true,'Deleting the active request aborts its pending transport');
+      await page.waitForFunction(id=>!JSON.parse(localStorage.getItem('insomnium-tauri-preview-v1')||'{}').resources.some((/** @type {any} */ row)=>row._id===id),importedRequest._id);
+      const deleted=await read();
+      assert.equal(deleted.activeRequestId,'');assert.ok(!deleted.openTabs.includes(importedRequest._id));
+      assert.equal(deleted.resources.find((/** @type {any} */ row)=>row._type==='workspace_meta'&&row.parentId===importedWorkspace._id).activeRequestId,'');
+      assert.ok(deleted.resources.some((/** @type {any} */ row)=>row.name==='Owned imported first'));
+      assert.deepEqual(deleted.resources.filter((/** @type {any} */ row)=>row._type!=='workspace_meta'&&beforeImport.resources.some((/** @type {any} */ original)=>original._id===row._id)),beforeImport.resources.filter((/** @type {any} */ row)=>row._type!=='workspace_meta'));
+      assert.deepEqual(deleted.history,beforeImport.history);
+      await page.reload();await page.getByRole('button',{name:'Import collection',exact:true}).waitFor();
+      assert.equal(await tabs.getByRole('button',{name:'Close Owned imported selected',exact:true}).count(),0);
+      const reloadedDelete=await read();assert.equal(reloadedDelete.activeRequestId,'');assert.deepEqual(reloadedDelete.history,beforeImport.history);
+      await Bun.write(output+'/tabs.json',JSON.stringify({passed:true,duplicateTabsRemoved:true,nonRequestAndMissingTabsRemoved:true,stableOrder:true,closeActiveFallback:true,closeLastAndReloadEmpty:true,foreignTabsRetained:true,largeCollectionRequests:10000,rememberedLastRequest:true,invalidRememberedRequestFallback:['missing','foreign','folder'],importedSelectionRemappedAndReloaded:true,deleteHeldImportedRequestAndReload:true,authoredResourcesUnchanged:true,historyUnchanged:true},null,2));
       await Bun.write(output+'/result.json',JSON.stringify({status:'passed',headless:true,focus:'saved request tabs'},null,2));return;
     }
     if (process.env.INSOMNIUM_RUNNER_NESTED_ONLY === "1") {
       await page.getByRole("button",{name:"Tests",exact:true}).click();
       await page.getByRole("button",{name:"New Test Suite",exact:true}).click();
       await page.getByRole("textbox",{name:"Test suite name",exact:true}).waitFor();
-      await exerciseRunnerResults(page,output,true);
-      await Bun.write(output + "/result.json",JSON.stringify({status:"passed",headless:true,nestedSuiteLevels:3,scope:"Actual Runner UI/worker/VM/nested titles/request binding/results persistence and original result controls; no network/native"},null,2));
+      await exerciseRunnerResults(page,output,true,nestedNetwork?runnerNetwork:undefined);
+      await Bun.write(output + "/result.json",JSON.stringify({status:"passed",headless:true,nestedSuiteLevels:3,requests:runnerNetwork.requests,labels:runnerNetwork.labels,aborted:runnerNetwork.aborted,deletedRequest:nestedDelete,deletedSuite:nestedDeleteSuite,roundtrip:nestedRoundtrip,ambiguous:nestedAmbiguous,environment:nestedEnvironment,scope:nestedEnvironment?"Imported nested suite resolves its collection environment; preview only":nestedAmbiguous?"Ambiguous imported request ID refuses dispatch; preview only":nestedRoundtrip?"Nested suite export/reimport, execution and reload; preview only":nestedDeleteSuite?"Nested suite deletion while held, cancellation and reload; preview only":nestedDelete?"Nested runner request deletion while held, cancellation and reload; preview only":nestedNetwork?"Actual Runner UI/worker/VM/nested binding, held preview loopback, Stop and persisted results; no native":"Actual Runner UI/worker/VM/nested titles/request binding/results persistence and original result controls; no network/native"},null,2));
       return;
     }
     assert.equal(
@@ -361,5 +437,5 @@ await withPreview(
       }),
     );
   },
-  { buildRoot: process.env.INSOMNIUM_UI_PREVIEW_BUILD,beforeNavigate:async page=>{if(tabsOnly)await page.addInitScript(data=>{if(!localStorage.getItem('insomnium-tauri-preview-v1'))localStorage.setItem('insomnium-tauri-preview-v1',JSON.stringify(data));},tabData);} },
+  { buildRoot: process.env.INSOMNIUM_UI_PREVIEW_BUILD,beforeNavigate:async page=>{if(tabsOnly)await page.addInitScript(data=>{if(!localStorage.getItem('insomnium-tauri-preview-v1'))localStorage.setItem('insomnium-tauri-preview-v1',JSON.stringify(data));},tabData);},fetch:async request=>{const url=new URL(request.url);if(tabsOnly&&url.pathname==='/owned-delete-held'){heldDelete.entered=true;request.signal.addEventListener('abort',()=>{heldDelete.aborted=true;});await new Promise(resolve=>{heldDelete.release=()=>resolve(undefined);});heldDelete.completed=true;return new Response('retired response');}if(nestedNetwork&&url.pathname==='/runner-nested-owned'){runnerNetwork.requests.push(url.pathname);runnerNetwork.labels.push(request.headers.get('x-runner-env'));if(runnerNetwork.requests.length===1){request.signal.addEventListener('abort',()=>{runnerNetwork.aborted=true;});await new Promise(resolve=>{runnerNetwork.release=()=>resolve(undefined);});runnerNetwork.finished=true;}return new Response('nested owned response',{headers:{'content-type':'text/plain'}});}} },
 );

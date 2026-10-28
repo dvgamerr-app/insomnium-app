@@ -8,12 +8,13 @@ import { resolve, sep, basename, dirname } from "node:path";
  * Known control IDs follow the SAME saved Windows Save helper; this is bounded
  * chooser acceptance, not a universal modern/legacy-dialog identity claim.
  * @param {number} pid @param {string} output @param {string|string[]|null} path
- * @param {'file'|'folder'} kind @param {'.db'|'.json'} [extension] */
-export async function respondToOwnedOpenDialog(pid, output, path, kind, extension = ".db") {
+ * @param {'file'|'folder'} kind @param {'.db'|'.json'|'.xml'|'.wsdl'|'.xsd'|Array<'.wsdl'|'.xsd'>} [extension] @param {{webview?:boolean}} [options] */
+export async function respondToOwnedOpenDialog(pid, output, path, kind, extension = ".db", options = {}) {
   assert.equal(process.platform, "win32");
   assert.ok(Number.isSafeInteger(pid) && pid > 0);
   assert.ok(["file", "folder"].includes(kind));
-  assert.ok([".db", ".json"].includes(extension));
+  const extensions = Array.isArray(extension) ? extension : [extension];
+  assert.ok(extensions.length > 0 && extensions.every(value => [".db", ".json", ".xml", ".wsdl", ".xsd"].includes(value)));
   const root = resolve(output), multiple = Array.isArray(path);
   assert.ok(!multiple || kind === "file" && path.length >= 2 && path.length <= 16);
   const paths = path === null ? [] : (Array.isArray(path) ? path : [path]).map(value => resolve(value));
@@ -48,10 +49,25 @@ export async function respondToOwnedOpenDialog(pid, output, path, kind, extensio
         current = parent;
       }
       if (kind === "file")
-        assert.ok(selected.endsWith(extension), "Only owned " + extension + " input");
+        assert.ok(extensions.some(value => selected.endsWith(value)), "Only owned " + extensions.join(", ") + " input");
     }
   };
   await verifyPath();
+  let dialogPid = pid;
+  const verifyWebviewOwner = (/** @type {number} */ chosenPid) => {
+    assert.equal(kind,'file');
+    const command=Bun.spawnSync(['powershell.exe','-NoProfile','-Command','Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,Name,CommandLine | ConvertTo-Json -Compress'],{windowsHide:true,timeout:10000});
+    assert.equal(command.exitCode,0,'WebView process inventory failed');
+    const processes=JSON.parse(command.stdout.toString()),ownedPids=new Set([pid]);let changed=true;
+    while(changed){changed=false;for(const row of processes)if(ownedPids.has(row.ParentProcessId)&&!ownedPids.has(row.ProcessId)){ownedPids.add(row.ProcessId);changed=true;}}
+    const profile=resolve(output,'webview-profile').toLowerCase();
+    const browsers=processes.filter((/** @type {any} */ row)=>ownedPids.has(row.ProcessId)&&String(row.Name).toLowerCase()==='msedgewebview2.exe'&&String(row.CommandLine).toLowerCase().includes(profile)&&!/\s--type(?:=|\s)/i.test(String(row.CommandLine)));
+    assert.equal(browsers.length,1,'Exactly one owned WebView browser with this scenario profile');
+    const descendants=new Set([browsers[0].ProcessId]);changed=true;
+    while(changed){changed=false;for(const row of processes)if(descendants.has(row.ParentProcessId)&&!descendants.has(row.ProcessId)){descendants.add(row.ProcessId);changed=true;}}
+    const chosen=processes.find((/** @type {any} */ row)=>row.ProcessId===chosenPid);
+    assert.ok(chosen&&descendants.has(chosenPid)&&String(chosen.Name).toLowerCase()==='msedgewebview2.exe'&&String(chosen.CommandLine).toLowerCase().includes(profile),'Chooser must belong to this scenario WebView');
+  };
   const library = dlopen("user32.dll", {
     GetTopWindow: { args: ["u64"], returns: "u64" },
     GetWindow: { args: ["u64", "u32"], returns: "u64" },
@@ -77,7 +93,7 @@ export async function respondToOwnedOpenDialog(pid, output, path, kind, extensio
     const owned = (/** @type {bigint} */ hwnd) => {
       owner[0] = 0;
       assert.ok(api.GetWindowThreadProcessId(hwnd, ptr(owner)));
-      assert.equal(owner[0], pid);
+      assert.equal(owner[0], dialogPid);
     };
     const cls = (/** @type {bigint} */ hwnd) => {
       const bytes = new Uint16Array(256);
@@ -102,13 +118,13 @@ export async function respondToOwnedOpenDialog(pid, output, path, kind, extensio
         const thread = api.GetWindowThreadProcessId(hwnd, ptr(owner));
         if (
           thread &&
-          owner[0] === pid &&
+          (options.webview || owner[0] === pid) &&
           api.IsWindowVisible(hwnd) &&
           cls(hwnd) === "#32770"
         ) {
           const parent = api.GetWindow(hwnd, 4);
           if (parent && cls(parent) === "Tauri Window") {
-            owned(parent);
+            owner[0]=0;assert.ok(api.GetWindowThreadProcessId(parent,ptr(owner)));assert.equal(owner[0],pid);
             found.push(hwnd);
           }
         }
@@ -118,11 +134,12 @@ export async function respondToOwnedOpenDialog(pid, output, path, kind, extensio
       if (!chooser) await Bun.sleep(50);
     }
     assert.notEqual(chooser, 0n, "Owned chooser must appear");
+    owner[0]=0;assert.ok(api.GetWindowThreadProcessId(chooser,ptr(owner)));dialogPid=owner[0];if(options.webview)verifyWebviewOwner(dialogPid);else assert.equal(dialogPid,pid);
     main = api.GetWindow(chooser, 4);
     failureDialog = chooser;
     failureMain = main;
     const authenticate = () => {
-      owned(main);
+      owner[0]=0;assert.ok(api.GetWindowThreadProcessId(main,ptr(owner)));assert.equal(owner[0],pid);
       owned(chooser);
       assert.equal(cls(main), "Tauri Window");
       assert.equal(cls(chooser), "#32770");
@@ -143,8 +160,12 @@ export async function respondToOwnedOpenDialog(pid, output, path, kind, extensio
     if (selected === null) {
       authenticate();
       assert.notEqual(api.PostMessageW(chooser, 0x0111, 2n, 0n), 0);
+      const closeDeadline = Date.now() + 5000;
+      while (api.IsWindowVisible(chooser) && Date.now() < closeDeadline) await Bun.sleep(50);
+      assert.equal(api.IsWindowVisible(chooser), 0, "Cancelled chooser must close before another opens");
       return {
         pid,
+        dialogPid,
         dialog: String(chooser),
         main: String(main),
         kind,
@@ -396,6 +417,7 @@ export async function respondToOwnedOpenDialog(pid, output, path, kind, extensio
     );
     return {
       pid,
+      dialogPid,
       dialog: String(chooser),
       main: String(main),
       kind,
@@ -433,9 +455,11 @@ export async function respondToOwnedOpenDialog(pid, output, path, kind, extensio
       );
       if (
         thread &&
-        pidBuffer[0] === pid &&
+        pidBuffer[0] === dialogPid &&
         api.GetWindow(failureDialog, 4) === failureMain
       ) {
+        pidBuffer[0]=0;
+        if(!api.GetWindowThreadProcessId(failureMain,ptr(pidBuffer)) || pidBuffer[0]!==pid) throw error;
         const count = api.GetClassNameW(failureDialog, ptr(name), name.length);
         if (String.fromCharCode(...name.subarray(0, count)) === "#32770")
           api.PostMessageW(failureDialog, 0x0010, 0n, 0n);

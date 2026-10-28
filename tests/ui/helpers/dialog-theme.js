@@ -1,5 +1,32 @@
 import assert from "node:assert/strict";
 
+/** Shared checks for the existing Ocean plugin fixture in preview and native Preferences.
+ * @param {{page:import('playwright-core').Page,root:import('playwright-core').Locator,themeId:string,unload:()=>Promise<void>}} context */
+export async function exercisePluginTheme({page,root,themeId,unload}) {
+  const select=root.getByRole('combobox',{name:'Theme',exact:true});
+  const automatic=root.getByRole('checkbox',{name:'Follow system colour scheme',exact:true});
+  await automatic.uncheck();
+  await select.selectOption(themeId);
+  await page.waitForFunction(()=>document.body.getAttribute('theme')==='ocean');
+  assert.equal(await page.locator('body').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(18, 52, 86)');
+  assert.equal(await page.locator('body').evaluate(el=>getComputedStyle(el).getPropertyValue('--theme-probe').trim()),'active');
+  await automatic.check();
+  await root.getByRole('combobox',{name:'Light theme',exact:true}).selectOption('light');
+  await root.getByRole('combobox',{name:'Dark theme',exact:true}).selectOption(themeId);
+  await page.emulateMedia({colorScheme:'light'});
+  await page.waitForFunction(()=>document.documentElement.dataset.theme==='light'&&!document.querySelector('style[data-plugin-theme]'));
+  await page.emulateMedia({colorScheme:'dark'});
+  await page.waitForFunction(()=>document.body.getAttribute('theme')==='ocean');
+  await automatic.uncheck();
+  await unload();
+  await page.waitForFunction(()=>!document.querySelector('style[data-plugin-theme]'));
+  assert.equal(await page.locator('body').getAttribute('theme'),null);
+  assert.equal(await select.inputValue(),themeId);
+  await select.selectOption('light');
+  await page.waitForFunction(()=>document.documentElement.dataset.theme==='light');
+  return ['actual Preferences selection','production theme host and guest metadata','raw CSS theme selector','system light/dark media changes with independent theme choice','manual selection recovery','unload stylesheet and attribute cleanup','unavailable selection retained','built-in recovery'];
+}
+
 /** Check mounted dialog/backdrop tokens and blur opt-out, restoring all overrides.
  * @param {import('playwright-core').Locator} dialog */
 export async function assertDialogTokens(dialog) {

@@ -59,11 +59,11 @@ export async function exerciseManualHttpHistoryCases({page,invoke},fixture,api){
     await statusHistoryButton.focus();await page.keyboard.press('ArrowDown');await list.waitFor();await page.keyboard.press('Escape');await list.waitFor({state:'detached'});
     assert.equal(await statusHistoryButton.evaluate(el=>el===document.activeElement),true,'Escape restores history trigger focus');
     assert.deepEqual((await load()).resources,statusCheckpoint.resources);assert.deepEqual((await load()).history,statusCheckpoint.history);assert.equal(fixture.records.length,statusWireCount,'History inspection never sends');
-    await page.reload();await select(id);assert.equal((await load()).responseSelections[id],selectedEntry._id);await poll(async()=>(await statusHistoryButton.innerText()).includes(String(selectedStatus)),'Reload restores explicitly selected native history status',60000);
+    await page.reload();await statusHistoryButton.waitFor();assert.equal((await load()).activeRequestId,id);assert.equal((await load()).responseSelections[id],selectedEntry._id);await poll(async()=>(await statusHistoryButton.innerText()).includes(String(selectedStatus)),'Reload restores explicitly selected native history status',60000);
     await page.getByRole('tablist',{name:'Response view',exact:true}).getByRole('tab',{name:'Headers',exact:false}).click();assert.ok((await page.locator('.response-headers').innerText()).includes('history-status-'+selectedStatus));
     assert.deepEqual((await load()).resources,statusCheckpoint.resources);assert.deepEqual((await load()).history,statusCheckpoint.history);assert.equal(fixture.records.length,statusWireCount,'Reload of history selection never sends');
   }
-  await page.reload();await select(id);assert.deepEqual((await load()).history,statusCheckpoint.history);assert.deepEqual((await load()).resources,statusCheckpoint.resources);assert.equal(fixture.records.length,statusWireCount);
+  await page.reload();await statusHistoryButton.waitFor();assert.equal((await load()).activeRequestId,id);assert.deepEqual((await load()).history,statusCheckpoint.history);assert.deepEqual((await load()).resources,statusCheckpoint.resources);assert.equal(fixture.records.length,statusWireCount);
   await record('real-503-404-200-history-keyboard',{requestId:id,historyIds:statusEntries.map(entry=>entry._id),selectedStatuses:[503,200],escapeFocus:true,readOnly:true,reloaded:true});
   for(const mode of ['destroy','timeout','headers']){
     const token='history-'+mode;const url=fixture.target(token,mode);

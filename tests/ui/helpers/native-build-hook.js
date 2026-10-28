@@ -1,8 +1,4 @@
 import assert from "node:assert/strict";
-/** @type {{runHook:(mode:string,target:string)=>Promise<void>}} */
-const { runHook } = await import(
-  new URL("../../../scripts/tauri-spectral-hook.mjs", import.meta.url).href
-);
 import {
   captureNativeBuildClosure,
   namespaceTarget,
@@ -22,7 +18,10 @@ await auditedProbeOutput(
   process.env.INSOMNIUM_NAMESPACE_BUILD_OUTPUT,
   identifier,
 );
-await runHook("build", namespaceTarget);
+const config = await Bun.file(new URL("../../../src-tauri/tauri.conf.json", import.meta.url)).json();
+assert.equal(config.build.beforeBuildCommand, "bun run build", "Production frontend build command changed");
+const child = Bun.spawn([process.execPath, "run", "build"], {stdin:"inherit",stdout:"inherit",stderr:"inherit"});
+assert.equal(await child.exited, 0, "Production frontend build failed");
 await captureNativeBuildClosure(
   process.env.INSOMNIUM_NAMESPACE_BUILD_OUTPUT,
   true,

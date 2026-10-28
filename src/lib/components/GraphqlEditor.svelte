@@ -44,7 +44,7 @@
     clearSchema,
     schemaRevisionFor,
   } from "../workspace.svelte.js";
-  import { download } from "../import-export.js";
+  import { download, decodeImportText } from "../import-export.js";
   /** @type {{ request: Record<string, any>, onchange: (patch: Record<string, any>) => void }} */
   let { request, onchange } = $props();
   const fileWork = createWorkspaceWorkScope();
@@ -302,8 +302,11 @@
       work = fileWork.begin();
       if (file.size > schemaLimit)
         throw new Error("Schema exceeds the 20 MiB limit.");
-      const text = await file.text();
+      const bytes = new Uint8Array(await file.arrayBuffer());
       if (!current()) return;
+      if (bytes.byteLength > schemaLimit)
+        throw new Error("Schema exceeds the 20 MiB limit.");
+      const text = decodeImportText(bytes, "schema");
       const result = readSchema(text);
       if (
         !workspace.data.resources.some((resource) => resource._id === requestId)

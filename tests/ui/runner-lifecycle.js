@@ -9,7 +9,9 @@ assert.equal(selectedNativeProbeIdentifier(), integrationProbeIdentifier);
 assert.ok(process.env.INSOMNIUM_UI_BUILD_STATE, "Explicit native build required");
 const closeDuringRun = process.env.INSOMNIUM_RUNNER_NATIVE_CLOSE === "1";
 const deleteDuringRun = process.env.INSOMNIUM_RUNNER_DELETE_REQUEST === "1";
-assert.ok(!(closeDuringRun && deleteDuringRun), "Select one Runner lifecycle focus");
+const deleteSuite = process.env.INSOMNIUM_RUNNER_DELETE_LINKED_RESULTS === "1";
+const refusedMove = process.env.INSOMNIUM_RUNNER_REFUSED_MOVE === "1";
+assert.ok([closeDuringRun,deleteDuringRun,deleteSuite,refusedMove].filter(Boolean).length <= 1, "Select one Runner lifecycle focus");
 /** @type {((context:import('./helpers/native-app.js').ScenarioContext)=>Promise<void>)|undefined} */
 let resumeAfterClose;
 const fixtureHttp = await heldHttp({
@@ -26,6 +28,7 @@ try {
     const collectionName = "Runner lifecycle " + fixture.workspaceId;
     const suiteId = "uts_" + fixture.workspaceId;
     const testId = "ut_" + fixture.workspaceId;
+    const foreignId = id('wrk'), foreignName = 'Runner foreign ' + foreignId;
     const data = await invoke("load_workspace");
     data.resources.push(
       { _id: fixture.workspaceId, _type: "workspace", parentId: null, name: collectionName, scope: "collection" },
@@ -96,13 +99,30 @@ expect(delegated).to.equal(1);`,
         code: "expect('actual').to.equal('expected');",
       },
     );
-    if (deleteDuringRun) {
+    if (deleteDuringRun || refusedMove) {
       data.resources.find((/** @type {any} */ item) => item._id === testId).code =
         `await insomnia.sendRequest('${fixture.requestId}');`;
       request.url = `http://127.0.0.1:${fixtureHttp.port}/held`;
     }
+    if(refusedMove)data.resources.push({_id:'fld_'+fixture.workspaceId,_type:'request_group',parentId:fixture.workspaceId,name:'Owned move destination'});
+    if(deleteSuite)data.resources.push(
+      {_id:foreignId,_type:'workspace',parentId:null,name:foreignName,scope:'collection'},
+      {_id:'foreign_result_'+suiteId,_type:'unit_test_result',parentId:foreignId,unitTestSuiteId:suiteId},
+      {_id:'foreign_child_'+suiteId,_type:'future_resource',parentId:'foreign_result_'+suiteId,payload:{value:'foreign-preserved'}},
+      {_id:'result_'+suiteId,_type:'unit_test_result',parentId:fixture.workspaceId,unitTestSuiteId:suiteId},
+      {_id:'result_child_'+suiteId,_type:'future_resource',parentId:'result_'+suiteId,payload:{value:'owned'}},
+      {_id:'result_grandchild_'+suiteId,_type:'future_resource',parentId:'result_child_'+suiteId},
+      {_id:'nested_test_'+suiteId,_type:'unit_test',parentId:'result_child_'+suiteId},
+      {_id:'nested_result_'+suiteId,_type:'unit_test_result',parentId:fixture.workspaceId,unitTestId:'nested_test_'+suiteId},
+      {_id:'nested_child_'+suiteId,_type:'future_resource',parentId:'nested_result_'+suiteId},
+      {_id:'other_result_'+suiteId,_type:'unit_test_result',parentId:fixture.workspaceId},
+      {_id:'other_child_'+suiteId,_type:'future_resource',parentId:'other_result_'+suiteId,payload:{value:'preserved'}},
+      {_id:'wrong_type_result_'+suiteId,_type:'unit_test_result',parentId:fixture.workspaceId,unitTestId:suiteId},
+      {_id:'wrong_type_child_'+suiteId,_type:'future_resource',parentId:'wrong_type_result_'+suiteId,payload:{value:'preserved-invalid-reference'}},
+    );
     await invoke("save_workspace", { data });
     registerResourceProbeCollection(fixture.workspaceId, collectionName);
+    if(deleteSuite)registerResourceProbeCollection(foreignId,foreignName);
     await page.reload();
     await page.getByRole("button", { name: "Tests", exact: true }).click();
     const runner = page.getByRole("region", {
@@ -112,6 +132,33 @@ expect(delegated).to.equal(1);`,
     await runner
       .getByRole("textbox", { name: "Test suite name", exact: true })
       .waitFor();
+    if(deleteSuite){
+      await runner.getByRole('button',{name:'Delete test suite',exact:true}).click();
+      await runner.getByRole('alert').getByRole('button',{name:'Delete',exact:true}).click();
+      const removed=[suiteId,testId,testId+'_pass',testId+'_fail','result_'+suiteId,'result_child_'+suiteId,'result_grandchild_'+suiteId,'nested_test_'+suiteId,'nested_result_'+suiteId,'nested_child_'+suiteId];
+      await poll(async()=>{const saved=await invoke('load_workspace');return removed.every(id=>!saved.resources.some((/** @type {any} */row)=>row._id===id));},'Suite and linked result descendants persisted deleted');
+      await page.reload();
+      const saved=await invoke('load_workspace');
+      assert.ok(removed.every(id=>!saved.resources.some((/** @type {any} */row)=>row._id===id)));
+      assert.ok(saved.resources.some((/** @type {any} */row)=>row._id==='other_result_'+suiteId));
+      assert.deepEqual(saved.resources.find((/** @type {any} */row)=>row._id==='other_child_'+suiteId)?.payload,{value:'preserved'});
+      assert.equal(saved.resources.find((/** @type {any} */row)=>row._id==='wrong_type_result_'+suiteId)?.unitTestId,suiteId);
+      assert.deepEqual(saved.resources.find((/** @type {any} */row)=>row._id==='wrong_type_child_'+suiteId)?.payload,{value:'preserved-invalid-reference'});
+      assert.equal(saved.resources.find((/** @type {any} */row)=>row._id==='foreign_result_'+suiteId)?.unitTestSuiteId,suiteId);
+      assert.deepEqual(saved.resources.find((/** @type {any} */row)=>row._id==='foreign_child_'+suiteId)?.payload,{value:'foreign-preserved'});
+      assert.ok(saved.resources.some((/** @type {any} */row)=>row._id===fixture.requestId));
+      assert.deepEqual(pageErrors,[]);
+      await Bun.write(output+'/acceptance.json',JSON.stringify({passed:true,focus:'delete-linked-result-descendants',deleted:removed.length,unrelatedResultAndRequestRetained:true,foreignCrossReferenceRetained:true,wrongTypeReferenceRetained:true,reloaded:true},null,2));
+      return;
+    }
+    if(refusedMove){
+      await runner.getByRole('button',{name:'Run Callback contract',exact:true}).click();await poll(async()=>fixtureHttp.held===1,'Runner request held');await page.getByRole('button',{name:'Collections',exact:true}).click();
+      await page.getByRole('button',{name:'Send',exact:true}).click();await poll(async()=>fixtureHttp.held===2,'Manual request held');const dialog=await manageResource(page,'Preserved local request');await dialog.locator('select').selectOption('fld_'+fixture.workspaceId);await dialog.getByRole('button',{name:'Save changes',exact:true}).click();await dialog.getByText(/Cancel running requests before moving this item/).waitFor();
+      assert.equal(fixtureHttp.cancelled,0,'Refused move must not cancel the independent runner');assert.equal(fixtureHttp.completeHeld(),2);await dialog.getByRole('button',{name:'Cancel',exact:true}).click();await page.getByRole('button',{name:'Tests',exact:true}).click();await runner.getByRole('button',{name:'Run Tests',exact:true}).waitFor();
+      await poll(async()=>(await invoke('load_workspace')).resources.some((/** @type {any} */row)=>row._type==='unit_test_result'&&row.unitTestId===testId),'Runner result saved after refused move',60000);assert.equal((await invoke('load_workspace')).resources.find((/** @type {any} */row)=>row._id===fixture.requestId).parentId,fixture.workspaceId);
+      await runner.getByRole('button',{name:'Run Callback contract',exact:true}).click();await poll(async()=>fixtureHttp.held===3,'Second runner request held');await page.getByRole('button',{name:'Collections',exact:true}).click();const valid=await manageResource(page,'Preserved local request');await valid.locator('select').selectOption('fld_'+fixture.workspaceId);await valid.getByRole('button',{name:'Save changes',exact:true}).click();await valid.waitFor({state:'detached'});await poll(async()=>fixtureHttp.cancelled===1,'Successful move cancels affected runner');await poll(async()=>(await invoke('load_workspace')).resources.find((/** @type {any} */row)=>row._id===fixture.requestId)?.parentId==='fld_'+fixture.workspaceId,'Successful move saved',60000);assert.equal(fixtureHttp.completeHeld(),0);assert.deepEqual(pageErrors,[]);
+      await Bun.write(output+'/acceptance.json',JSON.stringify({passed:true,focus:'refused-move-preserves-runner',heldRequests:3,refusalPreservesRunner:true,runnerResultSaved:true,successfulMoveCancelsRunner:true},null,2));return;
+    }
     if (deleteDuringRun) {
       const before = await invoke("load_workspace");
       const results = (/** @type {any} */ value) => value.resources.filter(

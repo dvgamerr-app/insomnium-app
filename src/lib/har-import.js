@@ -28,7 +28,11 @@ export function harResources(source) {
     const request = entry?.request;
     if (!request || typeof request !== "object" || typeof request.url !== "string" || typeof request.method !== "string")
       throw new Error("HAR entries require a request URL and method.");
+    if ([entry.comment,request.comment].some(comment => comment != null && typeof comment !== "string"))
+      throw new Error("HAR entry and request comments must be text.");
     const headers = rows(request.headers ?? [],"headers").map(({comment:_comment,...header}) => ({...header}));
+    if (headers.some(header => header.disabled != null && typeof header.disabled !== "boolean"))
+      throw new Error("HAR header disabled flags must be boolean.");
     const cookie = rows(request.cookies ?? [],"cookies").map((item) => `${item.name}=${item.value ?? ""}`).join("; ");
     const existingCookie = headers.find((header) => !header.disabled && header.name.toLowerCase() === "cookie");
     // cookies describes the captured Cookie header; it is not a second set
@@ -37,15 +41,24 @@ export function harResources(source) {
     const post = request.postData;
     if (post != null && (typeof post !== "object" || Array.isArray(post))) throw new Error("HAR postData must be an object.");
     if (post?.text != null && typeof post.text !== "string") throw new Error("HAR postData text must be a string.");
+    if (post?.mimeType != null && typeof post.mimeType !== "string") throw new Error("HAR postData MIME type must be a string.");
     if(post?._multipartContentType != null && typeof post._multipartContentType !== "string")throw new Error("HAR multipart Content-Type must be text.");
+    if ([post?._multipart, post?._suppressContentType].some(value => value != null && typeof value !== "boolean"))
+      throw new Error("HAR multipart and Content-Type suppression flags must be boolean.");
     const multipart=post?._multipart===true,suppressContentType=post?._suppressContentType===true;
     if(suppressContentType){
       if(headers.some(header=>!header.disabled&&header.name.toLowerCase()==='content-type'))throw new Error("HAR suppressed Content-Type conflicts with an active header.");
       headers.push({name:"Content-Type",value:"",disabled:true,_curlSuppressDefault:true});
     }
     const parameters = rows(post?.params ?? [],"body parameters");
+    if (parameters.some(parameter => parameter.disabled != null && typeof parameter.disabled !== "boolean"))
+      throw new Error("HAR body parameter disabled flags must be boolean.");
     if (parameters.some((parameter) => parameter.fileName != null && typeof parameter.fileName !== "string"))
       throw new Error("HAR file names must be strings.");
+    if (parameters.some((parameter) => parameter.contentType != null && typeof parameter.contentType !== "string"))
+      throw new Error("HAR parameter Content-Type must be a string.");
+    if (parameters.some(parameter => parameter._fileContent != null && typeof parameter._fileContent !== "boolean"))
+      throw new Error("HAR file content flags must be boolean.");
     const mime = typeof post?.mimeType === "string" ? post.mimeType : "";
     const baseMime = mime.split(";")[0].trim().toLowerCase();
     const text = post?.text ?? "";
@@ -71,6 +84,7 @@ export function harResources(source) {
         const binary=parameter._encoding === "base64",filePart=binary||typeof parameter.fileName === "string";
         return {
           name:parameter.name,value:filePart ? "" : parameter.value ?? "",
+          ...(parameter.disabled != null ? {disabled:parameter.disabled} : {}),
           ...(parameter.name === "" ? {_harExplicitPart:true} : {}),
           ...(typeof parameter.contentType === "string" ? {contentTypeOverride:parameter.contentType} : {}),
           ...(filePart ? {type:"file",fileName:parameter.fileName || "har-part.bin",
@@ -108,6 +122,8 @@ export function harResources(source) {
     // HAR url is the full target; queryString is its decomposition. Preserve raw
     // query spelling/order and do not append that decomposition a second time.
     const query = rows(request.queryString ?? [],"query parameters");
+    if (query.some(parameter => parameter.disabled != null && typeof parameter.disabled !== "boolean"))
+      throw new Error("HAR query parameter disabled flags must be boolean.");
     const hasQuery = request.url.split("#")[0].includes("?");
     resources.push(newRequest(workspaceId,{
       name:request.comment || entry.comment || request.url || `HAR Import ${index + 1}`,

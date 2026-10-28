@@ -19,7 +19,8 @@ assert.ok(
   process.env.INSOMNIUM_UI_BUILD_STATE,
   "Explicit current build required",
 );
-const digestOnly = process.env.INSOMNIUM_PROXY_DIGEST === '1';
+const proxyProofOnly = process.env.INSOMNIUM_PROXY_RESPONSE_PROOF === '1';
+const digestOnly = process.env.INSOMNIUM_PROXY_DIGEST === '1' || proxyProofOnly;
 await preserveNativeProfile(async () =>
   withResourceProbePreserved(
     async () => {
@@ -154,6 +155,14 @@ await preserveNativeProfile(async () =>
               },
             });
           if(digestOnly){
+            if(proxyProofOnly){
+              for(const mode of ['digest-proof-header','digest-proof-trailer']){fixture.setMode(mode);const response=await send(fixture.httpProxy,fixture.httpOrigin+'/echo');assert.equal(response.status,200);assert.deepEqual(Buffer.from(response.bodyBase64,'base64'),body);checks.push({mode,valid:true});}
+              fixture.setMode('digest-proof-bad');await assert.rejects(()=>send(fixture.httpProxy,fixture.httpOrigin+'/echo'),/Digest response authentication failed|invalid rspauth/i);checks.push({mode:'digest-proof-bad',rejected:true});
+              fixture.setMode('digest-proof-header');assert.equal((await send(fixture.httpProxy,fixture.httpsOrigin+'/echo')).status,200);checks.push({mode:'connect-valid',valid:true});
+              fixture.setMode('digest-proof-bad');const prior=fixture.origins.length;await assert.rejects(()=>send(fixture.httpProxy,fixture.httpsOrigin+'/echo'),/Digest response authentication failed|invalid rspauth/i);assert.equal(fixture.origins.length,prior);checks.push({mode:'connect-forged',rejectedBeforeOrigin:true});
+              fixture.setMode('digest-proof-header');const originDigest={username:'origin-digest-user',password:'origin-digest-password'};const combined=await send(fixture.httpProxy,fixture.httpOrigin+'/origin-digest-proof?algorithm=SHA-256&qop=auth-int',{headers:[],digest:originDigest});assert.equal(combined.status,200);assert.deepEqual(Buffer.from(combined.bodyBase64,'base64'),body);checks.push({mode:'simultaneous-origin-proxy',valid:true});
+              assert.deepEqual(fixture.errors,[]);await poll(()=>Promise.resolve(fixture.activeSocketCount()===0),'Proxy proof sockets retired');assert.ok(fixture.records.every(row=>row.socketClosed));await Bun.write(output+'/proxy-proof-acceptance.json',JSON.stringify({passed:true,checks,allSocketsClosed:true},null,2));return;
+            }
             for(const [mode,origin] of [['digest',fixture.httpOrigin],['digest',fixture.httpsOrigin],['digest-stale',fixture.httpOrigin],['basic',fixture.httpOrigin],['ntlm',fixture.httpOrigin]]){
               fixture.setMode(mode);
               const start=fixture.records.length,originStart=fixture.origins.length;

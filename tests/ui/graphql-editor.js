@@ -151,6 +151,17 @@ if(process.env.INSOMNIUM_GRAPHQL_NAVIGATION==='1'){
         assert.equal(await page.getByRole('alert').count(),0,'Retired fetch must not publish stale errors');
       }finally{await pending?.abort().catch(()=>{});await page.unroute('**/held-schema');}
     }
+    await page.evaluate(()=>/** @type {any} */(window).replaceNavigationSchema());
+    await types.selectOption('Query');
+    const beforeImport=await page.locator('.schema-definition').innerText();
+    const schemaFile=page.locator('.graphql-panel input[type="file"]');
+    await schemaFile.setInputFiles({name:'invalid.graphql',mimeType:'text/plain',buffer:Buffer.concat([Buffer.from('type Query { field: String } # '),Buffer.from([0xc3,0x28])])});
+    await page.getByRole('alert').filter({hasText:'Selected schema file is not valid UTF-8.'}).waitFor();
+    assert.equal(await page.locator('.schema-definition').innerText(),beforeImport,'Invalid UTF-8 leaves cached schema unchanged');
+    await schemaFile.setInputFiles({name:'valid.graphql',mimeType:'text/plain',buffer:Buffer.concat([Buffer.from([0xef,0xbb,0xbf]),Buffer.from('type Query { ping: String }')])});
+    await page.getByRole('alert').waitFor({state:'detached'});
+    await types.selectOption('Query');
+    assert.match(await page.locator('.schema-definition').innerText(),/ping: String/,'UTF-8 BOM schema imports');
     assert.deepEqual(jumpErrors,[],'No jump lifecycle page errors across navigation/replacement/fetch flows');
     await Bun.write(output+'/result.json',JSON.stringify({status:'passed',headless:true,checks:['queued completion rejects retired schema, disabled autocomplete or replaced text; new input still completes','schema replacement while Ctrl held retires marker/reference/listeners','physical Ctrl-click survives query-editor unmount and modifier release','variables-only typing preserves completion session with automatic completion disabled','reference navigation','Back restores search and definition','keyboard Back restores search focus','schema replacement clears history','held fetch success/failure preserve replacement schema'],limits:'Real component/workflow/preview transport with held Playwright route; no native IPC or external server'},null,2));
   });

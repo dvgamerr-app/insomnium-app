@@ -26,10 +26,19 @@ export const referenceKeys = [
  * @param {Resource[]} resources @param {string} resourceId */
 export function resourceRemovalIds(resources, resourceId) {
   const ids = descendants(resources, resourceId);
-  for (const resource of resources) {
-    if (resource._type === "unit_test_result" &&
-        (ids.has(resource.unitTestSuiteId) || ids.has(resource.unitTestId)))
-      ids.add(resource._id);
+  const types = new Map(resources.map(resource => [resource._id, resource._type]));
+  const owners = indexWorkspaces(resources);
+  // Results of removed suites/tests go too (and their own children, which may hold more
+  // tests), unless they resolvably belong to another workspace. Repeat to a fixpoint.
+  for (let size = 0; size !== ids.size;) {
+    size = ids.size;
+    for (const resource of resources) {
+      const linked = resource._type === "unit_test_result" &&
+        [[resource.unitTestSuiteId, "unit_test_suite"], [resource.unitTestId, "unit_test"]]
+          .some(([target, type]) => ids.has(target) && types.get(target) === type &&
+            (!owners.get(resource._id) || owners.get(resource._id) === owners.get(target)));
+      if (linked || ids.has(resource.parentId)) ids.add(resource._id);
+    }
   }
   return ids;
 }
@@ -219,15 +228,15 @@ export function duplicateResource(resources, resourceId) {
   return mapping.get(resourceId);
 }
 
-/** @param {Resource[]} resources @param {string} resourceId */
+/** @param {Map<string,Resource>} resources @param {string} resourceId */
 export function resourcePath(resources, resourceId) {
   const names = [];
   const visited = new Set();
-  let resource = resources.find((r) => r._id === resourceId);
+  let resource = resources.get(resourceId);
   while (resource && !visited.has(resource._id)) {
     visited.add(resource._id);
-    names.unshift(resource.name || "Untitled");
-    resource = resources.find((r) => r._id === resource?.parentId);
+    names.push(resource.name || "Untitled");
+    resource = resources.get(resource.parentId);
   }
-  return names.join(" / ");
+  return names.reverse().join(" / ");
 }

@@ -47,6 +47,7 @@
   const isCollection = $derived(resource._type === "workspace");
   const isFolder = $derived(resource._type === "request_group");
   const childIds = $derived(descendants(resources, resource._id));
+  const resourceIndex = $derived(new Map(resources.map((r) => [r._id, r])));
   const destinations = $derived(
     resources.filter(
       (r) =>
@@ -139,7 +140,7 @@
           >Location<Select bind:value={parentId}>
             {#each destinations as target (target._id)}
               <option value={target._id}
-                >{resourcePath(resources, target._id)}</option
+                >{resourcePath(resourceIndex, target._id)}</option
               >
             {/each}
           </Select></Field

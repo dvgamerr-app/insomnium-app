@@ -17,7 +17,7 @@
   workspace.data=seed();workspace.ready=true;
   let visible=$state(true),tab=$state(true),ready=$state(false),reads=$state.raw(/** @type {any[]} */([]));
   const request=$derived(workspace.data.resources.find((/** @type {any} */ row)=>row._id===workspace.data.activeRequestId));
-  const waiting=/** @type {Map<string,{resolve:(value:string)=>void,reject:(error:Error)=>void,text:()=>Promise<string>,row:any}>} */(new Map());
+  const waiting=/** @type {Map<string,{resolve:(value:ArrayBuffer)=>void,reject:(error:Error)=>void,text:()=>Promise<ArrayBuffer>,row:any}>} */(new Map());
   async function reset(){visible=false;await tick();workspace.data=seed();workspace.error="";workspace.notice="";tab=true;visible=true;await tick();await persist();return snapshot();}
   function snapshot(){return JSON.parse(JSON.stringify({data:workspace.data,reads,visible,tab,ready,persisted:localStorage.getItem("insomnium-tauri-preview-v1"),grpcErrors:workspace.grpcErrors??{},error:workspace.error}));}
   /** @param {string} id */
@@ -27,17 +27,17 @@
   async function show(value){visible=!!value;await tick();return snapshot();}
   /** @param {boolean} value */
   async function switchTab(value){tab=!!value;await tick();return snapshot();}
-  /** Override ONLY an owned File instance's text method, never File.prototype or transport.
+  /** Override ONLY an owned File instance's arrayBuffer method, never File.prototype or transport.
    * @param {File} file @param {string} token */
   function hold(file,token){
     if(!(file instanceof File)||waiting.has(token))throw Error("Unowned/duplicate File fixture");
-    const original=file.text.bind(file),row={token,name:file.name,bytes:file.size,reads:0,settled:false,controlledInstance:true};
+    const original=file.arrayBuffer.bind(file),row={token,name:file.name,bytes:file.size,reads:0,settled:false,controlledInstance:true};
     reads=[...reads,row];
-    Object.defineProperty(file,"text",{value:()=>{row.reads++;reads=[...reads];return new Promise((resolve,reject)=>waiting.set(token,{resolve,reject,text:original,row}));}});
+    Object.defineProperty(file,"arrayBuffer",{value:()=>{row.reads++;reads=[...reads];return new Promise((resolve,reject)=>waiting.set(token,{resolve,reject,text:original,row}));}});
     return file;
   }
   /** @param {string} token @param {boolean} [reject] */
-  async function release(token,reject=false){const entry=waiting.get(token);if(!entry)throw Error("No pending owned File read");waiting.delete(token);entry.row.settled=true;entry.row.rejected=reject;reads=[...reads];if(reject)entry.reject(Error("Owned File.text rejection "+token));else entry.resolve(await entry.text());await tick();return snapshot();}
+  async function release(token,reject=false){const entry=waiting.get(token);if(!entry)throw Error("No pending owned File read");waiting.delete(token);entry.row.settled=true;entry.row.rejected=reject;reads=[...reads];if(reject)entry.reject(Error("Owned File.arrayBuffer rejection "+token));else entry.resolve(await entry.text());await tick();return snapshot();}
   const host=/** @type {any} */(window);if(host.__protoMeasurement)throw Error("Duplicate fixture");
   host.__protoMeasurement=Object.freeze({reset,snapshot,select,replaceData,show,switchTab,hold,release});
   onMount(()=>{void persist().then(()=>ready=true);});

@@ -1006,7 +1006,7 @@ async function runLegacyImportCloseNativeCases(options) {
       assert.equal(broken.originalLevel, 7);
       if (assetCancel) assert.equal(laterGate?.breakState(), null, "Later body has not opened before cancellation");
       await poll(async () => inspectOwnedDialogs(pid).length === 0, "Owned database picker has actually closed");
-      assert.equal(commands.filter(command => command === "plugin:fs|read_text_file").length, assetClose ? 3 : 2);
+      assert.equal(commands.filter(command => command === "plugin:fs|open").length, assetClose ? 3 : 2);
       if (assetClose) assert.equal(commands.filter(command => command === "read_legacy_response_assets").length, 1);
       assert.equal(await dialog.getByRole("button", { name: assetClose ? "Load legacy response files" : "Choose collection file", exact: true }).isDisabled(), true);
       if (assetClose) assert.equal(await dialog.getByRole("button", { name: "Import", exact: true }).isDisabled(), true);

@@ -3,6 +3,8 @@ import {withPreview} from "./helpers/preview-app.js";
 import {withNativeApp,poll} from './helpers/native-app.js';
 import {preserveNativeProfile} from './helpers/native-profile-preservation.js';
 import {dirname,join} from 'node:path';
+import {mkdtemp,readdir} from 'node:fs/promises';
+import {shellCurlCode} from '../../src/lib/request-code.js';
 import {initialData,newRequest,id} from "../../src/lib/model.js";
 import {addWideCollectionFixture} from './helpers/collection-actions-cases.js';
 
@@ -10,7 +12,7 @@ const nativeNavigation=process.env.INSOMNIUM_NAVIGATION_NATIVE==='1';
 const shortcutData=initialData();
 const shortcutRequest=shortcutData.resources.find(row=>row._id===shortcutData.activeRequestId);
 assert.ok(shortcutRequest);
-shortcutRequest.headers=[{name:'X-Escape',value:'quote\'"\\tail'},{name:'__proto__',value:'literal-header'}];
+shortcutRequest.headers=[{name:'X-Escape',value:'quote\'"\\tail'},{name:'X-Unicode',value:'ไทย'},{name:'__proto__',value:'literal-header'}];
 shortcutRequest.settingEncodeUrl=false;
 let generatedFetchRequests=0;
 /** Execute only owned cURL fixtures using the installed shell. @param {string} code @param {string} platform */
@@ -117,7 +119,8 @@ if(!nativeNavigation&&!process.argv.includes('--websocket-only')) await withPrev
   await page.waitForFunction(()=>{const cm=/** @type {any} */(document.querySelector('dialog[open] .CodeMirror'))?.CodeMirror;return cm?.getValue().includes('9007199254740993');});
   const generatedCode=()=>generated.locator('.CodeMirror').evaluate(el=>/** @type {any} */(el).CodeMirror.getValue());
   assert.match(await generatedCode(),/curl/);
-  assert.ok((await generatedCode()).includes('item=one&item=two'));
+  const initialCode=await generatedCode(),config64=/printf '%s' '([^']+)'/.exec(initialCode)?.[1];
+  assert.ok((config64?Buffer.from(config64,'base64').toString():initialCode).includes('item=one&item=two'));
   const platforms=generated.getByRole('combobox',{name:'cURL platform',exact:true});
   assert.deepEqual(await platforms.locator('option').evaluateAll(rows=>rows.map(row=>/** @type {HTMLOptionElement} */(row).value)),['linux','windows']);
   assert.equal(await generated.getByRole('combobox').count(),1);
@@ -152,6 +155,7 @@ if(!nativeNavigation&&!process.argv.includes('--websocket-only')) await withPrev
       const wire=await runGeneratedSnippet(code,platform);
       assert.equal(wire.count,before+1);assert.equal(wire.url,curlUrl);
       assert.equal(wire.escape,'quote\'"\\tail');assert.equal(wire.proto,'literal-header');
+      assert.equal(wire.unicode,Buffer.from('ไทย').toString('base64'),platform+' preserves Unicode header bytes');
       if(kind==='text')assert.equal(wire.body,body);
       else if(kind==='binary')assert.equal(wire.bodyBase64,binary.toString('base64'));
       else assert.deepEqual(wire.parts,[{name:'upload',fileName:'owned-codegen.bin',contentType:'application/octet-stream',bodyBase64:binary.toString('base64')}]);
@@ -167,6 +171,13 @@ if(!nativeNavigation&&!process.argv.includes('--websocket-only')) await withPrev
   await generated.screenshot({path:output+'/code-generation.png'});
   await page.keyboard.press('Escape');await generated.waitFor({state:'detached'});
   await Bun.write(output+'/curl-acceptance.json',JSON.stringify({passed:true,headless:true,cases,onlyTwoPlatforms:true,preferenceRestored:true},null,2));
+  const tempDir=await mkdtemp(join(output,'curl-cleanup-'));
+  const failingCode=shellCurlCode({method:'GET',url:'http://127.0.0.1:1/',headers:[{name:'X-Owned',value:'ไทย'}],cookies:[]});
+  const shell=process.platform==='win32'?'C:/Program Files/Git/bin/bash.exe':'/bin/sh';
+  const failed=Bun.spawn([shell,'-s'],{stdin:Buffer.from('curl() { test -s "$3" && test -f "$TMPDIR/$(basename "$3")" || return 42; return 7; }\n'+failingCode+'\n'),stdout:'pipe',stderr:'pipe',windowsHide:true,env:{...process.env,TMPDIR:tempDir}});
+  const [failedExit]=await Promise.all([failed.exited,new Response(failed.stdout).text(),new Response(failed.stderr).text()]);
+  assert.equal(failedExit,7,'cURL failure retains its exit after creating the owned config');
+  assert.deepEqual(await readdir(tempDir),[],'Temporary cURL config is removed after failure');
   for (const [chord,label] of [["Control+Shift+e","Active environment"],["Meta+Shift+l","HTTP method"]]) {
     await page.keyboard.press(chord);
     assert.equal(await page.getByRole("combobox",{name:label,exact:true}).evaluate((el) => el === document.activeElement || el.contains(document.activeElement)),true,label);
@@ -251,7 +262,7 @@ if(!nativeNavigation&&!process.argv.includes('--websocket-only')) await withPrev
       for(const [name,value] of await request.clone().formData())parts.push(typeof value==='string'?{name,value}:{name,fileName:value.name,contentType:value.type,bodyBase64:Buffer.from(await value.arrayBuffer()).toString('base64')});
     }
     const bytes=Buffer.from(await request.arrayBuffer());
-    return Response.json({count:++generatedFetchRequests,url:request.url,parts,body:new TextDecoder().decode(bytes),bodyBase64:bytes.toString('base64'),size:bytes.length,ownedHeader:request.headers.get('x-owned'),requestedWith:request.headers.get('x-requested-with'),contentType:request.headers.get('content-type'),escape:request.headers.get('x-escape'),proto:request.headers.get('__proto__')});
+    return Response.json({count:++generatedFetchRequests,url:request.url,parts,body:new TextDecoder().decode(bytes),bodyBase64:bytes.toString('base64'),size:bytes.length,ownedHeader:request.headers.get('x-owned'),requestedWith:request.headers.get('x-requested-with'),contentType:request.headers.get('content-type'),escape:request.headers.get('x-escape'),unicode:Buffer.from(request.headers.get('x-unicode')||'','latin1').toString('base64'),proto:request.headers.get('__proto__')});
   }
   if (new URL(request.url).pathname === "/owned-editor-history.js")
     return new Response(await Bun.file("src/lib/editor-history.js").text(), {headers:{"Content-Type":"text/javascript"}});

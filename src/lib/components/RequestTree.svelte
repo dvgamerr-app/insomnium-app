@@ -74,7 +74,7 @@
           ><Icon name="more" size={14} /></Button
         >
       </div>
-    {:else if !search || `${item.name} ${item.url} ${item.method}`
+    {:else if !search || `${item.name ?? ""} ${item.url ?? ""} ${item.method ?? ""}`
         .toLowerCase()
         .includes(search.toLowerCase())}
       <div class="tree-request-row" class:active={selected === item._id}>

@@ -74,11 +74,14 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
         .accelerator(fullscreen_accelerator)
         .build(app)?;
     let zoom_reset = MenuItemBuilder::with_id("zoom-reset", "Actual Size")
-        .accelerator("CmdOrCtrl+0").build(app)?;
+        .accelerator("CmdOrCtrl+0")
+        .build(app)?;
     let zoom_in = MenuItemBuilder::with_id("zoom-in", "Zoom In")
-        .accelerator("CmdOrCtrl+=").build(app)?;
+        .accelerator("CmdOrCtrl+=")
+        .build(app)?;
     let zoom_out = MenuItemBuilder::with_id("zoom-out", "Zoom Out")
-        .accelerator("CmdOrCtrl+-").build(app)?;
+        .accelerator("CmdOrCtrl+-")
+        .build(app)?;
     let view = SubmenuBuilder::new(app, "View")
         .item(&fullscreen)
         .separator()
@@ -96,9 +99,7 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
     #[cfg(target_os = "macos")]
     let minimize = minimize.accelerator("Super+M");
     let minimize = minimize.build(app)?;
-    let window_menu = SubmenuBuilder::new(app, "Window")
-        .item(&minimize)
-        .build()?;
+    let window_menu = SubmenuBuilder::new(app, "Window").item(&minimize).build()?;
     let menu = MenuBuilder::new(app)
         .items(&[&application, &file, &edit, &request, &view, &window_menu])
         .build()?;

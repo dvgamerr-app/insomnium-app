@@ -47,7 +47,13 @@ export function createPersistenceQueue(write) {
         ),
       );
     const capturedGeneration = generation;
-    const snapshot = JSON.parse(JSON.stringify(data));
+    /** @type {any} */
+    let snapshot;
+    try {
+      snapshot = JSON.parse(JSON.stringify(data));
+    } catch (error) {
+      return Promise.reject(error);
+    }
     tail = tail
       .catch(() => {})
       .then(async () => {

@@ -37,6 +37,19 @@ export async function runProtoComponentMeasurement(){
     const snap=()=>control(page,"snapshot");
     async function quiet(){assert.equal(await panel.getByRole("alert").count(),0);assert.equal(await panel.getByRole("status").count(),0);assert.equal(await panel.getByRole("textbox",{name:"Proto path 1",exact:true}).count(),0);}
     async function reset(){await control(page,"reset");await picker().waitFor({state:"attached"});await quiet();}
+    await reset();
+    const original=await snap();
+    await picker().setInputFiles([{name:"valid.proto",mimeType:"text/plain",buffer:Buffer.from(source)},{name:"invalid.proto",mimeType:"text/plain",buffer:Buffer.concat([Buffer.from(source),Buffer.from([0xc3,0x28])])}]);
+    await panel.getByRole("alert").filter({hasText:"Selected proto file is not valid UTF-8."}).waitFor();
+    assert.deepEqual((await snap()).data,original.data,"Invalid proto rejects the whole selection");
+    assert.equal((await snap()).persisted,original.persisted);
+    assert.equal(await panel.getByRole("textbox",{name:"Proto path 1",exact:true}).count(),0);
+    await reset();
+    await picker().setInputFiles({name:"bom.proto",mimeType:"text/plain",buffer:Buffer.concat([Buffer.from([0xef,0xbb,0xbf]),Buffer.from(source)])});
+    await panel.getByRole("textbox",{name:"Proto path 1",exact:true}).waitFor();
+    await panel.getByRole("button",{name:"Import 1 files",exact:true}).click();
+    await panel.getByRole("status").filter({hasText:"Proto files imported."}).waitFor();
+    assert.equal((await snap()).data.resources.find((/** @type {any} */ r)=>r.name==="bom.proto").protoText,source);
     /** @param {string} token */
     async function held(token){
       await picker().evaluate((el,{token,source})=>{const host=/** @type {any} */(window),file=host.__protoMeasurement.hold(new File([source],"held.proto",{type:"text/plain"}),token),transfer=new DataTransfer();transfer.items.add(file);const input=/** @type {HTMLInputElement} */(el);input.files=transfer.files;input.dispatchEvent(new Event("change",{bubbles:true}));},{token,source});
@@ -52,7 +65,7 @@ export async function runProtoComponentMeasurement(){
       const geometry=await panel.evaluate(el=>{const box=(/** @type {Element} */node)=>{const r=node.getBoundingClientRect(),s=getComputedStyle(node);return {x:r.x,y:r.y,width:r.width,height:r.height,font:s.font,color:s.color,background:s.backgroundColor};};return {panel:box(el),controls:[...el.querySelectorAll("label.ui-file-picker,input[aria-label],textarea")].map(node=>({id:node.id,name:node.getAttribute("aria-label")??node.textContent,box:box(node)}))};});
       await record({theme,width,kind:"normal",geometry,parentKey:"request._id",tabRemoval:true});
       await page.screenshot({path:output+"/proto-"+theme+"-"+width+"-normal.png"});
-      // Normal valid import uses native File.text and actual browser persistence.
+      // Normal valid import uses native File.arrayBuffer and actual browser persistence.
       const before=await snap();await picker().setInputFiles({name:"imported.proto",mimeType:"text/plain",buffer:Buffer.from(source)});
       await panel.getByRole("textbox",{name:"Proto path 1",exact:true}).waitFor();assert.equal(await panel.getByRole("textbox",{name:"Proto path 1",exact:true}).inputValue(),"imported.proto");
       assert.deepEqual((await snap()).data,before.data,"Read preview is not a saved import");
@@ -108,7 +121,7 @@ export async function runProtoComponentMeasurement(){
         const after=await snap();assert.deepEqual(after.data.resources,beforeRelease.data.resources,"Owned read may not mutate saved resources after navigation");assert.deepEqual(after.data.history,beforeRelease.data.history);
         assert.equal(after.persisted,beforeRelease.persisted,"Read settlement does not save; actual request navigation may persist");
         if(kind==="owned-current-rejection"){
-          const feedback=panel.getByRole("alert");await feedback.waitFor();const actual=await feedback.innerText();assert.equal(actual,"Error: Owned File.text rejection "+token);
+          const feedback=panel.getByRole("alert");await feedback.waitFor();const actual=await feedback.innerText();assert.equal(actual,"Error: Owned File.arrayBuffer rejection "+token);
           await record({theme,width,kind,visibleOwnedError:actual,description:await picker().getAttribute("aria-describedby"),invalid:await picker().getAttribute("aria-invalid"),fieldVsGlobal:"feature-global current File read error"});
         }else{await quiet();await record({theme,width,kind,staleSuppressed:true,controlledReadRejected:reject,inputReset:await picker().inputValue()==="",resourcesUnchanged:true,persistedUnchanged:true,cancellationFocus});}
       }
@@ -141,7 +154,7 @@ export async function runProtoComponentMeasurement(){
       await measureProtoPendingFields({page,panel,picker,reset,snap,record,failures,source,theme,width});
     }
     assert.deepEqual(errors,[]);
-    const summary={status:failures.length?"failed":"passed",measurementComplete:true,native:false,profiles:6,results:results.length,failures,limits:"Keyed component/browser persistence and owned File.text controls; no native schema validation/OS read faults/held backend apply-remove acceptance."};
+    const summary={status:failures.length?"failed":"passed",measurementComplete:true,native:false,profiles:6,results:results.length,failures,limits:"Keyed component/browser persistence and owned File.arrayBuffer controls; no native schema validation/OS read faults/held backend apply-remove acceptance."};
     await Bun.write(output+"/proto-summary.json",JSON.stringify(summary,null,2));
     await Bun.write(output+"/result.json",JSON.stringify(summary,null,2));
     assert.equal(failures.length,0);

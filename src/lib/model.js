@@ -215,6 +215,8 @@ export function validateData(value) {
     }
   }
   const defaults = initialData();
+  if (data.settings != null && (typeof data.settings !== "object" || Array.isArray(data.settings)))
+    throw new Error("Invalid saved workspace settings");
   if (data.responseSelections != null &&
       (typeof data.responseSelections !== "object" || Array.isArray(data.responseSelections) ||
        ![Object.prototype,null].includes(Object.getPrototypeOf(data.responseSelections)) ||

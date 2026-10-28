@@ -68,6 +68,12 @@ pub(crate) fn validate(value: &Value) -> Result<(), String> {
         }
     }
     crate::resource_topology::validate(&records)?;
+    if value
+        .get("settings")
+        .is_some_and(|settings| !settings.is_null() && !settings.is_object())
+    {
+        return Err("Invalid saved workspace settings".into());
+    }
     if let Some(tabs) = value.get("openTabs").filter(|tabs| !tabs.is_null()) {
         if tabs
             .as_array()
@@ -986,6 +992,50 @@ mod tests {
         }
     }
 
+    #[cfg(windows)]
+    #[test]
+    fn locked_primary_refuses_backup_restore_then_allows_retry() {
+        use std::os::windows::fs::OpenOptionsExt;
+        let (directory, backup) = damaged_backup();
+        let (preview, _, _) = backup_preview(&directory.0).unwrap();
+        let primary = directory.0.join(WORKSPACE_FILE);
+        let locked = fs::OpenOptions::new()
+            .read(true)
+            .share_mode(0)
+            .open(&primary)
+            .unwrap();
+        let mut session = Session::default();
+        assert!(restore_backup(
+            &mut session,
+            &directory.0,
+            preview.primary_sha256.as_deref(),
+            &preview.backup_sha256
+        )
+        .is_err());
+        assert!(!session.loaded);
+        drop(locked);
+        assert_eq!(fs::read(&primary).unwrap(), b"damaged original");
+        assert_eq!(
+            fs::read(directory.0.join(PREVIOUS_WORKSPACE_FILE)).unwrap(),
+            backup
+        );
+        let retained = restore_backup(
+            &mut session,
+            &directory.0,
+            preview.primary_sha256.as_deref(),
+            &preview.backup_sha256,
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(fs::read(retained).unwrap(), b"damaged original");
+        assert_eq!(fs::read(primary).unwrap(), backup);
+        assert_eq!(
+            fs::read(directory.0.join(PREVIOUS_WORKSPACE_FILE)).unwrap(),
+            backup
+        );
+        assert_eq!(session.load(&directory.0).unwrap(), Some(workspace()));
+    }
+
     #[test]
     fn backup_preview_refuses_invalid_backup_and_healthy_primary() {
         let (directory, backup) = damaged_backup();
@@ -1161,6 +1211,8 @@ mod tests {
             ("openTabs", json!([7])),
             ("responseSelections", json!([])),
             ("responseSelections", json!({"req":null})),
+            ("settings", json!(["owned"])),
+            ("settings", json!("owned")),
         ] {
             let mut data = workspace();
             data[field] = invalid;
@@ -1176,6 +1228,10 @@ mod tests {
         valid["openTabs"] = json!(["req"]);
         valid["responseSelections"] = json!({"req":"response"});
         validate(&valid).unwrap();
+        for settings in [json!(null), json!({"custom":"owned"})] {
+            valid["settings"] = settings;
+            validate(&valid).unwrap();
+        }
     }
 
     fn workspace() -> Value {

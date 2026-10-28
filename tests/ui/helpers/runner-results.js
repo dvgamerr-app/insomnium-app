@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
+import { poll } from "./native-app.js";
 
 /** Actual pure-Chai worker/results UI; native HTTP/provider/Stop remain separate.
- * @param {import('playwright-core').Page} page @param {string} output @param {boolean} [nested] */
-export async function exerciseRunnerResults(page, output, nested = false) {
+ * @param {import('playwright-core').Page} page @param {string} output @param {boolean} [nested] @param {{requests:string[],labels:(string|null)[],environment:boolean,aborted:boolean,finished:boolean,deleteRequest:boolean,deleteSuite:boolean,roundtrip:boolean,ambiguous:boolean,release:()=>void}} [network] */
+export async function exerciseRunnerResults(page, output, nested = false, network) {
   const key = "insomnium-tauri-preview-v1",
     viewport = page.viewportSize();
   const inventory = await page.evaluate(() =>
@@ -28,6 +29,11 @@ export async function exerciseRunnerResults(page, output, nested = false) {
   );
   const data = structuredClone(before),
     now = Date.now();
+  if(network){
+    const request=data.resources.find((/** @type {any} */ r)=>r._id===before.activeRequestId);
+    assert.ok(request);request.url=new URL('/runner-nested-owned',page.url()).toString();
+    if(network.environment){const base=data.resources.find((/** @type {any} */ r)=>r._type==='environment'&&r.parentId===collectionId);assert.ok(base);base.data={...base.data,runnerLabel:'source-owned'};request.headers=[{name:'X-Runner-Env',value:'{{ _.runnerLabel }}'}];}
+  }
   const hold = "await new Promise(resolve=>setTimeout(resolve,10000));";
   data.resources.push({
     _id: suiteId,
@@ -60,7 +66,7 @@ export async function exerciseRunnerResults(page, output, nested = false) {
       requestId: nested && i === 0 ? before.activeRequestId : null,
       code:
         i === 0
-          ? (nested ? hold : "") + "expect(2+2).to.equal(4);" + (nested ? "expect(insomnia.activeRequestId).to.equal(" + JSON.stringify(before.activeRequestId) + ");" : "")
+          ? (nested && !network ? hold : "") + "expect(2+2).to.equal(4);" + (nested ? network?.roundtrip ? "expect(insomnia.activeRequestId).to.be.a('string');" : "expect(insomnia.activeRequestId).to.equal(" + JSON.stringify(before.activeRequestId) + ");" : "") + (network ? (network.roundtrip ? "const reply=await insomnia.sendRequest("+JSON.stringify(before.activeRequestId)+");" : "const reply=await insomnia.send();")+"expect(reply.status).to.equal(200);expect(reply.data).to.equal('nested owned response');" : "")
           : `expect(${JSON.stringify(actual)}).to.deep.equal(${JSON.stringify(expected)});`,
       created: now,
       modified: now,
@@ -94,14 +100,44 @@ export async function exerciseRunnerResults(page, output, nested = false) {
     await scope.getByRole("button", { name: "Run Tests", exact: true }).click();
     if (nested) {
       await scope.getByRole("button",{name:"Stop",exact:true}).waitFor();
+      if(network)await poll(async()=>network.requests.length===1,'Nested request reached peer');
+      if(network?.deleteRequest){
+        const request=data.resources.find((/** @type {any} */ r)=>r._id===before.activeRequestId);assert.ok(request);
+        await page.getByRole('button',{name:'Collections',exact:true}).click();
+        await page.getByRole('button',{name:'Manage '+request.name,exact:true}).click();const dialog=page.getByRole('dialog');
+        await dialog.getByRole('button',{name:'Delete…',exact:true}).click();await dialog.getByRole('button',{name:'Delete',exact:true}).click();await dialog.waitFor({state:'detached'});
+        await poll(async()=>network.aborted,'Deleted request cancels nested run');network.release();await poll(async()=>network.finished,'Deleted request fixture settled');
+        await poll(async()=>!(await saved()).resources.some((/** @type {any} */ row)=>row._id===before.activeRequestId),'Request deletion persisted');
+        const deleted=await saved();assert.deepEqual(deleted.history,before.history);assert.equal(deleted.resources.filter((/** @type {any} */ row)=>row._type==='unit_test_result'&&row.unitTestSuiteId===suiteId).length,0);
+        await page.reload();const reloaded=await saved();assert.deepEqual(reloaded.history,before.history);assert.ok(!reloaded.resources.some((/** @type {any} */ row)=>row._id===before.activeRequestId));
+        assert.equal(reloaded.resources.filter((/** @type {any} */ row)=>row._type==='unit_test_result'&&row.unitTestSuiteId===suiteId).length,0);
+        for(const id of [suiteId,suiteId+'_child',suiteId+'_grandchild','ut_runner_results_owned_0'])assert.ok(reloaded.resources.some((/** @type {any} */ row)=>row._id===id),'Nested suite and test survive deletion');
+        assert.equal(network.requests.length,1,'Reload does not send again');
+        return;
+      }
       await page.getByRole("navigation",{name:"Test suites",exact:true}).getByRole("button",{name:"Owned grandchild",exact:true}).click();
       assert.equal(await scope.getByRole("textbox",{name:"Test suite name",exact:true}).isDisabled(),true);
       await scope.getByRole("status").filter({hasText:"Running as part of"}).waitFor();
+      if(network?.deleteSuite){
+        await scope.getByRole('button',{name:'Delete test suite',exact:true}).click();
+        await scope.getByRole('alert').getByRole('button',{name:'Delete',exact:true}).click();
+        await poll(async()=>network.aborted,'Deleted nested suite cancels held request');network.release();await poll(async()=>network.finished,'Deleted suite fixture settled');
+        await poll(async()=>!(await saved()).resources.some((/** @type {any} */ row)=>row._id===suiteId+'_grandchild'),'Nested suite deletion persisted');
+        const deleted=await saved();assert.deepEqual(deleted.history,before.history);
+        assert.equal(deleted.resources.filter((/** @type {any} */ row)=>row._type==='unit_test_result'&&row.unitTestSuiteId===suiteId).length,0);
+        for(const id of [suiteId,suiteId+'_child',before.activeRequestId])assert.ok(deleted.resources.some((/** @type {any} */ row)=>row._id===id));
+        for(const id of [suiteId+'_grandchild','ut_runner_results_owned_0'])assert.ok(!deleted.resources.some((/** @type {any} */ row)=>row._id===id));
+        await page.reload();const reloaded=await saved();assert.deepEqual(reloaded.history,before.history);assert.ok(!reloaded.resources.some((/** @type {any} */ row)=>row._id===suiteId+'_grandchild'));
+        assert.equal(reloaded.resources.filter((/** @type {any} */ row)=>row._type==='unit_test_result'&&row.unitTestSuiteId===suiteId).length,0);assert.equal(network.requests.length,1);
+        return;
+      }
       await scope.getByRole("button",{name:"Stop",exact:true}).click();
       await scope.getByRole("button",{name:"Run Tests",exact:true}).waitFor();
+      if(network){network.release();await poll(async()=>network.finished&&network.aborted,'Stopped peer request settled');assert.equal(network.requests.length,1,'Stopped nested test sent only the held request');}
       const cancelled = await saved();
       assert.equal(cancelled.resources.filter((/** @type {any} */ r) => r._type === "unit_test_result" && r.unitTestSuiteId === suiteId).length,0);
-      cancelled.resources.find((/** @type {any} */ r) => r._id === "ut_runner_results_owned_0").code = data.resources.find((/** @type {any} */ r) => r._id === "ut_runner_results_owned_0").code.slice(hold.length);
+      if(network)assert.deepEqual(cancelled.history,before.history,'Late stopped response cannot publish history');
+      cancelled.resources.find((/** @type {any} */ r) => r._id === "ut_runner_results_owned_0").code = network?data.resources.find((/** @type {any} */ r) => r._id === "ut_runner_results_owned_0").code:data.resources.find((/** @type {any} */ r) => r._id === "ut_runner_results_owned_0").code.slice(hold.length);
       cancelled.resources.find((/** @type {any} */ r) => r._type === "workspace_meta" && r.parentId === collectionId).activeUnitTestSuiteId = suiteId;
       await page.evaluate(({key,data}) => localStorage.setItem(key,JSON.stringify(data)),{key,data:cancelled});
       await page.reload();
@@ -129,15 +165,41 @@ export async function exerciseRunnerResults(page, output, nested = false) {
     assert.equal(record.results.stats.tests, 6);
     assert.equal(record.results.stats.passes, 1);
     assert.equal(record.results.stats.failures, 5);
+    if(network){assert.deepEqual(network.requests,['/runner-nested-owned','/runner-nested-owned']);assert.equal(network.aborted,true,'Stop aborts held loopback request');}
     if (nested) assert.equal(record.results.tests[0].fullTitle,
       "Owned executed results probe Owned child Owned grandchild Owned assertion 0");
-    assert.deepEqual(
-      afterRun.history,
-      before.history,
-      "Pure assertions perform no HTTP/history writes",
-    );
+    if(network){
+      assert.equal(afterRun.history.length,before.history.length+1);
+      assert.equal(afterRun.history[0].requestId,before.activeRequestId);
+      assert.equal(afterRun.history[0].body,'nested owned response');
+      assert.deepEqual(afterRun.history.slice(1),before.history);
+    }else assert.deepEqual(afterRun.history,before.history,"Pure assertions perform no HTTP/history writes");
     assert.deepEqual(record.results.tests.at(-1).err.actual, actual);
     assert.deepEqual(record.results.tests.at(-1).err.expected, expected);
+    if(network?.roundtrip){
+      const downloadPromise=page.waitForEvent('download');await page.getByRole('button',{name:'Export collections',exact:true}).click();const download=await downloadPromise,path=await download.path();assert.ok(path);
+      const oldIds=new Set(afterRun.resources.map((/** @type {any} */ row)=>row._id));
+      const exported=JSON.parse(await Bun.file(path).text());
+      if(network.environment){const base=exported.resources.find((/** @type {any} */ row)=>row._type==='environment'&&row.parentId===collectionId);assert.ok(base);base.data.runnerLabel='copy-owned';}
+      if(network.ambiguous){const source=exported.resources.find((/** @type {any} */ row)=>row._id===before.activeRequestId);assert.ok(source);exported.resources.push({...source,_id:'req_runner_ambiguous_owned',name:'Owned ambiguous alias',_importRequestIds:[before.activeRequestId]});}
+      await page.getByRole('button',{name:'Import collection',exact:true}).click();const dialog=page.getByRole('dialog');
+      await dialog.getByLabel('Import collection or cURL commands',{exact:true}).fill(JSON.stringify(exported));await dialog.getByRole('button',{name:'Review import',exact:true}).click();await dialog.getByRole('button',{name:'Import',exact:true}).click();await dialog.waitFor({state:'detached'});
+      await poll(async()=>(await saved()).resources.some((/** @type {any} */ row)=>row._type==='unit_test_suite'&&row.name==='Owned executed results probe'&&!oldIds.has(row._id)),'Nested suite reimported');
+      let copied=await saved();const copy=copied.resources.find((/** @type {any} */ row)=>row._type==='unit_test_suite'&&row.name==='Owned executed results probe'&&!oldIds.has(row._id));assert.ok(copy);
+      const child=copied.resources.find((/** @type {any} */ row)=>row.parentId===copy._id&&row.name==='Owned child');const grandchild=copied.resources.find((/** @type {any} */ row)=>row.parentId===child?._id&&row.name==='Owned grandchild');
+      const test=copied.resources.find((/** @type {any} */ row)=>row.parentId===grandchild?._id&&row.name==='Owned assertion 0');assert.ok(test);
+      const copiedRequest=copied.resources.find((/** @type {any} */ row)=>row._id===test.requestId);assert.ok(copiedRequest&&!oldIds.has(copiedRequest._id));assert.equal(copiedRequest.url,new URL('/runner-nested-owned',page.url()).toString());assert.ok(copiedRequest._importRequestIds.includes(before.activeRequestId));
+      await page.getByLabel('Collection',{exact:true}).selectOption(copy.parentId);await page.getByRole('button',{name:'Tests',exact:true}).click();
+      await page.getByRole('navigation',{name:'Test suites',exact:true}).getByRole('button',{name:'Owned executed results probe',exact:true}).click();
+      const beforeResults=new Set(copied.resources.filter((/** @type {any} */ row)=>row._type==='unit_test_result').map((/** @type {any} */ row)=>row._id));
+      await scope.getByRole('button',{name:'Run Tests',exact:true}).click();
+      await poll(async()=>{copied=await saved();return copied.resources.some((/** @type {any} */ row)=>row._type==='unit_test_result'&&row.unitTestSuiteId===copy._id&&!beforeResults.has(row._id));},'Imported nested suite result',30000);
+      const newResult=copied.resources.find((/** @type {any} */ row)=>row._type==='unit_test_result'&&row.unitTestSuiteId===copy._id&&!beforeResults.has(row._id));
+      if(network.ambiguous){assert.equal(newResult.results.stats.passes,0);assert.equal(newResult.results.stats.failures,6);assert.match(JSON.stringify(newResult.results.tests[0].err),/Imported runner request ID is ambiguous/);assert.equal(network.requests.length,2,'Ambiguous alias must not send');}
+      else{assert.equal(newResult.results.stats.passes,1);assert.equal(newResult.results.stats.failures,5);assert.equal(network.requests.length,3);assert.equal(copied.history[0].requestId,copiedRequest._id,'Original literal resolves to copied collection request');if(network.environment)assert.deepEqual(network.labels,['source-owned','source-owned','copy-owned']);}
+      await page.reload();const reloaded=await saved();assert.deepEqual(reloaded.resources.find((/** @type {any} */ row)=>row._id===newResult._id),newResult);assert.equal(network.requests.length,network.ambiguous?2:3);
+      return;
+    }
     await Bun.write(
       output + "/runner-results-executed.json",
       JSON.stringify(

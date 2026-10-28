@@ -1,3 +1,5 @@
+import { encodeBase64 } from "./transport.js";
+
 /** @param {unknown} value */
 const disabled = (value) => {
   if (value === undefined) return false;
@@ -61,7 +63,16 @@ const decode = (value) => {
  * @param {any} source */
 export function postmanUrl(source) {
   if (typeof source === "string") return { url: source, parameters: [] };
-  source ||= {};
+  source ??= {};
+  if (typeof source !== "object" || Array.isArray(source) ||
+      ["raw", "protocol", "hash"].some((key) => source[key] != null && typeof source[key] !== "string") ||
+      (source.port != null && typeof source.port !== "string" && typeof source.port !== "number") ||
+      (source.auth != null && (typeof source.auth !== "object" || Array.isArray(source.auth) || ["user", "password"].some((key) => source.auth[key] != null && typeof source.auth[key] !== "string"))) ||
+      (source.host != null && typeof source.host !== "string" && (!Array.isArray(source.host) || source.host.some((/** @type {any} */ part) => typeof part !== "string"))))
+    throw new Error("Postman URL components must be text.");
+  if (source.path != null && typeof source.path !== "string" && (!Array.isArray(source.path) || source.path.some(
+    (/** @type {any} */ part) => typeof part !== "string" && (!part || typeof part !== "object" || Array.isArray(part) || (part.value !== undefined && typeof part.value !== "string")),
+  ))) throw new Error("Postman URL path must contain text segments.");
   const host = Array.isArray(source.host)
     ? source.host.join(".")
     : source.host || "";
@@ -72,9 +83,18 @@ export function postmanUrl(source) {
         )
         .join("/")
     : source.path || "";
-  let url =
-    source.raw ||
-    `${source.protocol ? `${source.protocol}://` : ""}${host}${source.port ? `:${source.port}` : ""}${path ? `/${path.replace(/^\//, "")}` : ""}${source.hash ? `#${source.hash}` : ""}`;
+  const structured = ["protocol", "host", "port", "path", "auth"].some((key) => source[key] != null);
+  const auth = source.auth && (typeof source.auth.user === "string" || typeof source.auth.password === "string")
+    ? `${source.auth.user ?? ""}${typeof source.auth.password === "string" ? `:${source.auth.password}` : ""}@` : "";
+  let url = !structured && source.raw ? source.raw :
+    `${source.protocol ? source.protocol.endsWith("://") ? source.protocol : `${source.protocol}://` : ""}${auth}${host}${source.port != null && source.port !== "" ? `:${source.port}` : ""}${path ? `/${path.replace(/^\//, "")}` : ""}${source.hash ? `#${source.hash}` : ""}`;
+  if (source.query != null && (!Array.isArray(source.query) || source.query.some(
+    (/** @type {any} */ p) => !p || typeof p !== "object" || Array.isArray(p) ||
+      (p.key != null && typeof p.key !== "string") || (p.value != null && typeof p.value !== "string"),
+  ))) throw new Error("Postman query parameters must be objects with text or null keys and values.");
+  if (source.variable != null && (!Array.isArray(source.variable) || source.variable.some(
+    (/** @type {any} */ v) => !v || typeof v !== "object" || Array.isArray(v) || !(v.key || v.id) || !["string", "number"].includes(typeof (v.key || v.id)),
+  ))) throw new Error("Postman URL variables must be named variable records.");
   const parameters = (source.query || []).map((/** @type {any} */ p) => ({
     name: decode(p.key),
     value: decode(p.value),
@@ -100,14 +120,47 @@ export function postmanUrl(source) {
 
 /** @param {any} source @param {unknown} [schema] */
 export function postmanBody(source,schema) {
-  const body = source || {};
+  if (source != null && typeof source !== "string" &&
+      (typeof source !== "object" || Array.isArray(source)))
+    throw new Error("Postman body must be text, an object, or null.");
+  const body = typeof source === "string" ? {mode:"raw",raw:source} : source || {};
   const mode = disabled(body.disabled) ? "" : body.mode;
+  if (mode != null && typeof mode !== "string")
+    throw new Error("Postman body mode must be text.");
   if (mode && !["raw","urlencoded","formdata","graphql","file"].includes(mode))
     throw new Error("Unsupported Postman body mode: " + mode);
-  const parameters = mode === "urlencoded" ? body.urlencoded ?? []
+  if (mode === "raw" && body.raw != null && typeof body.raw !== "string")
+    throw new Error("Postman raw body must be text.");
+  if (mode === "graphql" && body.graphql != null &&
+      (typeof body.graphql !== "object" || Array.isArray(body.graphql)))
+    throw new Error("Postman GraphQL body must be an object.");
+  if (mode === "file" && body.file != null && typeof body.file !== "string" &&
+      (typeof body.file !== "object" || Array.isArray(body.file) ||
+       (body.file.src != null && typeof body.file.src !== "string") ||
+       (body.file.content != null && typeof body.file.content !== "string")))
+    throw new Error("Postman file source must be text or null.");
+  const fileContent = mode === "file" && typeof body.file?.content === "string"
+    ? new TextEncoder().encode(body.file.content) : null;
+  if (fileContent && fileContent.length > 20 * 1024 * 1024)
+    throw new Error("Postman file content exceeds 20 MiB.");
+  const legacyForm = mode === "urlencoded" && typeof body.urlencoded === "string";
+  const parameters = legacyForm ? (body.urlencoded ? body.urlencoded.split("&").map((/** @type {string} */ pair, /** @type {number} */ index, /** @type {string[]} */ all) => {
+    const equals = pair.indexOf("=");
+    return {key:pair === "" && index !== all.length-1 ? "null" : equals < 0 ? pair : pair.slice(0,equals),value:equals < 0 ? "" : pair.slice(equals+1)};
+  }) : []) : mode === "urlencoded" ? body.urlencoded ?? []
     : mode === "formdata" ? body.formdata ?? [] : [];
   if (!Array.isArray(parameters) || parameters.some((/** @type {any} */ parameter) => !parameter || typeof parameter !== "object" || Array.isArray(parameter)))
     throw new Error("Postman form fields must be an array of objects.");
+  if (parameters.some((/** @type {any} */ parameter) => typeof parameter.key !== "string"))
+    throw new Error("Postman form fields must have a name.");
+  if (mode === "urlencoded" && parameters.some((/** @type {any} */ parameter) => parameter.type === "file"))
+    throw new Error("Postman file fields require form-data.");
+  if (mode === "formdata" && parameters.some((/** @type {any} */ parameter) =>
+    parameter.type === "file" && parameter.src != null && typeof parameter.src !== "string" &&
+    (!Array.isArray(parameter.src) || parameter.src.some((/** @type {any} */ file) => typeof file !== "string"))))
+    throw new Error("Postman multipart file sources must be text, null, or a list of text paths.");
+  if (mode === "urlencoded" && parameters.some((/** @type {any} */ parameter) => parameter.value != null && typeof parameter.value === "object"))
+    throw new Error("Postman URL-encoded values must be scalar.");
   /** @type {Record<string, string>} */
   const rawTypes = {
     json: "application/json",
@@ -130,7 +183,10 @@ export function postmanBody(source,schema) {
         : mimeTypes[mode] || "",
     text:
       mode === "graphql" ? JSON.stringify(body.graphql || {}) : mode === "raw" ? body.raw || "" : "",
-    fileName: typeof body.file?.src === "string" ? body.file.src : "",
+    fileName: typeof body.file === "string" ? body.file : typeof body.file?.src === "string" ? body.file.src : "",
+    ...(legacyForm ? {_postmanUrlencodedString:true} : {}),
+    ...(mode === "graphql" ? {_postmanGraphqlBody:true} : {}),
+    ...(fileContent ? {base64:encodeBase64(fileContent)} : {}),
     params: parameters.flatMap(
       (/** @type {any} */ p) => {
         const files =
@@ -139,7 +195,8 @@ export function postmanBody(source,schema) {
             : [p.src];
         return files.map((/** @type {any} */ fileName) => ({
           name: p.key,
-          value: p.value ?? "",
+          ...(p.key === "" ? {sendEmptyName:true} : {}),
+          value: p.type !== "file" && typeof p.value !== "string" && p.value !== undefined && (mode === "formdata" || p.value !== null) ? JSON.stringify(p.value) : p.value ?? "",
           disabled: formDisabled(p,schema),
           type: p.type,
           fileName: typeof fileName === "string" ? fileName : "",
@@ -150,13 +207,14 @@ export function postmanBody(source,schema) {
   };
 }
 
-/** @param {any[]} variables */
-export const postmanVariables = (variables = []) =>
-  Object.fromEntries(
-    variables
-      .filter((v) => !disabled(v.disabled) && (v.key || v.id))
-      .map((v) => [v.key || v.id, v.value ?? ""]),
+/** @param {any} variables */
+export const postmanVariables = (variables = []) => {
+  if (!Array.isArray(variables) || variables.some(v => !v || typeof v !== "object" || Array.isArray(v) || !(v.key || v.id) || !["string", "number"].includes(typeof (v.key || v.id))))
+    throw new Error("Postman collection variables must be named variable records.");
+  return Object.fromEntries(
+    variables.filter((v) => !disabled(v.disabled)).map((v) => [v.key || v.id, v.value ?? ""]),
   );
+};
 
 /** @param {any} headers */
 export function postmanHeaders(headers = []) {
@@ -173,6 +231,9 @@ export function postmanHeaders(headers = []) {
           disabled: false,
         };
       });
+  if (!Array.isArray(headers) || headers.some((/** @type {any} */ h) =>
+    !h || typeof h !== 'object' || Array.isArray(h) || typeof h.key !== 'string' || typeof h.value !== 'string'))
+    throw new Error('Postman headers must be objects with text keys and values.');
   return headers.map((/** @type {any} */ h) => ({
     name: h.key,
     value: h.value,

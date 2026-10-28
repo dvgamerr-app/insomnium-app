@@ -50,6 +50,14 @@ export function digestProof(value,method,target,body,nonce,user=username,secret=
   assert.equal(fields.response,hash([ha1,nonce,fields.nc,fields.cnonce,'auth-int',ha2].join(':')));
   return {proofValid:true,digestNonce:nonce,digestTarget:target,digestQop:fields.qop};
 }
+/** @param {string} value @param {string} target @param {Buffer} entity @param {boolean} forged */
+function proxyResponseProof(value,target,entity,forged=false){
+  const fields=Object.fromEntries([...value.matchAll(/([\w*]+)=(?:"((?:\\.|[^"\\])*)"|([^,\s]+))/g)].map(match=>[match[1],match[2]===undefined?match[3]:match[2].replace(/\\(.)/g,'$1')]));
+  const hash=(/** @type {string|Buffer} */ value)=>createHash('sha256').update(value).digest('hex');
+  const ha1=hash(username+':owned Digest:'+password),ha2=hash(':'+target+':'+hash(entity));
+  const rspauth=forged?'0'.repeat(64):hash([ha1,fields.nonce,fields.nc,fields.cnonce,'auth-int',ha2].join(':'));
+  return `rspauth="${rspauth}", qop=auth-int, cnonce="${fields.cnonce}", nc=${fields.nc}`;
+}
 /** Independent RFC7616 request/response oracle, using only observed wire fields.
  * @param {any} req @param {Buffer} body @param {Buffer} entity */
 function digestResponseProof(req, body, entity) {
@@ -880,7 +888,8 @@ export async function createProxyNtlmFixture(output) {
               });
               tunnel = true;
               socket.removeListener("data", data);
-              socket.write("HTTP/1.1 200 Connection Established\r\n\r\n");
+              const proxyInfo=socketMode.startsWith('digest-proof')?`Proxy-Authentication-Info: ${proxyResponseProof(auth,req.target,Buffer.alloc(0),socketMode==='digest-proof-bad')}\r\n`:'';
+              socket.write(`HTTP/1.1 200 Connection Established\r\n${proxyInfo}\r\n`);
               if (buffer.length) upstream.write(buffer);
               socket.pipe(upstream);
               upstream.pipe(socket);
@@ -910,7 +919,7 @@ export async function createProxyNtlmFixture(output) {
                   const chunks = /** @type {Buffer[]} */ ([]),
                     stream =
                       response.headers["content-type"] === "text/event-stream",
-                    forward = ["content-type", "www-authenticate", "location"]
+                    forward = ["content-type", "www-authenticate", "authentication-info", "location"]
                       .filter((name) => response.headers[name] !== undefined)
                       .map((name) => `${name}: ${response.headers[name]}\r\n`)
                       .join("");
@@ -931,6 +940,12 @@ export async function createProxyNtlmFixture(output) {
                     if (stream) socket.write("0\r\n\r\n");
                     else {
                       const body = Buffer.concat(chunks);
+                      if(socketMode.startsWith('digest-proof')){
+                        const proof=proxyResponseProof(auth,req.target,body,socketMode==='digest-proof-bad');
+                        if(socketMode==='digest-proof-trailer')socket.write(`HTTP/1.1 ${response.statusCode} ${response.statusMessage}\r\n${forward}Transfer-Encoding: chunked\r\nTrailer: Proxy-Authentication-Info\r\nConnection: keep-alive\r\n\r\n${body.length.toString(16)}\r\n${body.toString('latin1')}\r\n0\r\nProxy-Authentication-Info: ${proof}\r\n\r\n`,'latin1');
+                        else {socket.write(`HTTP/1.1 ${response.statusCode} ${response.statusMessage}\r\n${forward}Proxy-Authentication-Info: ${proof}\r\nContent-Length: ${body.length}\r\nConnection: keep-alive\r\n\r\n`);socket.write(body);}
+                        resolve(null);return;
+                      }
                       socket.write(
                         `HTTP/1.1 ${response.statusCode} ${response.statusMessage}\r\n${forward}Content-Length: ${body.length}\r\nConnection: keep-alive\r\n\r\n`,
                       );
@@ -1043,6 +1058,9 @@ export async function createProxyNtlmFixture(output) {
             "digest",
             "digest-stale",
             "digest-reject",
+            "digest-proof-header",
+            "digest-proof-trailer",
+            "digest-proof-bad",
             "basic",
             "malformed",
             "repeated",

@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import {initialData} from "../../src/lib/model.js";
 import {withPreview} from "./helpers/preview-app.js";
 import {resolve} from "node:path";
-import {withNativeApp,poll,integrationProbeIdentifier,selectedNativeProbeIdentifier} from './helpers/native-app.js';
+import {withNativeApp,poll,integrationProbeIdentifier,resourceCrudProbeIdentifier,selectedNativeProbeIdentifier} from './helpers/native-app.js';
 import {preserveNativeProfile} from './helpers/native-profile-preservation.js';
-import {withResourceProbePreserved,registerResourceProbeCollection} from './helpers/resource-manager-cases.js';
+import {withResourceProbePreserved,registerResourceProbeCollection,resourceSaved} from './helpers/resource-manager-cases.js';
 import {respondToOwnedSaveDialog} from './helpers/windows-save-dialog.js';
 
 const nativeSecrets=process.env.INSOMNIUM_SECRETS_NATIVE==='1';
@@ -79,23 +79,82 @@ async function runEnvironmentImport(page, output, options = {}) {
   const roundtripCollection=roundtrip.find((/** @type {any} */ row)=>row._type==='workspace'&&row.name===collectionSource.info.name);assert.ok(roundtripCollection);
   const roundtripBase=roundtrip.find((/** @type {any} */ row)=>row._type==='environment'&&row.parentId===roundtripCollection._id);assert.ok(roundtripBase);for(const key of ['collection_token','alias_token','42']){assert.equal(roundtripBase.data[key],'');assert.ok(roundtripBase.secretKeys.includes(key));}assert.equal(roundtripBase.data.public,'public-variable');
   assert.deepEqual(beforeExport.resources.find((/** @type {any} */ row)=>row._id===environment._id)._postmanSource,source);
-  const acceptance={status:"passed",headless:!nativeSecrets,renderingMode:nativeSecrets?'native-hidden':'headless',scope:"Built app import/mark Secret/export/reimport/reload, no network",enabledOnly:true,sourcePreserved:true,originalCollectionRetained:true,secretValuesBlanked:true,provenanceBlanked:true,collectionScopeIsolated:true,liveDataUnchanged:true,roundtripRetained:true};
+  const resourcesBeforeInvalid=(await stored()).resources;
+  for(const invalid of [[null],[{}],['invalid'],{},[{key:{bad:'name'}}],[{id:['bad']}],[{key:true}]])for(const nested of [false,true]){
+    const collection={info:{name:'Invalid variables'},item:nested?[{name:'Folder',item:[],variable:invalid}]:[],...(nested?{}:{variable:invalid})};
+    await page.getByRole('button',{name:'Import collection',exact:true}).click();
+    await dialog.getByLabel('Import collection or cURL commands',{exact:true}).fill(JSON.stringify(collection));
+    await dialog.getByRole('button',{name:'Review import',exact:true}).click();
+    await dialog.getByText('Postman collection variables must be named variable records.',{exact:false}).waitFor();
+    assert.equal(await dialog.getByRole('button',{name:'Import',exact:true}).count(),0);
+    assert.deepEqual((await stored()).resources,resourcesBeforeInvalid);
+    await page.keyboard.press('Escape');await dialog.waitFor({state:'detached'});
+  }
+  await page.getByRole('button',{name:'Import collection',exact:true}).click();
+  await dialog.getByLabel('Import collection or cURL commands',{exact:true}).fill(JSON.stringify({_postman_variable_scope:'environment',values:[{key:'unsafe',value:'hidden',enabled:'false'}]}));
+  await dialog.getByRole('button',{name:'Review import',exact:true}).click();
+  await dialog.getByText('Postman environment values must be named variables with boolean enabled flags.',{exact:false}).waitFor();
+  assert.equal(await dialog.getByRole('button',{name:'Import',exact:true}).count(),0);
+  assert.deepEqual((await stored()).resources,resourcesBeforeInvalid);
+  await page.keyboard.press('Escape');await dialog.waitFor({state:'detached'});
+  for(const query of [["bad"],[{key:{bad:1}}],[{key:"good",value:42}],{}]){
+    const collection={info:{name:'Invalid query'},item:[{name:'Request',request:{url:{raw:'https://owned.invalid/?keep=1',query}}}]};
+    await page.getByRole('button',{name:'Import collection',exact:true}).click();
+    await dialog.getByLabel('Import collection or cURL commands',{exact:true}).fill(JSON.stringify(collection));
+    await dialog.getByRole('button',{name:'Review import',exact:true}).click();
+    await dialog.getByText('Postman query parameters must be objects with text or null keys and values.',{exact:false}).waitFor();
+    assert.equal(await dialog.getByRole('button',{name:'Import',exact:true}).count(),0);
+    assert.deepEqual((await stored()).resources,resourcesBeforeInvalid);
+    await page.keyboard.press('Escape');await dialog.waitFor({state:'detached'});
+  }
+  for(const header of [[null],[{}],[{key:'X-Test',value:42}],[{key:['bad'],value:'x'}],{}]){
+    const collection={info:{name:'Invalid headers'},item:[{name:'Request',request:{url:'https://owned.invalid/',header}}]};
+    await page.getByRole('button',{name:'Import collection',exact:true}).click();
+    await dialog.getByLabel('Import collection or cURL commands',{exact:true}).fill(JSON.stringify(collection));
+    await dialog.getByRole('button',{name:'Review import',exact:true}).click();
+    await dialog.getByText('Postman headers must be objects with text keys and values.',{exact:false}).waitFor();
+    assert.equal(await dialog.getByRole('button',{name:'Import',exact:true}).count(),0);
+    assert.deepEqual((await stored()).resources,resourcesBeforeInvalid);
+    await page.keyboard.press('Escape');await dialog.waitFor({state:'detached'});
+  }
+  for(const [body,message] of /** @type {[any,string][]} */ ([
+    [false,'Postman body must be text, an object, or null.'],
+    [0,'Postman body must be text, an object, or null.'],
+    [[], 'Postman body must be text, an object, or null.'],
+    [{mode:'file',file:{src:42}},'Postman file source must be text or null.'],
+    [{mode:'formdata',formdata:[{key:'file',type:'file',src:['valid.bin',{bad:true}]}]},'Postman multipart file sources must be text, null, or a list of text paths.'],
+  ])){
+    const collection={info:{name:'Invalid file source'},item:[{name:'Request',request:{url:'https://owned.invalid/',body}}]};
+    await page.getByRole('button',{name:'Import collection',exact:true}).click();
+    await dialog.getByLabel('Import collection or cURL commands',{exact:true}).fill(JSON.stringify(collection));
+    await dialog.getByRole('button',{name:'Review import',exact:true}).click();
+    await dialog.getByText(message,{exact:false}).waitFor();
+    assert.equal(await dialog.getByRole('button',{name:'Import',exact:true}).count(),0);
+    assert.deepEqual((await stored()).resources,resourcesBeforeInvalid);
+    await page.keyboard.press('Escape');await dialog.waitFor({state:'detached'});
+  }
+  const acceptance={status:"passed",headless:!nativeSecrets,renderingMode:nativeSecrets?'native-hidden':'headless',scope:"Built app import/mark Secret/export/reimport/reload, no network",enabledOnly:true,invalidEnabledRefused:true,invalidCollectionVariablesRefused:true,invalidQueryRefused:true,invalidHeadersRefused:true,invalidFileSourcesRefused:true,invalidBodyRefused:true,sourcePreserved:true,originalCollectionRetained:true,secretValuesBlanked:true,provenanceBlanked:true,collectionScopeIsolated:true,liveDataUnchanged:true,roundtripRetained:true};
   await Bun.write(output + (nativeSecrets?'/acceptance.json':'/result.json'),JSON.stringify(acceptance,null,2));
 }
 if(nativeSecrets){
-  assert.equal(selectedNativeProbeIdentifier(),integrationProbeIdentifier);assert.ok(process.env.INSOMNIUM_UI_BUILD_STATE,'Explicit current native build required');
-  await preserveNativeProfile(async({workspacePath})=>withResourceProbePreserved(async()=>{
-    await Bun.write(workspacePath,JSON.stringify(original));
+  const integration=selectedNativeProbeIdentifier()===integrationProbeIdentifier;
+  assert.ok(process.env.INSOMNIUM_UI_BUILD_STATE,'Explicit current native build required');
+  if(!integration)assert.ok(process.env.INSOMNIUM_UI_PROFILE_OWNERSHIP);
+  const ownership={expectedIdentifier:integration?integrationProbeIdentifier:resourceCrudProbeIdentifier,profileOwnershipPath:process.env.INSOMNIUM_UI_PROFILE_OWNERSHIP};
+  const run=()=>withResourceProbePreserved(async(capture)=>{
     const registered=new Set();
     await withNativeApp('postman-secret-export',async({page,pid,invoke,output})=>{
+      await resourceSaved(page);if(!integration)await capture();
+      await invoke('save_workspace',{data:original});
       const read=async()=>{const data=await invoke('load_workspace');for(const row of data.resources.filter((/** @type {any} */ row)=>row._type==='workspace'))if(!registered.has(row._id)){registerResourceProbeCollection(row._id,row.name);registered.add(row._id);}return data;};
-      await read();await runEnvironmentImport(page,output,{read,saveExport:async path=>{
+      await read();await page.reload();await runEnvironmentImport(page,output,{read,saveExport:async path=>{
         const [selection]=await Promise.all([respondToOwnedSaveDialog(pid,output,path),page.getByRole('button',{name:'Export collections',exact:true}).click()]);
         await poll(async()=>await Bun.file(path).exists()&&await Bun.file(path).json().then(value=>value.__export_format===4,()=>false),'Complete native Secret export file');
         await Bun.write(output+'/native-save.json',JSON.stringify({passed:true,selection},null,2));
       }});
-    });
-  },{expectedIdentifier:integrationProbeIdentifier}));
+    },ownership);
+  },{...ownership,lazyCapture:!integration});
+  if(integration)await preserveNativeProfile(run);else await run();
 }else await withPreview("postman-environment-import",runEnvironmentImport,{beforeNavigate:async (page) => {await page.addInitScript((data) => {
   if (!localStorage.getItem("insomnium-tauri-preview-v1")) localStorage.setItem("insomnium-tauri-preview-v1",JSON.stringify(data));
 },original);}});

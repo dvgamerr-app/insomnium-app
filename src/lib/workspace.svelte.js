@@ -123,6 +123,7 @@ import {
 import {
   requestTypes,
   nextSortKey,
+  validateMove,
   moveResource,
   reorderResource,
   duplicateResource,
@@ -1217,10 +1218,11 @@ export function editResource(resourceId, patch, parentId) {
   if (!resource) throw new Error("The item no longer exists.");
   if (resource._type !== "workspace" && resource.parentId !== parentId) {
     const ids = descendants(workspace.data.resources, resourceId);
-    for (const [suiteId, targets] of runnerTargets)
-      if ([...targets].some((target) => ids.has(target))) void stop(suiteId);
+    validateMove(workspace.data.resources, resourceId, parentId);
     if ([...ids].some((key) => workspace.running[key]))
       throw new Error("Cancel running requests before moving this item.");
+    for (const [suiteId, targets] of runnerTargets)
+      if ([...targets].some((target) => ids.has(target))) void stop(suiteId);
     moveResource(workspace.data.resources, resourceId, parentId);
     if (ids.has(workspace.data.activeRequestId))
       selectRequest(workspace.data.activeRequestId);
@@ -2697,8 +2699,10 @@ function remember(entry) {
       "Response shown, but it exceeds the 40 MiB saved-history budget. Download it before closing.";
 }
 function trimHistory() {
-  workspace.data.history = retainedHistory(workspace.data.history, workspace.data.settings);
-  workspace.data.responseSelections = validResponseSelections(workspace.data);
+  const history = retainedHistory(workspace.data.history, workspace.data.settings);
+  const selections = validResponseSelections({ ...workspace.data, history });
+  workspace.data.history = history;
+  workspace.data.responseSelections = selections;
 }
 /** Persist a genuine ordinary HTTP history choice without modifying resources/history.
  * @param {string} requestId @param {Record<string,any>} entry */

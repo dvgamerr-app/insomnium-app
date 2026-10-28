@@ -58,6 +58,11 @@ export async function runLegacySseNativeCases() {
           }
           await resourceSaved(page);
           if (!integration) await capture();
+          const initial = await invoke("load_workspace");
+          await page.keyboard.press("Control+s");
+          await poll(async () => (await invoke("load_workspace")).resources.some(
+            (/** @type {any} */ row) => row._type === "workspace_meta" && row.parentId === initial.activeWorkspaceId && row.activeRequestId === initial.activeRequestId,
+          ), "Initial request selection persisted before import");
           const original = await invoke("load_workspace"),
             load = () => invoke("load_workspace");
           const layout = await page.evaluate(

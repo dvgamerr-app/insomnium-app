@@ -31,7 +31,10 @@ function authentication(auth) {
   switch (auth.authType) {
     case "basic": return {type:"basic",disabled,username:tokens(auth.username),password:tokens(auth.password)};
     case "bearer": return {type:"bearer",disabled,token:tokens(auth.token)};
-    case "api-key": return {type:"apikey",disabled,key:tokens(auth.key),value:tokens(auth.value),addTo:auth.addTo === "Headers" ? "header" : "queryParams"};
+    case "api-key":
+      if (auth.addTo !== undefined && !["Headers", "Query params"].includes(auth.addTo))
+        throw new Error("Unsupported Hoppscotch API key placement. Use Headers or Query params.");
+      return {type:"apikey",disabled,key:tokens(auth.key),value:tokens(auth.value),addTo:auth.addTo === "Headers" ? "header" : "queryParams"};
     case "oauth-2": return {type:"oauth2",disabled,accessToken:tokens(auth.token),grantType:"authorization_code",
       accessTokenUrl:tokens(auth.accessTokenURL),authorizationUrl:tokens(auth.authURL),clientId:tokens(auth.clientID),scope:tokens(auth.scope)};
     case "none": return {disabled:true};
@@ -40,6 +43,10 @@ function authentication(auth) {
 }
 /** @param {Record<string,any>} body @returns {Record<string,any>} */
 function requestBody(body) {
+  if (body != null && (typeof body !== 'object' || Array.isArray(body)))
+    throw new Error('Hoppscotch body must be an object.');
+  if (body?.contentType != null && typeof body.contentType !== 'string')
+    throw new Error('Hoppscotch body content type must be a string.');
   const sourceMime = typeof body?.contentType === "string" ? body.contentType : "";
   const mimeType = parseMediaType(sourceMime)?.name || sourceMime;
   const value = body?.body;
@@ -49,6 +56,10 @@ function requestBody(body) {
     return {mimeType, params:rows(value,"body fields").map((field) => {
       if (field.isFile !== undefined && typeof field.isFile !== 'boolean')
         throw new Error('Hoppscotch isFile flags must be booleans.');
+      if (field.isFile && mimeType !== 'multipart/form-data')
+        throw new Error('Hoppscotch file fields require multipart/form-data.');
+      if (field.isFile && field.value != null && typeof field.value !== 'string')
+        throw new Error('Hoppscotch file names must be strings.');
       return {
         name:tokens(field.key),value:field.isFile ? "" : tokens(field.value),disabled:!active(field.active),
         ...(field.isFile ? {type:"file",fileName:typeof field.value === "string" ? field.value : ""} : {}),
@@ -67,7 +78,7 @@ function requestBody(body) {
  * @param {Record<string,any>} source @returns {Record<string,any>[]} */
 export function hoppscotchResources(source) {
   const resources = /** @type {Record<string,any>[]} */ ([]);
-  const stack = [{folder:source,parentId:/** @type {string|null} */ (null),headers:/** @type {Record<string,any>[]} */ ([]),auth:{authType:"none",authActive:false}}];
+  const stack = [{folder:source,parentId:/** @type {string|null} */ (null),headers:/** @type {Record<string,any>[]} */ ([]),auth:{authType:"none",authActive:false},scripts:false}];
   while (stack.length) {
     const current = stack.pop();
     if (!current) break;
@@ -77,13 +88,16 @@ export function hoppscotchResources(source) {
     const localHeaders = rows(folder.headers,"headers");
     active(folder.auth.authActive, true);
     for (const header of localHeaders) active(header.active);
-    const headers = [...localHeaders,...current.headers.filter((parent) => !localHeaders.some((child) => headerIdentity(child) === headerIdentity(parent)))];
+    const headers = [...localHeaders,...current.headers.filter((parent) => !localHeaders.some((child) => active(child.active) && headerIdentity(child) === headerIdentity(parent)))];
     const auth = folder.auth.authType === "inherit" ? {...current.auth,...(folder.auth.authActive === false ? {authActive:false} : {})} : folder.auth;
+    const scripts = current.scripts || !!(folder.preRequestScript || folder.testScript);
     const folderId = id(parentId ? "fld" : "wrk");
     const {requests,folders,...folderSource} = folder;
     resources.push({_id:folderId,_type:parentId ? "request_group" : "workspace",parentId,name:folder.name,
       ...(parentId ? {environment:{}} : {scope:"collection"}),_hoppscotchSource:structuredClone(folderSource)});
     for (const request of rows(requests,"requests")) {
+      if (request.name != null && typeof request.name !== "string") throw new Error("Hoppscotch request name must be text.");
+      if (request.method != null && typeof request.method !== "string") throw new Error("Hoppscotch request method must be text.");
       if (!request.auth || typeof request.auth !== "object") throw new Error("Hoppscotch requests require auth settings.");
       active(request.auth.authActive, true);
       const ownHeaders = rows(request.headers,"request headers");
@@ -101,18 +115,18 @@ export function hoppscotchResources(source) {
       const importedHeaders = inherited.map((header) => ({name:tokens(header.key),value:tokens(header.value),disabled:!active(header.active)}));
       if (wireMime && !importedHeaders.some((header) => !header.disabled && header.name.toLowerCase() === "content-type"))
         importedHeaders.push({name:"Content-Type",value:wireMime,disabled:false});
-      const scripts = !!(request.preRequestScript || request.testScript);
+      const requestScripts = scripts || !!(request.preRequestScript || request.testScript);
       resources.push(newRequest(folderId,{name:request.name || "Imported request",method:request.method || "GET",url:tokens(request.endpoint),body,
         headers:importedHeaders,
         parameters:rows(request.params,"parameters").map((parameter) => ({name:tokens(parameter.key),value:tokens(parameter.value),disabled:!active(parameter.active)})),
         authentication:authentication(effectiveAuth),_hoppscotchSource:structuredClone(request),
         // Missing payloads are guarded at Send, so choosing a file can resolve
         // them. Unsupported scripts remain a distinct blocking migration issue.
-        _migrationIssues:scripts ? ["Hoppscotch scripts are retained but are not executed."] : [],
+        _migrationIssues:requestScripts ? ["Hoppscotch scripts are retained but are not executed."] : [],
       }));
     }
     const children = rows(folders,"folders");
-    for (let index = children.length - 1; index >= 0; index--) stack.push({folder:children[index],parentId:folderId,headers,auth});
+    for (let index = children.length - 1; index >= 0; index--) stack.push({folder:children[index],parentId:folderId,headers,auth,scripts});
   }
   return resources;
 }

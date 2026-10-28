@@ -38,10 +38,10 @@ export function restoreSecretValues(edited, original, secretKeys) {
 }
 
 /** Blank secret values and their imported provenance for portable files.
- * @param {Record<string, any>} resource @param {Record<string, any>[]} [resources] */
-export function redactEnvironment(resource, resources = []) {
+ * @param {Record<string, any>} resource @param {Map<string, Record<string, any>>} baseEnvironments */
+export function redactEnvironment(resource, baseEnvironments) {
   const environment = resource._type === "environment" ? resource
-    : resource._type === "workspace" ? resources.find(row => row._type === "environment" && row.parentId === resource._id) : null;
+    : resource._type === "workspace" ? baseEnvironments.get(resource._id) : null;
   if (!environment) return resource;
   const keys = normalizeSecretKeys(environment.secretKeys);
   if (!keys.length) return resource;

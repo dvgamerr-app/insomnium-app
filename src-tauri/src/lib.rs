@@ -1,12 +1,14 @@
 mod asap;
 mod aws;
+mod client_certificates;
 mod clipboard;
 mod cookies;
+mod desktop_menu;
 mod digest;
 mod digest_response;
 mod git;
-mod git_clone;
 mod git_advance_lock;
+mod git_clone;
 mod git_fetch_cleanup;
 mod git_fetch_command;
 mod git_fetch_journal;
@@ -16,11 +18,11 @@ mod git_merge;
 mod git_merge_preview;
 mod git_merge_resolution;
 mod git_merge_source;
+mod git_push;
 mod git_ref_lock;
 mod git_remote;
 mod git_remote_checkout;
 mod git_remote_job;
-mod git_push;
 mod grpc;
 mod grpc_defaults;
 mod grpc_example;
@@ -30,13 +32,12 @@ mod grpc_legacy_schema;
 mod grpc_schema;
 mod grpc_transport;
 mod hawk;
-mod client_certificates;
 mod http;
 mod http_redirects;
+mod legacy_response;
 mod netrc;
 mod network_log;
 mod ntlm;
-mod proxy_auth;
 mod oauth;
 mod oauth1;
 mod oauth_browser;
@@ -44,28 +45,28 @@ mod oauth_callback;
 mod oauth_embedded;
 mod oauth_implicit;
 mod oauth_navigation;
-mod storage;
-mod response_download;
-mod resource_topology;
-mod legacy_response;
-mod plugins;
-mod plugin_sources;
-mod plugin_package;
-mod plugin_store;
-mod plugin_event_transport;
+mod openapi_files;
+mod plugin_bun;
+mod plugin_bun_session;
 mod plugin_clipboard_probe;
+mod plugin_event_transport;
+mod plugin_inspection;
+mod plugin_package;
+mod plugin_sandbox;
 mod plugin_save;
-mod streaming;
+mod plugin_sources;
+mod plugin_store;
+mod plugins;
+mod proxy_auth;
+mod resource_topology;
+mod response_download;
 mod spectral;
 mod spectral_jobs;
 mod spectral_process;
-mod plugin_sandbox;
-mod plugin_bun;
-mod plugin_inspection;
-mod plugin_bun_session;
+mod storage;
+mod streaming;
 mod template;
 mod template_os;
-mod desktop_menu;
 use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -79,7 +80,10 @@ pub fn run() {
             desktop_menu::install(app)?;
             Ok(())
         })
-        .register_asynchronous_uri_scheme_protocol("insomnium-event", plugin_event_transport::handle)
+        .register_asynchronous_uri_scheme_protocol(
+            "insomnium-event",
+            plugin_event_transport::handle,
+        )
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             if let Some(window) = app.get_webview_window("main") {
@@ -116,13 +120,34 @@ pub fn run() {
         .manage(plugin_save::SaveState::default())
         .manage(spectral::SpectralState::default())
         .manage(plugin_inspection::InspectionState::default())
+        .on_page_load(|webview, payload| {
+            if webview.label() == "main"
+                && matches!(payload.event(), tauri::webview::PageLoadEvent::Started)
+            {
+                if let Some(state) = webview.try_state::<plugin_inspection::InspectionState>() {
+                    plugin_inspection::cancel_for_navigation(&state);
+                }
+            }
+        })
         .on_window_event(|window, event| {
             if window.label() == "main" && matches!(event, tauri::WindowEvent::Destroyed) {
-                if let Some(state) = window.try_state::<plugin_inspection::InspectionState>() { plugin_inspection::cancel_all(&state); }
-                if let Some(state) = window.try_state::<http::NetworkState>() { state.close(); }
-                if let Some(state) = window.try_state::<git_remote_job::RemoteJobState>() { state.close(); }
-                if let Some(state) = window.try_state::<spectral::SpectralState>() { spectral::cancel_all(&state); }
-                if let Some(state) = window.try_state::<plugin_event_transport::EventTransportState>() { plugin_event_transport::cancel_all(&state); }
+                if let Some(state) = window.try_state::<plugin_inspection::InspectionState>() {
+                    plugin_inspection::cancel_all(&state);
+                }
+                if let Some(state) = window.try_state::<http::NetworkState>() {
+                    state.close();
+                }
+                if let Some(state) = window.try_state::<git_remote_job::RemoteJobState>() {
+                    state.close();
+                }
+                if let Some(state) = window.try_state::<spectral::SpectralState>() {
+                    spectral::cancel_all(&state);
+                }
+                if let Some(state) =
+                    window.try_state::<plugin_event_transport::EventTransportState>()
+                {
+                    plugin_event_transport::cancel_all(&state);
+                }
                 if let Some(state) = window.try_state::<plugin_save::SaveState>() {
                     plugin_save::cancel_all(&state);
                 }
@@ -140,6 +165,7 @@ pub fn run() {
             plugin_clipboard_probe::end_plugin_clipboard_probe,
             clipboard::write_clipboard_text,
             http::send_http,
+            openapi_files::read_openapi_files,
             response_download::response_download,
             http::cancel_http,
             http::fetch_oauth_token,
@@ -214,7 +240,8 @@ pub fn run() {
         .run(move |app, event| {
             if matches!(&event, tauri::RunEvent::WindowEvent {
                 label, event: tauri::WindowEvent::Destroyed, ..
-            } if label == "main") {
+            } if label == "main")
+            {
                 // macOS may keep the application alive after its last window.
                 // Resume an intercepted Quit only after renderer-approved close.
                 if let Some(code) = pending_exit_code {
@@ -263,19 +290,25 @@ pub fn run() {
             }
             if let Some(state) = app.try_state::<spectral::SpectralState>() {
                 match event {
-                    tauri::RunEvent::ExitRequested { code, api, .. } if !spectral::exit_ready(&state) => {
+                    tauri::RunEvent::ExitRequested { code, api, .. }
+                        if !spectral::exit_ready(&state) =>
+                    {
                         // Tauri ignores prevent_exit for its restart sentinel.
                         if code == Some(tauri::RESTART_EXIT_CODE) {
                             spectral::drain(&state);
                         } else {
                             api.prevent_exit();
-                            if spectral::shutdown_then_exit(&state, app.clone(), code.unwrap_or(0)).is_err() {
+                            if spectral::shutdown_then_exit(&state, app.clone(), code.unwrap_or(0))
+                                .is_err()
+                            {
                                 spectral::drain(&state);
                                 app.exit(code.unwrap_or(0));
                             }
                         }
                     }
-                    tauri::RunEvent::Exit if !spectral::exit_ready(&state) => spectral::drain(&state),
+                    tauri::RunEvent::Exit if !spectral::exit_ready(&state) => {
+                        spectral::drain(&state)
+                    }
                     _ => {}
                 }
             }

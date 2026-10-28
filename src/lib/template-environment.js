@@ -1,4 +1,5 @@
 import { workspaceFor } from "./model.js";
+import { environmentOrderPath } from "./environment-editor.js";
 import {
   checkTemplateValue,
   renderTemplateValue,
@@ -33,7 +34,7 @@ export function orderEnvironment(data, order) {
   /** @param {any} value @param {string} path @returns {any} */
   function visit(value, path) {
     if (Array.isArray(value))
-      return value.map((item, i) => visit(item, path + "~|" + i));
+      return value.map((item, i) => visit(item, environmentOrderPath(path, i)));
     if (!plain(value)) return value;
     const specified =
       order && Object.hasOwn(order, path) && Array.isArray(order[path])
@@ -49,10 +50,10 @@ export function orderEnvironment(data, order) {
       ]),
     ];
     return Object.fromEntries(
-      keys.map((key) => [key, visit(value[key], path + "~|" + key)]),
+      keys.map((key) => [key, visit(value[key], environmentOrderPath(path, key))]),
     );
   }
-  return visit(structuredClone(data), "$");
+  return visit(structuredClone(data), Array.isArray(order?.$v2) ? "$v2" : "$");
 }
 
 /** Base, selected ancestry, then outer-to-inner folder layers. null means no resource context.

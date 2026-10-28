@@ -323,6 +323,16 @@ await withComponentFixture("resource-manager", async (page, output) => {
         true,
       );
     }
+  await page.getByRole("button", { name: "Open validation folder", exact: true }).click();
+  const orderDialog=page.getByRole("dialog", { name: "Manage owned folder", exact: true });
+  await orderDialog.getByRole("textbox", { name: "Folder variables (JSON)", exact: true }).fill('{"a~|b":{"first":1,"second":2},"a":{"b":{"second":3,"first":4}}}');
+  await orderDialog.getByRole("button", { name: "Save changes", exact: true }).click();
+  const orderSaved=await page.locator('[data-validation-snapshot]').getAttribute('data-validation-snapshot');assert.ok(orderSaved);
+  const order=JSON.parse(orderSaved).folder.environmentPropertyOrder;
+  assert.deepEqual(order['$v2~|a~0~1b'],['first','second']);
+  assert.deepEqual(order['$v2~|a~|b'],['second','first']);
+  await orderDialog.press('Escape');await orderDialog.waitFor({state:'detached'});
+  await Bun.write(output+'/folder-order.json',JSON.stringify({passed:true,escapedPathsIndependent:true},null,2));
   await Bun.write(
     output + "/validation.json",
     JSON.stringify({ validationRows, failures }, null, 2),

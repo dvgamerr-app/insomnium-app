@@ -7,6 +7,8 @@ import {
   withNativeApp,
   poll,
   resourceCrudProbeIdentifier,
+  selectedNativeProbeIdentifier,
+  integrationProbeIdentifier,
 } from "./native-app.js";
 import {
   withResourceProbePreserved,
@@ -30,11 +32,12 @@ const layoutKeys = [
 /** Real scoped Rust reader, OS pickers and durable WS restoration; no IPC mocking. */
 export async function runLegacyWebSocketNativeCases() {
   assert.equal(process.platform, "win32");
+  const integration=selectedNativeProbeIdentifier()===integrationProbeIdentifier;
   const markerPath = process.env.INSOMNIUM_UI_PROFILE_OWNERSHIP;
-  assert.ok(markerPath);
+  if(!integration)assert.ok(markerPath);
   assert.ok(process.env.INSOMNIUM_UI_BUILD_STATE);
   const options = {
-    expectedIdentifier: resourceCrudProbeIdentifier,
+    expectedIdentifier: integration?integrationProbeIdentifier:resourceCrudProbeIdentifier,
     profileOwnershipPath: markerPath,
   };
   await withResourceProbePreserved(
@@ -42,12 +45,19 @@ export async function runLegacyWebSocketNativeCases() {
       await withNativeApp(
         "legacy-websocket-import-native",
         async ({ page, invoke, output, pid }) => {
-          const marker = await Bun.file(markerPath).json();
-          assert.equal(marker.identifier, resourceCrudProbeIdentifier);
-          assert.equal(marker.launches.at(-1)?.pid, pid);
-          assert.equal(marker.launches.at(-1)?.directoryAbsentAtBind, false);
+          if(!integration){
+            const marker = await Bun.file(/** @type {string} */(markerPath)).json();
+            assert.equal(marker.identifier, resourceCrudProbeIdentifier);
+            assert.equal(marker.launches.at(-1)?.pid, pid);
+            assert.equal(marker.launches.at(-1)?.directoryAbsentAtBind, false);
+          }
           await resourceSaved(page);
-          await capture();
+          if(!integration)await capture();
+          const initial = await invoke("load_workspace");
+          await page.keyboard.press("Control+s");
+          await poll(async () => (await invoke("load_workspace")).resources.some(
+            (/** @type {any} */ row) => row._type === "workspace_meta" && row.parentId === initial.activeWorkspaceId && row.activeRequestId === initial.activeRequestId,
+          ), "Initial request selection persisted before import");
           const original = await invoke("load_workspace"),
             load = () => invoke("load_workspace");
           const layout = await page.evaluate(
@@ -706,6 +716,6 @@ export async function runLegacyWebSocketNativeCases() {
         options,
       );
     },
-    { ...options, lazyCapture: true },
+    { ...options, lazyCapture: !integration },
   );
 }

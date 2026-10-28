@@ -2,19 +2,21 @@ import assert from "node:assert/strict";
 import { dlopen, ptr } from "bun:ffi";
 import { realpath, lstat } from "node:fs/promises";
 import { resolve, basename } from "node:path";
-import { probeIdentifier } from "./native-app.js";
+import { probeIdentifier, integrationProbeIdentifier, resourceCrudProbeIdentifier } from "./native-app.js";
 
 /** Read/handle oplock on exactly the existing isolated probe workspace. A
  * rename break requiring acknowledgement blocks native atomic replacement.
  * No data is written, deleted or created. Always release in finally.
  */
-export async function gateProbeWorkspaceReplacement() {
+/** @param {string} [identifier] */
+export async function gateProbeWorkspaceReplacement(identifier = probeIdentifier) {
   assert.equal(process.platform, "win32");
   assert.equal(process.arch, "x64");
   assert.ok(process.env.APPDATA);
+  assert.ok([probeIdentifier, integrationProbeIdentifier, resourceCrudProbeIdentifier].includes(identifier));
   const expected = resolve(
     process.env.APPDATA,
-    probeIdentifier,
+    identifier,
     "workspace-v1.json",
   );
   const path = await realpath(expected);

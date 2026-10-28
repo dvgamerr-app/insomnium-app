@@ -21,6 +21,8 @@ export function parseLegacyFiles(files) {
       }
       if (!record || typeof record !== "object" || Array.isArray(record))
         throw new Error(`${file.name}, line ${i + 1}: expected a legacy record object. Import stopped; the source was not changed.`);
+      if (Object.hasOwn(record, "$$deleted") && typeof record.$$deleted !== "boolean")
+        throw new Error(`${file.name}, line ${i + 1}: invalid deletion marker. Import stopped; the source was not changed.`);
       if (record.$$indexCreated || record.$$indexRemoved) continue;
       if (typeof record._id !== "string" || !record._id)
         throw new Error(`${file.name}, line ${i + 1}: missing record ID`);
@@ -28,8 +30,9 @@ export function parseLegacyFiles(files) {
       else records.set(record._id, {record, line:i + 1});
     }
     for (const {record, line} of records.values()) {
-      const originalType =
-        record.type || file.name.match(/insomnia\.(.+)\.db$/)?.[1];
+      const originalType = record.type == null
+        ? file.name.match(/insomnia\.(.+)\.db$/)?.[1]
+        : record.type;
       if (typeof originalType !== "string" || !originalType.trim())
         throw new Error(`${file.name}, line ${line}: cannot identify legacy model type. Import stopped; the source was not changed.`);
       const type = originalType

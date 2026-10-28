@@ -64,7 +64,10 @@ fn admit(
     git_remote::RemoteAdvertisementInput::from_saved_binding(binding)
 }
 
-pub(crate) fn destination(directory: &Path, repository_id: &str) -> Result<git2::Repository, String> {
+pub(crate) fn destination(
+    directory: &Path,
+    repository_id: &str,
+) -> Result<git2::Repository, String> {
     let repository = recovery_destination(directory, repository_id)?;
     git_fetch_journal::ensure_ready(&repository)?;
     Ok(repository)
@@ -323,7 +326,8 @@ pub async fn git_remote_fetch_inspect(
     storage_state: tauri::State<'_, storage::StorageState>,
     request: FetchRequest,
 ) -> Result<FetchObservation, String> {
-    let work = network.retain_native_work(format!("git-remote-fetch-inspect:{}", uuid::Uuid::new_v4()))?;
+    let work =
+        network.retain_native_work(format!("git-remote-fetch-inspect:{}", uuid::Uuid::new_v4()))?;
     validate_request(&request)?;
     let directory = app
         .path()
@@ -375,7 +379,10 @@ pub async fn git_remote_fetch_recovery_status(
     storage_state: tauri::State<'_, storage::StorageState>,
     request: FetchRequest,
 ) -> Result<Option<git_fetch_journal::RecoveryStatus>, String> {
-    let work = network.retain_native_work(format!("git-remote-fetch-recovery-status:{}", uuid::Uuid::new_v4()))?;
+    let work = network.retain_native_work(format!(
+        "git-remote-fetch-recovery-status:{}",
+        uuid::Uuid::new_v4()
+    ))?;
     validate_request(&request)?;
     let directory = app
         .path()
@@ -407,7 +414,8 @@ pub async fn git_remote_fetch_recover(
     jobs: tauri::State<'_, git_remote_job::RemoteJobState>,
     request: RecoveryRequest,
 ) -> Result<FetchResult, String> {
-    let work = network.retain_native_work(format!("git-remote-fetch-recover:{}", uuid::Uuid::new_v4()))?;
+    let work =
+        network.retain_native_work(format!("git-remote-fetch-recover:{}", uuid::Uuid::new_v4()))?;
     validate_request(&request.fetch)?;
     let attempt = uuid::Uuid::parse_str(&request.attempt_id)
         .map_err(|_| "Invalid recovery attempt ID.")?

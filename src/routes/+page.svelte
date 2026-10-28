@@ -88,7 +88,7 @@
   import { orderedChildren } from "$lib/resources.js";
   import { pinnedRequests, recentRequests, requestMeta } from "$lib/request-meta.js";
   import { curlRequestPatch, isCurlImport } from "$lib/curl-import.js";
-  import { pickImport, parseImport, exportData, download, pickLegacyResponseHistory, pickLegacyRequestFiles, pickLegacyCertificateFiles } from "$lib/import-export.js";
+  import { pickImport, parseImport, decodeImportText, exportData, download, pickLegacyResponseHistory, pickLegacyRequestFiles, pickLegacyCertificateFiles } from "$lib/import-export.js";
   import { responseDownloadName, requestDownload } from "$lib/response-download.js";
   import {legacyPreferenceCandidate} from "$lib/legacy-preferences.js";
   import { reviewImportedHistory, applyImportedData } from "$lib/import-history-review.js";
@@ -468,9 +468,11 @@
         throw new Error("Collection import exceeds 64 MiB. The source was not changed.");
       let result;
       if (file) {
-        const text = await file.text();
+        const bytes = new Uint8Array(await file.arrayBuffer());
         if (!work.current()) return;
-        result = parseImport(text);
+        if (bytes.byteLength > 64 * 1024 * 1024)
+          throw new Error("Collection import exceeds 64 MiB. The source was not changed.");
+        result = parseImport(decodeImportText(bytes));
       } else result = await pickImport(work.signal);
       if (!work.current()) return;
       if (revision === importRevision && modal === "import" && result)

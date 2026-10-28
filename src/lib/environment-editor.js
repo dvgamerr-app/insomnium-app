@@ -1,6 +1,12 @@
 import { duplicateResource } from "./resources.js";
-import { id } from "./model.js";
+import { id, indexWorkspaces } from "./model.js";
 import { checkTemplateValue } from "./template-object.js";
+
+/** @param {string} path @param {string|number} key */
+export function environmentOrderPath(path, key) {
+  const segment = String(key);
+  return path + "~|" + (path.startsWith("$v2") ? segment.replaceAll("~", "~0").replaceAll("|", "~1") : segment);
+}
 
 /** Stable imported ordering; Base remains first and absent sort keys retain input order.
  * @param {Record<string,any>[]} resources @param {string} workspaceId */
@@ -39,7 +45,7 @@ export function environmentEditorText(data, order) {
             value
               .map(
                 (item, index) =>
-                  childIndent + serialize(item, path + "~|" + index, depth + 1),
+                  childIndent + serialize(item, environmentOrderPath(path, index), depth + 1),
               )
               .join(",\n") +
             "\n" +
@@ -67,7 +73,7 @@ export function environmentEditorText(data, order) {
                 childIndent +
                 JSON.stringify(key) +
                 ": " +
-                serialize(value[key], path + "~|" + key, depth + 1),
+                serialize(value[key], environmentOrderPath(path, key), depth + 1),
             )
             .join(",\n") +
           "\n" +
@@ -75,7 +81,7 @@ export function environmentEditorText(data, order) {
           "}"
       : "{}";
   }
-  return serialize(json, "$", 0);
+  return serialize(json, Array.isArray(order?.$v2) ? "$v2" : "$", 0);
 }
 /** Parse valid JSON once, retaining the actual textual order at every object path.
  * JSON.parse validates tokens; the scanner only records their existing positions.
@@ -87,6 +93,16 @@ export function parseEnvironmentEditor(text, objectError = "Environment must be 
   checkTemplateValue(data);
   /** @type {Record<string,string[]>} */
   const dataPropertyOrder = Object.create(null);
+  const pending = [data];
+  let escaped = false;
+  while (pending.length) {
+    const current = pending.pop();
+    if (!current || typeof current !== "object") continue;
+    for (const [key, child] of Object.entries(current)) {
+      if (key.includes("~|")) escaped = true;
+      if (child && typeof child === "object") pending.push(child);
+    }
+  }
   let at = 0;
   const whitespace = () => {
     while (/\s/.test(text[at] || "") && at < text.length) at++;
@@ -114,7 +130,7 @@ export function parseEnvironmentEditor(text, objectError = "Environment must be 
         if (!keys.includes(key)) keys.push(key);
         whitespace();
         at++;
-        value(path + "~|" + key);
+        value(environmentOrderPath(path, key));
         whitespace();
         if (text[at] !== ",") break;
         at++;
@@ -132,7 +148,7 @@ export function parseEnvironmentEditor(text, objectError = "Environment must be 
       whitespace();
       let index = 0;
       while (text[at] !== "]") {
-        value(path + "~|" + index++);
+        value(environmentOrderPath(path, index++));
         whitespace();
         if (text[at] !== ",") break;
         at++;
@@ -142,7 +158,7 @@ export function parseEnvironmentEditor(text, objectError = "Environment must be 
     } else if (text[at] === '"') string();
     else while (at < text.length && !/[\s,}\]]/.test(text[at])) at++;
   }
-  value("$");
+  value(escaped ? "$v2" : "$");
   return { data, dataPropertyOrder };
 }
 /** @param {Record<string,any>[]} environments @param {string} parentId @param {string} name @param {boolean} isPrivate */
@@ -153,6 +169,9 @@ export function newEnvironment(
   isPrivate = false,
 ) {
   if (!name.trim()) throw new Error("Enter an environment name");
+  let maximum = 0;
+  for (const row of environments)
+    if (Number.isFinite(row.metaSortKey)) maximum = Math.max(maximum, row.metaSortKey);
   return {
     _id: id("env"),
     _type: "environment",
@@ -162,13 +181,7 @@ export function newEnvironment(
     dataPropertyOrder: null,
     color: null,
     isPrivate: isPrivate === true,
-    metaSortKey:
-      Math.max(
-        0,
-        ...environments.map((row) =>
-          Number.isFinite(row.metaSortKey) ? row.metaSortKey : 0,
-        ),
-      ) + 100,
+    metaSortKey: maximum + 100,
     created: Date.now(),
     modified: Date.now(),
   };
@@ -187,19 +200,18 @@ export function duplicateEnvironment(resources, environmentId, baseId) {
   const key = Number.isFinite(original.metaSortKey)
     ? original.metaSortKey
     : resources.indexOf(original);
-  const next = Math.min(
-    ...resources
-      .filter(
-        (row) =>
-          row._type === "environment" &&
-          row._id !== copyId &&
-          row.parentId === original.parentId &&
-          Number.isFinite(row.metaSortKey) &&
-          row.metaSortKey > key,
-      )
-      .map((row) => row.metaSortKey),
-  );
-  copy.metaSortKey = Number.isFinite(next) ? (key + next) / 2 : key + 100;
+  let next = Infinity;
+  for (const row of resources)
+    if (row._type === "environment" && row._id !== copyId && row.parentId === original.parentId && Number.isFinite(row.metaSortKey) && row.metaSortKey > key)
+      next = Math.min(next, row.metaSortKey);
+  const candidate = Number.isFinite(next) ? key / 2 + next / 2 : key + 100;
+  if (!Number.isFinite(candidate) || candidate <= key || candidate >= next) {
+    const owners = indexWorkspaces(resources), owner = owners.get(environmentId);
+    const rows = orderedEnvironments(resources.filter(row => row._type === "environment" && row._id !== baseId && row._id !== copyId &&
+      (owner ? owners.get(row._id) === owner : row.parentId === original.parentId)), owner || "");
+    rows.splice(rows.indexOf(original) + 1, 0, copy);
+    rows.forEach((row, index) => { row.metaSortKey = (index + 1) * 100; row.modified = Date.now(); });
+  } else copy.metaSortKey = candidate;
   return copyId;
 }
 /** Change only the selected sub-environment's sort/time; never mutate Base/unrelated owners.
@@ -236,11 +248,17 @@ export function reorderEnvironment(
     moving = before.splice(index, 1)[0];
   const previous = before[target - 1]?.key,
     next = before[target]?.key;
-  moving.row.metaSortKey =
+  const key =
     previous === undefined
       ? next - 100
       : next === undefined
         ? previous + 100
-        : (previous + next) / 2;
+        : previous / 2 + next / 2;
+  if (!Number.isFinite(key) || (previous !== undefined && key <= previous) || (next !== undefined && key >= next)) {
+    before.splice(target, 0, moving);
+    before.forEach(({row}, index) => { row.metaSortKey = (index + 1) * 100; row.modified = Date.now(); });
+    return;
+  }
+  moving.row.metaSortKey = key;
   moving.row.modified = Date.now();
 }

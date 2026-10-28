@@ -92,6 +92,45 @@ if (process.env.INSOMNIUM_API_IMPORT_NATIVE === "1") {
     await page
       .getByRole("button", { name: "Default fixture", exact: true })
       .click();
+    const importRegion = page.getByRole("region", { name: "API Design", exact: true });
+    const documentPicker = importRegion.locator("label").filter({hasText:"Open JSON / YAML"}).locator('input[type="file"]');
+    const referencePicker = importRegion.locator("label").filter({hasText:"Attach $ref files"}).locator('input[type="file"]');
+    const originalResources = await page.evaluate(() => /** @type {any} */ (window).spectralDrain.state().resources);
+    const invalid = {name:"invalid.yaml",mimeType:"application/yaml",buffer:Buffer.concat([Buffer.from('description: '),Buffer.from([0xc3,0x28])])};
+    await documentPicker.setInputFiles(invalid);
+    await importRegion.getByRole("alert").filter({hasText:"Selected API document file is not valid UTF-8."}).waitFor();
+    assert.deepEqual(await page.evaluate(() => /** @type {any} */ (window).spectralDrain.state().resources), originalResources);
+    await documentPicker.setInputFiles({name:"bom.yaml",mimeType:"application/yaml",buffer:Buffer.concat([Buffer.from([0xef,0xbb,0xbf]),Buffer.from('openapi: 3.1.0\npaths: {}\n')])});
+    await importRegion.getByRole("alert").waitFor({state:"detached"});
+    await page.waitForFunction(() => /** @type {any} */ (window).spectralDrain.state().resources.some((/** @type {any} */ resource) => resource.fileName === "bom.yaml" && resource.contents === 'openapi: 3.1.0\npaths: {}\n'));
+    const beforeReferences = await page.evaluate(() => /** @type {any} */ (window).spectralDrain.state().resources);
+    await referencePicker.setInputFiles([{name:"valid.yaml",mimeType:"application/yaml",buffer:Buffer.from('type: string')},invalid]);
+    await importRegion.getByRole("alert").filter({hasText:"Selected API document file is not valid UTF-8."}).waitFor();
+    assert.deepEqual(await page.evaluate(() => /** @type {any} */ (window).spectralDrain.state().resources), beforeReferences, "Invalid reference rejects the whole selection");
+
+    await page.evaluate(() => {
+      const owner = /** @type {any} */ (window);
+      owner.apiFileReads = 0;
+      owner.originalApiArrayBuffer = Blob.prototype.arrayBuffer;
+      Blob.prototype.arrayBuffer = function () { owner.apiFileReads++; return owner.originalApiArrayBuffer.call(this); };
+    });
+    try {
+      for (const files of [
+        Array.from({length:33}, (_, i) => ({name:`count-${i}.yaml`, mimeType:"application/yaml", buffer:Buffer.from("type: string")})),
+        Array.from({length:5}, (_, i) => ({name:`size-${i}.yaml`, mimeType:"application/yaml", buffer:Buffer.alloc(2 * 1024 * 1024, 32)})),
+      ]) {
+        await referencePicker.setInputFiles(files);
+        await importRegion.getByRole("alert").filter({hasText:"Reference files exceed 32 files or 8 MiB."}).waitFor();
+        assert.equal(await page.evaluate(() => /** @type {any} */ (window).apiFileReads), 0, "Reject the whole over-limit selection before reading any file");
+        assert.deepEqual(await page.evaluate(() => /** @type {any} */ (window).spectralDrain.state().resources), beforeReferences);
+      }
+      await referencePicker.setInputFiles(Array.from({length:32}, (_, i) => ({name:`exact-${i}.yaml`, mimeType:"application/yaml", buffer:Buffer.from("type: string")})));
+      await importRegion.getByRole("alert").waitFor({state:"detached"});
+      await page.waitForFunction(() => /** @type {any} */ (window).spectralDrain.state().resources.some((/** @type {any} */ r) => r.fileName === "bom.yaml" && r.files?.length === 32));
+    } finally {
+      await page.evaluate(() => { Blob.prototype.arrayBuffer = /** @type {any} */ (window).originalApiArrayBuffer; });
+    }
+    await page.getByRole("button", { name: "Default fixture", exact: true }).click();
     const drainRows = [];
     for (const kind of ["document", "reference", "binary-example"]) {
       const beforeImport = await page.evaluate(() =>

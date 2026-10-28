@@ -25,6 +25,7 @@
     validateProtoRename,
   } from "../proto-management.js";
   import { workspaceFor } from "../model.js";
+  import { decodeImportText } from "../import-export.js";
   /** @type {{request:Record<string,any>}} */ let { request } = $props();
   const fileWork = createWorkspaceWorkScope();
   let disposed = false;
@@ -179,7 +180,7 @@
             "Proto sources exceed 2 MiB per file or 8 MiB combined.",
           );
       }
-      let textTotal = 0;
+      let textTotal = 0, sourceTotal = 0;
       const encoder = new TextEncoder();
       const result = [];
       for (const f of selected) {
@@ -194,12 +195,13 @@
         }
         if (!current()) return;
         work.signal.throwIfAborted();
-        const text = await f.text();
+        const source = new Uint8Array(await f.arrayBuffer());
         if (!current()) return;
         work.signal.throwIfAborted();
-        // Blob.text decodes UTF-8 with replacement. Re-encoded text can exceed
-        // the source Blob size; enforce the same saved/compiler byte budget
-        // now, before retaining it or starting the next file read.
+        sourceTotal += source.byteLength;
+        if (source.byteLength > protoFileLimit || sourceTotal > protoTotalLimit)
+          throw new Error("Proto sources exceed 2 MiB per file or 8 MiB combined.");
+        const text = decodeImportText(source, "proto");
         const bytes = encoder.encode(text).length;
         textTotal += bytes;
         if (bytes > protoFileLimit || textTotal > protoTotalLimit)

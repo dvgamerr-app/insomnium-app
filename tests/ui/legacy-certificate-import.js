@@ -8,6 +8,8 @@ import {
   convertLegacyCertificateFiles,
 } from "../../src/lib/legacy-certificate-files.js";
 import { withPreview } from "./helpers/preview-app.js";
+import { selectedNativeProbeIdentifier, integrationProbeIdentifier } from './helpers/native-app.js';
+import { preserveNativeProfile } from './helpers/native-profile-preservation.js';
 import {
   legacyCertificateFixture,
   assertCertificateCache,
@@ -16,7 +18,9 @@ import {
 if (process.env.INSOMNIUM_LEGACY_CERTIFICATE_NATIVE === "1") {
   const { runLegacyCertificateNativeCases } =
     await import("./helpers/legacy-certificate-native-cases.js");
-  await runLegacyCertificateNativeCases();
+  if(selectedNativeProbeIdentifier()===integrationProbeIdentifier)
+    await preserveNativeProfile(runLegacyCertificateNativeCases);
+  else await runLegacyCertificateNativeCases();
 } else {
   const label = process.env.INSOMNIUM_UI_RUN_LABEL || "";
   assert.match(label, /^[a-zA-Z0-9_-]{0,80}$/);

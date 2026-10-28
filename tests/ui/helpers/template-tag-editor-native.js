@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { poll } from "./native-app.js";
 import { withIpcSuccessHook } from "./ipc-success-hook.js";
+import { withIpcAudit } from "./ipc-audit.js";
 import { withDialogSelection } from "./dialog-selection.js";
 import { pluginWorkerRecords } from "./plugin-worker-probe.js";
 
@@ -40,6 +41,7 @@ export async function exerciseTemplateTagEditorNative(context) {
   } = context;
   const checks = [];
   const observations = [];
+  const bun = process.env.INSOMNIUM_BUN_PLUGIN_WORKFLOW === "1";
   const dialog = page.getByRole("dialog", {
     name: "Template tag",
     exact: true,
@@ -266,7 +268,7 @@ export async function exerciseTemplateTagEditorNative(context) {
   await open();
   await dialog.getByLabel("Mask", { exact: true }).check();
   await ready();
-  const draftHeld = await withIpcSuccessHook(
+  const runDraftHeld = () => withIpcSuccessHook(
     page,
     "plugin_store",
     async () => {
@@ -280,7 +282,9 @@ export async function exerciseTemplateTagEditorNative(context) {
         .click();
       await poll(
         async () =>
-          (await pluginWorkerRecords(page)).at(-1)?.terminated === true,
+          bun
+            ? await page.evaluate(() => /** @type {any} */ (window).__ipcAuditFixture?.completed > 0)
+            : (await pluginWorkerRecords(page)).at(-1)?.terminated === true,
         "Changed draft closes the active guest before a later write",
       );
       await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
@@ -303,6 +307,9 @@ export async function exerciseTemplateTagEditorNative(context) {
     );
     throw error;
   });
+  const draftAudit = bun ? await withIpcAudit(page, "cancel_plugin_inspection", runDraftHeld) : undefined;
+  const draftHeld = draftAudit ? draftAudit.value : await runDraftHeld();
+  if (draftAudit) assert.ok(draftAudit.completed > 0, "Changed draft completes native Bun cancellation");
   assert.equal(draftHeld.calls, 1);
   assert.equal(draftHeld.hooks, 1);
   assert.equal(
@@ -312,7 +319,7 @@ export async function exerciseTemplateTagEditorNative(context) {
     }),
     false,
   );
-  observations.push({ draftHeld });
+  observations.push({ draftHeld, ...(draftAudit ? { nativeCancellation: { calls: draftAudit.calls, completed: draftAudit.completed } } : {}) });
   await reload();
   checks.push(
     "draft change after one real held action read terminates its guest and refuses the later write",

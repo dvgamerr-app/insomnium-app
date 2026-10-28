@@ -7,12 +7,13 @@ import { resolve, sep } from "node:path";
  * JSON artifacts (or explicitly selected binary artifacts) inside this scenario's
  * output; no overwrite prompt is allowed.
  * @param {number} pid @param {string} output @param {string|null} path
- * @param {'.json'|'.bin'} [extension] */
+ * @param {'.json'|'.bin'} [extension] @param {string} [expectedName] */
 export async function respondToOwnedSaveDialog(
   pid,
   output,
   path,
   extension = ".json",
+  expectedName,
 ) {
   assert.equal(process.platform, "win32");
   assert.ok(Number.isSafeInteger(pid) && pid > 0);
@@ -134,6 +135,11 @@ export async function respondToOwnedSaveDialog(
       (control) => control.className === "Button" && control.id === 1,
     );
     assert.equal(buttons.length, 1, "Expected one Save button");
+    if (expectedName !== undefined) {
+      const buffer = new Uint16Array(1024), result = new BigUint64Array(1);
+      assert.notEqual(api.SendMessageTimeoutW(edits[0].handle, 0x000d, BigInt(buffer.length), BigInt(ptr(buffer)), 2, 5000, ptr(result)), 0n, "Filename WM_GETTEXT timed out");
+      assert.equal(String.fromCharCode(...buffer.subarray(0, Number(result[0]))), expectedName);
+    }
     const text = Buffer.from(resolve(path) + "\0", "utf16le");
     const result = new BigUint64Array(1);
     assert.ok(owned(edits[0].handle) && owned(buttons[0].handle));

@@ -133,6 +133,7 @@ export async function exerciseManualHttpWorkflow(
   };
   /** @param {string} id @param {string} text */
   const editText = async (id, text) => {
+    await bodyEditor().locator('.CodeMirror').waitFor();
     await bodyInput().focus();
     await page.keyboard.press("Control+A");
     await page.keyboard.insertText(text);
@@ -423,7 +424,7 @@ export async function exerciseManualHttpWorkflow(
         const label =
           key === "maxHistory"
             ? "Response history limit"
-            : "Request timeout (ms)";
+            : "Request timeout (ms, 0 = unlimited)";
         await pane
           .getByRole("spinbutton", { name: label, exact: true })
           .fill(String(value));

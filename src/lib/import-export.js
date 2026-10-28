@@ -4,7 +4,7 @@ import { redactEnvironment } from "./environment-secrets.js";
 import { Channel, isTauri, invoke } from "@tauri-apps/api/core";
 import { createNativeCancellation } from "./native-cancellation.js";
 import { open } from "@tauri-apps/plugin-dialog";
-import { readTextFile, stat } from "@tauri-apps/plugin-fs";
+import { open as openFile, stat } from "@tauri-apps/plugin-fs";
 import { encodeBase64 } from "./transport.js";
 import { safeResponseFilename } from "./response-download.js";
 import { id, initialData, newRequest, protocolFor, validateGrpcMetadata } from "./model.js";
@@ -49,15 +49,26 @@ const localGitFields = [
  * @param {unknown} value */
 function portableGitUri(value) {
   if (typeof value !== "string") return value;
+  const unsafeUnparsedUserinfo = /^\s*(?:git\+)?(?:https?|ssh):[^?#]*@/i.test(value);
   try {
     const url = new URL(value);
+    if (unsafeUnparsedUserinfo && !url.hostname)
+      throw new Error("Malformed Git URL");
     if (["http:", "https:", "git+http:", "git+https:"].includes(url.protocol) &&
         (url.username || url.password)) {
       url.username = "";
       url.password = "";
       return url.href;
     }
-  } catch { /* Preserve unknown legacy URI spellings rather than guessing. */ }
+    if (["ssh:", "git+ssh:"].includes(url.protocol) && url.password) {
+      url.password = "";
+      return url.href;
+    }
+  } catch {
+    // A malformed known URL with userinfo must not export an unparsed secret.
+    if (unsafeUnparsedUserinfo)
+      throw new Error("Cannot safely export a malformed Git URL containing user information. Correct or remove the URL first.");
+  }
   return value;
 }
 
@@ -214,8 +225,9 @@ export function parseImport(text,options = {}) {
   else if (source._postman_variable_scope === "environment") {
     if (!Array.isArray(source.values) || source.values.some(
       (/** @type {any} */ value) => !value || typeof value !== "object" ||
-        Array.isArray(value) || typeof value.key !== "string",
-    )) throw new Error("Postman environment values must be an array of named variables.");
+        Array.isArray(value) || typeof value.key !== "string" ||
+        (value.enabled !== undefined && typeof value.enabled !== "boolean"),
+    )) throw new Error("Postman environment values must be named variables with boolean enabled flags.");
     const workspaceId = id("wrk");
     const name = typeof source.name === "string" && source.name.trim()
       ? source.name : "Postman Environment";
@@ -228,6 +240,12 @@ export function parseImport(text,options = {}) {
     ];
   }
   else if (source.info && Array.isArray(source.item)) {
+    /** @param {unknown} auth */
+    const checkAuth = (auth) => {
+      if (auth != null && (typeof auth !== 'object' || Array.isArray(auth) || typeof /** @type {any} */(auth).type !== 'string' || !/** @type {any} */(auth).type))
+        throw new Error('Postman authentication must be an object with a type.');
+    };
+    checkAuth(source.auth);
     const workspaceId = id("wrk");
     resources.push({
       _id: workspaceId,
@@ -263,6 +281,7 @@ export function parseImport(text,options = {}) {
         if (Object.hasOwn(item, 'item') && !Array.isArray(item.item))
           throw new Error('Postman folder items must be an array.');
         if (Array.isArray(item.item)) {
+          checkAuth(item.auth);
           const folderId = id("fld");
           // Descendants have their own resources; archive only this folder's
           // metadata so nested imports do not duplicate every child subtree.
@@ -287,6 +306,9 @@ export function parseImport(text,options = {}) {
             typeof item.request === "string"
               ? { url: item.request }
               : item.request;
+          if (req.method != null && typeof req.method !== "string")
+            throw new Error("Postman request method must be text.");
+          checkAuth(req.auth);
           /** @type {Record<string, any>} */
           let authentication = {};
           const selectedAuth = req.auth || inheritedAuth;
@@ -373,6 +395,22 @@ export function parseImport(text,options = {}) {
   if (!resources.length) throw new Error("The import contains no resources");
   if (source.__export_format === 2) resources = resources.map((resource) => {
     if (resource?._type !== "request") return resource;
+    for (const field of ["name", "url", "method"])
+      if (resource[field] != null && typeof resource[field] !== "string")
+        throw new Error(`Legacy export format 2 request ${field} must be text.`);
+    if (resource.headers != null && (!Array.isArray(resource.headers) || resource.headers.some(
+      (/** @type {any} */ header) => !header || typeof header !== "object" || Array.isArray(header) ||
+        typeof header.name !== "string" || typeof header.value !== "string" ||
+        (header.disabled != null && typeof header.disabled !== "boolean"),
+    ))) throw new Error("Legacy export format 2 headers must be named text values with boolean disabled flags.");
+    if (resource.authentication != null && (typeof resource.authentication !== "object" || Array.isArray(resource.authentication) ||
+        (resource.authentication.disabled != null && typeof resource.authentication.disabled !== "boolean")))
+      throw new Error("Legacy export format 2 authentication must be an object with a boolean disabled flag.");
+    if (resource.parameters != null && (!Array.isArray(resource.parameters) || resource.parameters.some(
+      (/** @type {any} */ param) => !param || typeof param !== "object" || Array.isArray(param) ||
+        typeof param.name !== "string" || (param.value != null && typeof param.value !== "string") ||
+        (param.disabled != null && typeof param.disabled !== "boolean"),
+    ))) throw new Error("Legacy export format 2 parameters must be named text values with boolean disabled flags.");
     if (resource.body != null && typeof resource.body !== "string")
       throw new Error("Legacy export format 2 request bodies must be strings.");
     const contentType = Array.isArray(resource.headers)
@@ -660,6 +698,11 @@ export async function pickLegacyCertificateFiles(review, signal) {
     legacyCertificateFiles: converted.pending, legacyCertificateFilesLoaded: converted.loaded,
     legacyCertificateFileWarnings: [...plan.warnings, ...converted.warnings] };
 }
+/** @param {Uint8Array} bytes @param {string} [kind] */
+export function decodeImportText(bytes, kind = "collection") {
+  try { return new TextDecoder("utf-8", {fatal:true}).decode(bytes); }
+  catch { throw new Error(`Selected ${kind} file is not valid UTF-8. The source was not changed.`); }
+}
 /** @param {AbortSignal} [signal] */
 export async function pickImport(signal) {
   const check = () => signal?.throwIfAborted();
@@ -689,12 +732,33 @@ export async function pickImport(signal) {
   /** @param {string} selected */
   const readSelected = async (selected) => {
     check();
-    const text = await readTextFile(selected);
-    check();
-    loadedBytes += new TextEncoder().encode(text).byteLength;
-    if (loadedBytes > 64 * 1024 * 1024)
-      throw new Error("Selected collection files exceed the 64 MiB import limit. The source was not changed.");
-    return text;
+    const file = await openFile(selected, {read:true});
+    try {
+      check();
+      const metadata = await file.stat();
+      check();
+      if (!metadata.isFile || metadata.size > 64 * 1024 * 1024 - loadedBytes)
+        throw new Error("Selected collection files exceed the 64 MiB import limit or are not ordinary files. The source was not changed.");
+      const chunks = /** @type {Uint8Array[]} */ ([]);
+      let size = 0;
+      while (true) {
+        const buffer = new Uint8Array(Math.min(1024 * 1024, 64 * 1024 * 1024 - loadedBytes - size + 1));
+        const count = await file.read(buffer);
+        check();
+        if (count === null) break;
+        size += count;
+        if (loadedBytes + size > 64 * 1024 * 1024)
+          throw new Error("Selected collection files exceed the 64 MiB import limit. The source was not changed.");
+        chunks.push(buffer.slice(0, count));
+      }
+      loadedBytes += size;
+      const bytes = new Uint8Array(size);
+      let offset = 0;
+      for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
+      return decodeImportText(bytes);
+    } finally {
+      await file.close();
+    }
   };
   if (path.every((p) => p.toLowerCase().endsWith(".db"))) {
     const files = [];
@@ -745,16 +809,25 @@ export async function exportData(data, signal = new AbortController().signal) {
       else sourceResources[index] = jar;
     }
   }
+  const historyOwners = new Set(data.history.map(entry => JSON.stringify([entry.requestId, entry._id])));
+  const portableResponseIds = new Set(data.resources.filter(resource =>
+    (resource._type === "response" && resource._legacyResponseAssets?.version === 1) ||
+    (resource._type === "websocket_response" && resource._legacyWebSocketAssets?.version === 1),
+  ).map(resource => resource._id));
   const selectedPortableResponses = new Map(Object.entries(data.responseSelections || {}).filter(([requestId, responseId]) =>
-    data.history.some((entry) => entry._id === responseId && entry.requestId === requestId) &&
-    data.resources.some((resource) => resource._id === responseId && ((resource._type === "response" && resource._legacyResponseAssets?.version === 1) || (resource._type === "websocket_response" && resource._legacyWebSocketAssets?.version === 1)))));
+    historyOwners.has(JSON.stringify([requestId, responseId])) && portableResponseIds.has(responseId)));
+  /** @type {Map<string,Record<string,any>>} */ const baseEnvironments = new Map();
+  for (const resource of sourceResources)
+    if (resource._type === "environment" && !baseEnvironments.has(resource.parentId))
+      baseEnvironments.set(resource.parentId, resource);
   const resources = sourceResources.map((resource) => {
-    const portable = redactEnvironment(portableResource(resource, true), sourceResources);
+    const portable = redactEnvironment(portableResource(resource, true), baseEnvironments);
     const selected = resource._type === "request_meta" ? selectedPortableResponses.get(resource.parentId) : undefined;
     return selected ? { ...portable, activeResponseId: selected } : portable;
   });
+  const requestMetaParents = new Set(resources.filter(resource => resource._type === "request_meta").map(resource => resource.parentId));
   for (const [requestId, responseId] of selectedPortableResponses)
-    if (!resources.some((resource) => resource._type === "request_meta" && resource.parentId === requestId))
+    if (!requestMetaParents.has(requestId))
       resources.push({ _id: id("reqm"), _type: "request_meta", parentId: requestId, activeResponseId: responseId });
   const text = JSON.stringify(
     {

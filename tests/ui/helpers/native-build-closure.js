@@ -270,7 +270,7 @@ async function authorities() {
   return {
     spectral: await validateSpectralArtifact(namespaceTarget),
     native: await validateNativeNotices(namespaceTarget, {
-      expectedRecipe: buildRecipe("build"),
+      expectedRecipe: buildRecipe("manual"),
     }),
     frontend: await validateFrontendFS(root),
     coverage: "incomplete",

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {initialData} from '../../src/lib/model.js';
 import {withPreview} from './helpers/preview-app.js';
 import {multipartBytes,exerciseMultipartResponse} from './helpers/response-multipart-cases.js';
+import {ownedPdf} from './helpers/owned-pdf.js';
 
 const data=initialData();
 const legacyIdsOnly=process.env.INSOMNIUM_RESPONSE_LEGACY_IDS_ONLY==='1';
@@ -13,24 +14,13 @@ if(charsetOnly){const request=data.resources.find(resource=>resource._id===data.
 const htmlOnly=process.env.INSOMNIUM_RESPONSE_HTML_ONLY==='1';
 const imageOnly=process.env.INSOMNIUM_RESPONSE_IMAGE_ONLY==='1';
 const audioOnly=process.env.INSOMNIUM_RESPONSE_AUDIO_ONLY==='1';
-const csvOnly=process.env.INSOMNIUM_RESPONSE_CSV_ONLY==='1';
+const csvMalformed=process.env.INSOMNIUM_RESPONSE_CSV_MALFORMED==='1';
+const csvLarge=process.env.INSOMNIUM_RESPONSE_CSV_LARGE==='1';
+const csvOnly=process.env.INSOMNIUM_RESPONSE_CSV_ONLY==='1'||csvMalformed||csvLarge;
 const multipartOnly=process.env.INSOMNIUM_RESPONSE_MULTIPART_ONLY==='1';
 const pdfOnly=process.env.INSOMNIUM_RESPONSE_PDF_ONLY==='1';
-function ownedPdf(){
- const first='BT /F1 18 Tf 30 120 Td (Owned PDF page one) Tj ET\n0 0 1 rg 20 20 20 20 re f\n';
- const second='BT /F1 18 Tf 30 120 Td (Owned PDF page two) Tj ET\n1 0 0 rg 20 20 20 20 re f\n';
- const objects=['<< /Type /Catalog /Pages 2 0 R /OpenAction 8 0 R >>','<< /Type /Pages /Kids [3 0 R 5 0 R] /Count 2 >>',
- '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 200] /Resources << /Font << /F1 7 0 R >> >> /Contents 4 0 R >>',
- `<< /Length ${first.length} >>\nstream\n${first}endstream`,
- '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 200] /Resources << /Font << /F1 7 0 R >> >> /Contents 6 0 R >>',
- `<< /Length ${second.length} >>\nstream\n${second}endstream`,'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
- '<< /Type /Action /S /JavaScript /JS (globalThis.__ownedPdfAction = true) >>'];
- let text='%PDF-1.4\n';const offsets=[0];for(const [index,value] of objects.entries()){offsets.push(text.length);text+=`${index+1} 0 obj\n${value}\nendobj\n`;}
- const xref=text.length;text+=`xref\n0 ${objects.length+1}\n0000000000 65535 f \n`+offsets.slice(1).map(offset=>String(offset).padStart(10,'0')+' 00000 n \n').join('');
- return Buffer.from(text+`trailer\n<< /Size ${objects.length+1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`).toString('base64');
-}
 const pdfBase64=pdfOnly?ownedPdf():'';
-const csvBody='\ufeffname,note,id\r\n"A, ไทย","line1\r\nline2","0007"\r\nliteral,"<img src=x onerror=alert(1)>",9007199254740993\r\n\r\n'+Array.from({length:205},(_,index)=>`row-${index},value-${index},${index}`).join('\r\n');
+const csvBody=csvMalformed?'name,note\r\n"unclosed,ไทย':csvLarge?'name,note,id\r\n'+Array.from({length:10000},(_,index)=>`row-${index},ไทย-${'x'.repeat(60)},9007199254740993`).join('\r\n'):'\ufeffname,note,id\r\n"A, ไทย","line1\r\nline2","0007"\r\nliteral,"<img src=x onerror=alert(1)>",9007199254740993\r\n\r\n'+Array.from({length:205},(_,index)=>`row-${index},value-${index},${index}`).join('\r\n');
 const visualOnly=htmlOnly||imageOnly||audioOnly;
 const audioBytes=new Uint8Array(204);
 if(audioOnly){const view=new DataView(audioBytes.buffer);for(const [offset,text] of /** @type {[number,string][]} */([[0,'RIFF'],[8,'WAVE'],[12,'fmt '],[36,'data']]))audioBytes.set(new TextEncoder().encode(text),offset);view.setUint32(4,196,true);view.setUint32(16,16,true);view.setUint16(20,1,true);view.setUint16(22,1,true);view.setUint32(24,8000,true);view.setUint32(28,16000,true);view.setUint16(32,2,true);view.setUint16(34,16,true);view.setUint32(40,160,true);}
@@ -47,7 +37,7 @@ if(csvOnly)data.history=data.history.slice(0,1).map(entry=>({...entry,headers:[[
 if(pdfOnly)data.history=data.history.slice(0,1).map(entry=>({...entry,headers:[['Content-Type','application/pdf'],['Content-Disposition',"attachment; filename=report.pdf; filename*=UTF-8''%E0%B9%84%E0%B8%97%E0%B8%A2.pdf"]],body:'Owned PDF text representation',bodyBase64:pdfBase64}));
 if(multipartOnly)data.history=data.history.slice(0,1).map(entry=>({...entry,headers:[['Content-Type','multipart/mixed; boundary="owned+parts"']],body:multipartBytes.toString('utf8'),bodyBase64:multipartBytes.toString('base64')}));
 if(charsetOnly)data.history=data.history.slice(0,1).map(entry=>({...entry,headers:[['Content-Type','text/plain; charset=utf-32le']],body:'A\u0000\u0000\u0000B\u0000\u0000\u0000',bodyBase64:charsetBytes.toString('base64')}));
-await withPreview(actionsOnly?'request-action-ownership':legacyIdsOnly?'response-legacy-ids':charsetOnly?'response-charset-preview':multipartOnly?'response-multipart-preview':pdfOnly?'response-pdf-preview':csvOnly?'response-csv-preview':audioOnly?'response-audio-preview':imageOnly?'response-image-preview':htmlOnly?'response-html-preview':'response-history-app',async(page,output)=>{
+await withPreview(actionsOnly?'request-action-ownership':legacyIdsOnly?'response-legacy-ids':charsetOnly?'response-charset-preview':multipartOnly?'response-multipart-preview':pdfOnly?'response-pdf-preview':csvMalformed?'response-csv-malformed':csvLarge?'response-csv-large':csvOnly?'response-csv-preview':audioOnly?'response-audio-preview':imageOnly?'response-image-preview':htmlOnly?'response-html-preview':'response-history-app',async(page,output)=>{
  if(actionsOnly){
   let release=()=>{};
   let held=new Promise(resolve=>{release=()=>resolve(undefined);});
@@ -113,6 +103,9 @@ await withPreview(actionsOnly?'request-action-ownership':legacyIdsOnly?'response
   const downloadNames = [
    {source:'',expected:'owned-response.txt'},
    {source:'COM¹.txt',expected:'_COM¹.txt'},
+   {source:'CONIN$',expected:'_CONIN$'},
+   {source:'conout$.txt',expected:'_conout$.txt'},
+   {source:'CONIN$extra.txt',expected:'CONIN$extra.txt'},
    {source:'ไทย'.repeat(40)+'.txt',expected:'ไทย'.repeat(27)+'ไท.txt'},
    {source:'😀'.repeat(80)+'.bin',expected:'😀'.repeat(62)+'.bin'},
    {source:'bad\u0085name.txt',expected:'bad_name.txt'},
@@ -164,8 +157,31 @@ await withPreview(actionsOnly?'request-action-ownership':legacyIdsOnly?'response
   return;
  }
  if(csvOnly){
-  const deadline=setTimeout(()=>{void page.close();},10000);
+  const deadline=setTimeout(()=>{void page.close();},csvLarge?30000:10000);
   try{
+   if(csvLarge){
+    const table=page.getByRole('table',{name:'CSV response',exact:true});await table.waitFor();
+    assert.equal(await table.getByRole('row').count(),200);
+    const pageNumber=page.getByRole('spinbutton',{name:'CSV page',exact:true});await pageNumber.fill('51');await pageNumber.press('Tab');
+    const last=table.getByRole('row',{name:'CSV row 10001',exact:true});await last.waitFor();
+    assert.deepEqual(await last.getByRole('cell').allTextContents(),['row-9999',`ไทย-${'x'.repeat(60)}`,'9007199254740993']);
+    const modes=page.getByRole('group',{name:'Response formatting',exact:true});await modes.getByRole('button',{name:'Source',exact:true}).click();await page.locator('.response-pane .CodeMirror').waitFor();
+    assert.equal(await page.locator('.response-pane .CodeMirror').evaluate(el=>/** @type {any} */(el).CodeMirror.getValue()),csvBody.replaceAll('\r\n','\n'));
+    await modes.getByRole('button',{name:'Raw',exact:true}).click();await page.reload();await modes.waitFor();
+    assert.equal(await modes.getByRole('button',{name:'Raw',exact:true}).getAttribute('aria-pressed'),'true');
+    assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('insomnium-tauri-preview-v1')||'{}').history[0].body),csvBody);
+    assert.deepEqual(errors,[]);await Bun.write(output+'/result.json',JSON.stringify({status:'passed',headless:true,totalRows:10001,bodyBytes:Buffer.byteLength(csvBody),pageRows:200,lastRowReachable:true,sourceAndRaw:true,savedBodyUnchanged:true},null,2));return;
+   }
+   if(csvMalformed){
+    await page.getByText(/CSV parsing reported \d+ issues/).waitFor();
+    const modes=page.getByRole('group',{name:'Response formatting',exact:true});
+    await modes.getByRole('button',{name:'Source',exact:true}).click();await page.locator('.response-pane .CodeMirror').waitFor();
+    assert.equal(await page.locator('.response-pane .CodeMirror').evaluate(el=>/** @type {any} */(el).CodeMirror.getValue()),csvBody.replaceAll('\r\n','\n'));
+    await modes.getByRole('button',{name:'Raw',exact:true}).click();await page.reload();
+    await modes.waitFor();assert.equal(await modes.getByRole('button',{name:'Raw',exact:true}).getAttribute('aria-pressed'),'true');
+    assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('insomnium-tauri-preview-v1')||'{}').history[0].body),csvBody);
+    assert.deepEqual(errors,[]);await Bun.write(output+'/result.json',JSON.stringify({status:'passed',headless:true,malformedWarning:true,sourceAndRaw:true,savedBodyUnchanged:true},null,2));return;
+   }
    const table=page.getByRole('table',{name:'CSV response',exact:true});await table.waitFor();
    assert.equal(await table.getByRole('row').count(),200);
    const cells=table.getByRole('row',{name:'CSV row 2',exact:true}).getByRole('cell');

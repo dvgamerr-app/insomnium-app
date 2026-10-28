@@ -65,6 +65,7 @@ const deepRequests=[
  newRequest(deepest._id,{_id:'req_owned_depth_ws',_type:'websocket_request',name:'Owned deep WS',metaSortKey:10}),
  newRequest(deepest._id,{_id:'req_owned_depth_grpc',_type:'grpc_request',name:'Owned deep gRPC',metaSortKey:10,metadata:[],protoFileId:'',protoMethodName:'',body:{text:'{}'},grpcJsonMode:'legacy'}),
 ];
+delete deepRequests[2].method;
 data.resources.push(...folders,...deepRequests,{_id:'fldm_owned_depth',_type:'request_group_meta',parentId:folders[0]._id,collapsed:true});
 return {folders,deepRequests,deepest,selectedId:data.activeRequestId};
 }
@@ -86,6 +87,9 @@ export async function exerciseCollectionDepth(page,output,fixture,adapter={}){
  assert.equal(await sidebar.locator('.tree-folder').filter({hasText:'Owned depth'}).count(),64);
  assert.deepEqual((await sidebar.locator('.tree-request-row').filter({hasText:'Owned deep'}).locator('.tree-request').allTextContents()).map(text=>text.trim()),['WSOwned deep WS','gRPCOwned deep gRPC','GETOwned deep HTTP']);
  await leaf.click();await poll(async()=>(await read()).activeRequestId==='req_owned_depth_http','Deep selection persisted');
+ await filter.fill('undefined');
+ assert.equal(await sidebar.locator('.tree-request-row').filter({hasText:'Owned deep'}).count(),0,'Missing fields do not create searchable text');
+ await filter.fill('');
  const middle=sidebar.getByRole('button',{name:folders[32].name,exact:true});await middle.click();
  await leaf.waitFor({state:'detached'});assert.equal(await middle.getAttribute('aria-expanded'),'false');
  await filter.fill('Owned deep HTTP');await leaf.waitFor();assert.equal(await middle.getAttribute('aria-expanded'),'true');
@@ -99,5 +103,5 @@ export async function exerciseCollectionDepth(page,output,fixture,adapter={}){
  await sidebar.locator('.tree-request-row').filter({hasText:'Owned selected action'}).locator('.tree-request').click();
  await poll(async()=>(await read()).activeRequestId===selectedId,'Original selection restored');
  const final=await read();assert.deepEqual(final.history,original.history);
- await Bun.write(output+'/depth.json',JSON.stringify({passed:true,folders:64,deepRequestProtocols:3,stableSort:true,selection:true,collapseSearchReload:true,authoredDataUnchanged:true,historyUnchanged:true},null,2));
+ await Bun.write(output+'/depth.json',JSON.stringify({passed:true,folders:64,deepRequestProtocols:3,stableSort:true,selection:true,collapseSearchReload:true,missingFieldSearch:true,authoredDataUnchanged:true,historyUnchanged:true},null,2));
 }

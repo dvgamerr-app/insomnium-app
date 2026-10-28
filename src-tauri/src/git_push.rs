@@ -458,7 +458,8 @@ pub async fn git_remote_push_inspect(
     jobs: tauri::State<'_, git_remote_job::RemoteJobState>,
     request: InspectRequest,
 ) -> Result<PushObservation, String> {
-    let work = network.retain_native_work(format!("git-remote-push-inspect:{}", uuid::Uuid::new_v4()))?;
+    let work =
+        network.retain_native_work(format!("git-remote-push-inspect:{}", uuid::Uuid::new_v4()))?;
     let app_data = app
         .path()
         .app_data_dir()
@@ -542,7 +543,8 @@ pub async fn git_remote_push_retire(
     jobs: tauri::State<'_, git_remote_job::RemoteJobState>,
     request: RetireRequest,
 ) -> Result<PushReceipt, String> {
-    let work = network.retain_native_work(format!("git-remote-push-retire:{}", uuid::Uuid::new_v4()))?;
+    let work =
+        network.retain_native_work(format!("git-remote-push-retire:{}", uuid::Uuid::new_v4()))?;
     let app_data = app
         .path()
         .app_data_dir()

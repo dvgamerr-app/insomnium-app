@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { resourceRemovalIds, duplicateResource } from "../src/lib/resources.js";
+import { resourceRemovalIds, duplicateResource, resourcePath } from "../src/lib/resources.js";
 import { runnerSuite, runnerSuites, runnerRequestId, selectedRunnerSuite } from "../src/lib/runner-model.js";
 import { parseImport } from "../src/lib/import-export.js";
 
@@ -15,6 +15,9 @@ const resources = [
   { _id: "req", _type: "request", parentId: "folder" },
 ];
 const original = JSON.stringify(resources);
+const pathIndex=new Map([['root',{_id:'root',name:'Collection'}],['folder',{_id:'folder',parentId:'root',name:'Folder'}],['leaf',{_id:'leaf',parentId:'folder',name:'Request'}],['cycle',{_id:'cycle',parentId:'cycle'}]]);
+assert.equal(resourcePath(pathIndex,'leaf'),'Collection / Folder / Request');
+assert.equal(resourcePath(pathIndex,'cycle'),'Untitled');assert.equal(resourcePath(pathIndex,'missing'),'');
 assert.equal(selectedRunnerSuite(resources, "wrk_a")?._id, "suite_nested");
 const plan = runnerSuite(resources, "suite_nested");
 assert.equal(plan.collectionId, "wrk_a");
@@ -28,13 +31,21 @@ console.log("Nested runner selection and imported test binding passed");
 
 const history = [...resources,
   {_id: "suite_result", _type: "unit_test_result", parentId: "wrk_a", unitTestSuiteId: "suite_nested"},
+  {_id: "result_child", _type: "future_resource", parentId: "suite_result"},
+  {_id: "result_grandchild", _type: "future_resource", parentId: "result_child"},
+  {_id: "nested_test", _type: "unit_test", parentId: "result_child"},
+  {_id: "nested_result", _type: "unit_test_result", parentId: "wrk_a", unitTestId: "nested_test"},
+  {_id: "nested_result_child", _type: "future_resource", parentId: "nested_result"},
   {_id: "test_result", _type: "unit_test_result", parentId: "wrk_a", unitTestId: "test"},
   {_id: "old_result", _type: "unit_test_result", parentId: "suite_nested"},
   {_id: "unattributed", _type: "unit_test_result", parentId: "wrk_a"},
   {_id: "foreign_result", _type: "unit_test_result", parentId: "wrk_b", unitTestSuiteId: "suite_foreign"},
+  {_id: "foreign_cross_reference", _type: "unit_test_result", parentId: "wrk_b", unitTestSuiteId: "suite_nested"},
+  {_id: "wrong_suite_target", _type: "unit_test_result", parentId: "wrk_a", unitTestSuiteId: "req"},
+  {_id: "wrong_test_target", _type: "unit_test_result", parentId: "wrk_a", unitTestId: "suite_nested"},
 ];
 const removingSuite = resourceRemovalIds(history, "suite_nested");
-assert.deepEqual([...removingSuite].sort(), ["suite_nested", "test", "suite_result", "test_result", "old_result"].sort());
+assert.deepEqual([...removingSuite].sort(), ["suite_nested", "test", "suite_result", "result_child", "result_grandchild", "nested_test", "nested_result", "nested_result_child", "test_result", "old_result"].sort());
 assert.deepEqual([...resourceRemovalIds(history, "test")].sort(), ["test", "test_result"]);
 assert.deepEqual([...resourceRemovalIds(history, "req")], ["req"]);
 console.log("Runner deletion covers linked and legacy results without removing unrelated history");

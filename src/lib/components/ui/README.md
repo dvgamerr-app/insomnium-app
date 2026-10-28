@@ -21,13 +21,6 @@ border declaration. Field error/invalid controls keep their ARIA association;
 features still own validation decisions. Owner policy remains no outlines or
 replacement shadow rings.
 
-Current adoption and style ownership can be inventoried with
-`bun scripts/ui-inventory.js`. It parses production Svelte/CSS ASTs and writes
-consumer paths/lines, primitive owners, native exceptions, ordered CSS imports
-and token definitions/references to `artifacts/ui-inventory/report.json`.
-See `docs/migration/UI-INVENTORY.md` for the accepted source inventory and limits;
-source counts are not runtime acceptance or proof of whole-debt completion.
-
 Form geometry is owned by foundation tokens: `--control-padding-block`,
 `--control-padding-inline`, `--control-line-height`, `--checkbox-size`,
 `--field-gap`, `--field-inline-gap`, `--file-control-padding` and

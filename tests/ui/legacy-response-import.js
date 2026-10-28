@@ -299,13 +299,13 @@ try {
         const beforeOversize = await state();
         await page.evaluate(() => {
           const owner = /** @type {any} */ (window);
-          owner.__legacyImportFileTextCalls = 0;
-          owner.__legacyImportFileTextDescriptor =
-            Object.getOwnPropertyDescriptor(File.prototype, "text");
-          owner.__legacyImportOriginalFileText = File.prototype.text;
-          File.prototype.text = function () {
-            owner.__legacyImportFileTextCalls++;
-            return owner.__legacyImportOriginalFileText.call(this);
+          owner.__legacyImportFileBytesCalls = 0;
+          owner.__legacyImportFileBytesDescriptor =
+            Object.getOwnPropertyDescriptor(File.prototype, "arrayBuffer");
+          owner.__legacyImportOriginalFileBytes = File.prototype.arrayBuffer;
+          File.prototype.arrayBuffer = function () {
+            owner.__legacyImportFileBytesCalls++;
+            return owner.__legacyImportOriginalFileBytes.call(this);
           };
         });
         try {
@@ -315,7 +315,7 @@ try {
           const oversizeDialog = page.getByRole("dialog");
           // Playwright refuses buffer payloads above 50 MiB. Select an actual
           // in-memory File on the real saved input; no disk artifact, fake size
-          // or mocked File.text result is involved.
+          // or mocked File.arrayBuffer result is involved.
           await oversizeDialog
             .locator('input[type="file"]')
             .evaluate((element) => {
@@ -340,10 +340,10 @@ try {
             .waitFor();
           assert.equal(
             await page.evaluate(
-              () => /** @type {any} */ (window).__legacyImportFileTextCalls,
+              () => /** @type {any} */ (window).__legacyImportFileBytesCalls,
             ),
             0,
-            "Actual oversized FilePicker refuses before genuine File.text allocation",
+            "Actual oversized FilePicker refuses before genuine File.arrayBuffer allocation",
           );
           assert.deepEqual(
             await state(),
@@ -357,15 +357,27 @@ try {
         } finally {
           await page.evaluate(() => {
             const owner = /** @type {any} */ (window);
-            if (owner.__legacyImportFileTextDescriptor)
+            if (owner.__legacyImportFileBytesDescriptor)
               Object.defineProperty(
                 File.prototype,
-                "text",
-                owner.__legacyImportFileTextDescriptor,
+                "arrayBuffer",
+                owner.__legacyImportFileBytesDescriptor,
               );
-            else delete (/** @type {any} */ (File.prototype).text);
+            else delete (/** @type {any} */ (File.prototype).arrayBuffer);
           });
         }
+        await page.getByRole("button",{name:"Import collection",exact:true}).click();
+        const invalidFileDialog=page.getByRole("dialog");
+        await invalidFileDialog.locator('input[type="file"]').setInputFiles({name:'invalid.json',mimeType:'application/json',buffer:Buffer.from([0x7b,0x22,0xc3,0x28,0x22,0x7d])});
+        await invalidFileDialog.getByText('Error: Selected collection file is not valid UTF-8. The source was not changed.',{exact:true}).waitFor();
+        assert.deepEqual(await state(),beforeOversize,'Invalid UTF-8 does not change the workspace');
+        await invalidFileDialog.getByRole('button',{name:'Close dialog',exact:true}).click();await invalidFileDialog.waitFor({state:'detached'});
+        await page.getByRole("button",{name:"Import collection",exact:true}).click();
+        const validFileDialog=page.getByRole("dialog");
+        await validFileDialog.locator('input[type="file"]').setInputFiles({name:'portable.json',mimeType:'application/json',buffer:Buffer.concat([Buffer.from([0xef,0xbb,0xbf]),Buffer.from(portableText)])});
+        await validFileDialog.getByText(/7 saved responses will be added to history/).waitFor();
+        assert.deepEqual(await state(),beforeOversize,'Reviewing valid UTF-8 stays read-only');
+        await validFileDialog.getByRole('button',{name:'Cancel',exact:true}).click();await validFileDialog.waitFor({state:'detached'});
         const review = async (text = portableText) => {
           await page
             .getByRole("button", { name: "Import collection", exact: true })
@@ -429,7 +441,7 @@ try {
           .click();
         await dialog
           .getByText(
-            "Saved history or its limits changed. Review the updated response counts before importing.",
+            "Saved history or app preferences changed. Review the updated import before applying.",
             { exact: true },
           )
           .waitFor();
@@ -660,9 +672,10 @@ try {
               portableCases: cases.length,
               actualOversizedFilePreReadRefusal: {
                 bytes: 64 * 1024 * 1024 + 1,
-                genuineFileTextCalls: 0,
+                genuineFileArrayBufferCalls: 0,
                 exactOriginalStatePreserved: true,
               },
+              invalidUtf8FileRefused:true, validBomFileReviewed:true,
               preservedRejectedRecords: malformed.length,
               duplicateHeaders: true,
               actualReviewCancelApplyReloadSelectionExport: true,
