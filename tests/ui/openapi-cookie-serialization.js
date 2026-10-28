@@ -1,17 +1,23 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:net";
-import { withNativeApp, poll } from "./helpers/native-app.js";
+import { withNativeApp, poll, integrationProbeIdentifier, resourceCrudProbeIdentifier, selectedNativeProbeIdentifier } from "./helpers/native-app.js";
+import { preserveNativeProfile } from "./helpers/native-profile-preservation.js";
+import { withResourceProbePreserved, resourceSaved } from "./helpers/resource-manager-cases.js";
 import { generateOwnedOpenApi } from "./helpers/openapi-generation.js";
 import {
   openApiCookieCases,
   openApiCookieDocument,
 } from "./helpers/openapi-cookie-cases.js";
 
-process.env.INSOMNIUM_UI_BUILD_STATE ||=
-  "artifacts/native-recovery-copy-probe/build-state.json";
-await withNativeApp(
+const integration = selectedNativeProbeIdentifier() === integrationProbeIdentifier;
+assert.ok(process.env.INSOMNIUM_UI_BUILD_STATE, "Explicit native build required");
+if (!integration) assert.ok(process.env.INSOMNIUM_UI_PROFILE_OWNERSHIP);
+const ownership = { expectedIdentifier: integration ? integrationProbeIdentifier : resourceCrudProbeIdentifier, profileOwnershipPath: process.env.INSOMNIUM_UI_PROFILE_OWNERSHIP };
+const run = () => withResourceProbePreserved(async (capture) => withNativeApp(
   "openapi-cookie-serialization",
   async ({ page, invoke, output }) => {
+    await resourceSaved(page);
+    if (!integration) await capture();
     const received =
       /** @type {Array<{target:string,cookies:string[]}>} */ ([]);
     const server = createServer((socket) => {
@@ -104,6 +110,7 @@ await withNativeApp(
           openApiCookieDocument(base, version),
           entries.length,
           "Owned cookies " + version,
+          { preserveOwnedCollection: true },
         );
         for (const entry of entries) {
           await select(entry.id);
@@ -379,5 +386,6 @@ await withNativeApp(
         server.close((error) => (error ? reject(error) : resolve(null))),
       );
     }
-  },
-);
+  }, ownership,
+), { ...ownership, lazyCapture: !integration });
+if (integration) await preserveNativeProfile(run); else await run();

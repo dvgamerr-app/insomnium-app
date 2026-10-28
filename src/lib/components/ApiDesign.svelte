@@ -44,6 +44,9 @@
     cancel as cancelHttp,
   } from "../transport.js";
   import { previewJson, specLimit } from "../openapi-document.js";
+  import { isTauri, invoke } from "@tauri-apps/api/core";
+  import { open } from "@tauri-apps/plugin-dialog";
+  import { readOpenApiFiles, referenceBudget } from "../openapi-files.js";
   import { download } from "../import-export.js";
   /** @type {{ workspaceId: string, onrequests: () => void }} */
   let { workspaceId, onrequests } = $props();
@@ -279,10 +282,12 @@
   async function loadFile(
     /** @type {Event & { currentTarget: HTMLInputElement }} */ event,
     reference = false,
+    native = false,
   ) {
-    const files = Array.from(event.currentTarget.files || []);
-    event.currentTarget.value = "";
-    if (!files.length) return;
+    if (native) event.preventDefault();
+    const files = native ? [] : Array.from(event.currentTarget.files || []);
+    if (!native) event.currentTarget.value = "";
+    if (!native && !files.length) return;
     const revision = ++fileActionRevision;
     let ownsContext = captureFileContext();
     const current = () => revision === fileActionRevision && ownsContext();
@@ -292,14 +297,15 @@
       work = beginWorkspaceWork();
       fileWork.add(work);
       if (reference && !target) return;
-      const loaded = [];
-      for (const file of files) {
-        if (file.size > specLimit)
-          throw new Error(`${file.name} exceeds 2 MiB.`);
+      const existing = reference ? target.files || [] : [];
+      let loaded;
+      if (native) {
+        const selected = await open({multiple:reference, filters:[{name:"API documents",extensions:["json","yaml","yml"]}]});
         work.signal.throwIfAborted();
-        loaded.push({ name: file.name, contents: await file.text() });
-        work.signal.throwIfAborted();
-      }
+        if (!selected || !current()) return;
+        loaded = await invoke("read_openapi_files", {paths:Array.isArray(selected)?selected:[selected], ...referenceBudget(existing)});
+      } else loaded = await readOpenApiFiles(files, existing, work.signal);
+      work.signal.throwIfAborted();
       if (!current()) return;
       let saved;
       if (reference) {
@@ -686,6 +692,7 @@
       variant="compact"
       accept=".json,.yaml,.yml"
       onchange={(event) => loadFile(event)}
+      onclick={(event) => { if (isTauri()) return loadFile(event, false, true); }}
       disabled={busy}>Open JSON / YAML</FilePicker
     >
     {#if spec}{#key spec._id}<PluginResourceActions resourceId={spec._id}/>{/key}{/if}
@@ -747,6 +754,7 @@
           multiple
           accept=".json,.yaml,.yml"
           onchange={(event) => loadFile(event, true)}
+          onclick={(event) => { if (isTauri()) return loadFile(event, true, true); }}
           disabled={busy}>Attach $ref files</FilePicker
         >
       </Toolbar>
