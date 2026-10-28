@@ -223,7 +223,7 @@ fn filename(name: &str) -> bool {
         && !name
             .chars()
             .any(|c| c.is_control() || "\\/<>:\"|?*".contains(c))
-        && !["con", "prn", "aux", "nul"].contains(&stem.as_str())
+        && !["con", "prn", "aux", "nul", "conin$", "conout$"].contains(&stem.as_str())
         // Win32 also reserves the ISO-8859-1 superscript digits in COM/LPT
         // device names, including when followed by a filename extension.
         && !stem
@@ -514,6 +514,9 @@ mod tests {
 
     #[test]
     fn download_filenames_reject_windows_devices() {
+        for name in ["CONIN$", "conout$", "CONIN$.txt", "ConOut$.json"] {
+            assert!(!super::filename(name), "{name}");
+        }
         for prefix in ["COM", "com", "LPT", "lpt"] {
             for digit in ["1", "2", "3", "4", "5", "6", "7", "8", "9", "¹", "²", "³"] {
                 for extension in ["", ".txt", ".data.json"] {
@@ -528,6 +531,8 @@ mod tests {
             "LPT10.json",
             "COM⁴.txt",
             "report.COM¹",
+            "CONIN$extra.txt",
+            "CONOUT$-backup",
         ] {
             assert!(super::filename(name), "{name}");
         }

@@ -171,7 +171,7 @@ fn ordinary_chain(path: &Path, directory: bool) -> Result<(), Failure> {
 }
 
 #[cfg(windows)]
-fn opened_path(file: &File) -> Result<PathBuf, Failure> {
+pub(crate) fn opened_path(file: &File) -> Result<PathBuf, Failure> {
     use std::{
         ffi::OsString,
         os::windows::{ffi::OsStringExt, io::AsRawHandle},
@@ -199,7 +199,7 @@ fn opened_path(file: &File) -> Result<PathBuf, Failure> {
 }
 
 #[cfg(target_os = "linux")]
-fn opened_path(file: &File) -> Result<PathBuf, Failure> {
+pub(crate) fn opened_path(file: &File) -> Result<PathBuf, Failure> {
     use std::os::fd::AsRawFd;
     fs::canonicalize(format!("/proc/self/fd/{}", file.as_raw_fd())).map_err(|_| REFUSED)
 }
@@ -209,12 +209,12 @@ fn opened_path(file: &File) -> Result<PathBuf, Failure> {
 mod macos_path;
 
 #[cfg(target_os = "macos")]
-fn opened_path(file: &File) -> Result<PathBuf, Failure> {
+pub(crate) fn opened_path(file: &File) -> Result<PathBuf, Failure> {
     macos_path::opened_path(file).map_err(|_| REFUSED)
 }
 
 #[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
-fn opened_path(_file: &File) -> Result<PathBuf, Failure> {
+pub(crate) fn opened_path(_file: &File) -> Result<PathBuf, Failure> {
     Err((
         "unsupported",
         "Opened-file identity binding is not implemented on this platform.",

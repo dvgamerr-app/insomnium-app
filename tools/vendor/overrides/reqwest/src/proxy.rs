@@ -20,6 +20,10 @@ pub trait ProxyChallengeProvider: Send + Sync {
 /// Answers an actual proxy challenge. The certificate belongs to the proxy,
 /// never the tunneled origin. Implementations must not expose credentials in errors.
 pub trait ProxyChallengeSession: Send {
+    /// Verifier for the response to the most recent authenticated request.
+    fn response_verifier(&self) -> Option<Arc<dyn crate::ResponseVerifier>> {
+        None
+    }
     /// Answer a real 407 using its headers and the proxy TLS certificate, if any.
     fn authenticate(
         &mut self,

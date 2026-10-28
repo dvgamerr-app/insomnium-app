@@ -174,7 +174,7 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
     if (
       !authentication.disabled &&
       authentication.type === "apikey" &&
-      authentication.addTo === "queryParams"
+      authentication.addTo === "queryParams" && !request._postmanSource
     )
       query.push(
         buildQueryParameter({
@@ -237,13 +237,7 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
         },
       );
   }
-  if (protocol !== "websocket" && request.body?.curlQuery === true) {
-    const queryUrl = appendCurlFileQuery(
-      url,
-      composeCurlBody(request.body, resolve),
-    );
-    url.href = queryUrl.href;
-  }
+  let rawCurlUrl = sourceUrl;
   for (const param of (request.parameters ?? []).filter(
     (/** @type {any} */ p) =>
       p._openapiSerialization || !legacyQuery || orderedQuery,
@@ -278,10 +272,18 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
       } else if (
         query ||
         (param._openapiSerialization?.querystring && query !== null)
-      )
+      ) {
         url.search += (url.search ? "&" : "?") + query;
+        rawCurlUrl = joinUrlAndQueryString(rawCurlUrl, query);
+      }
     }
+  const uploadPath = url.pathname;
   appendCurlUploadName(url, request.body, resolve);
+  if (url.pathname !== uploadPath) {
+    const split = rawCurlUrl.search(/[?#]/);
+    const end = split < 0 ? rawCurlUrl.length : split;
+    rawCurlUrl = rawCurlUrl.slice(0, end) + url.pathname.slice(uploadPath.length) + rawCurlUrl.slice(end);
+  }
   /** @type {string[][]} */
   const headers = (request.headers ?? [])
     .filter((/** @type {any} */ h) => !h.disabled && h.name)
@@ -447,6 +449,7 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
         if (!manualAuthorization) asap = prepareAsap(auth, resolve);
         break;
       case "apikey":
+        if (request._postmanSource && auth.addTo !== "cookie" && !resolve(auth.key) && !resolve(auth.value)) break;
         if (
           auth.addTo &&
           !["header", "queryParams", "cookie"].includes(auth.addTo)
@@ -455,7 +458,13 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
             `API key destination “${auth.addTo}” has not been migrated yet.`,
           );
         if (auth.addTo === "queryParams") {
-          if (!legacyQuery || orderedQuery) {
+          if (request._postmanSource) {
+            const name = resolve(auth.key);
+            const parts = url.search.slice(1).split("&");
+            const kept = parts.filter((part) => new URLSearchParams(part).keys().next().value !== name);
+            if (kept.length !== parts.length) url.search = kept.join("&");
+          }
+          if (!legacyQuery || orderedQuery || request._postmanSource) {
             const name = resolve(auth.key);
             const value = resolve(auth.value);
             const query = legacyQuery
@@ -464,9 +473,12 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
                   encodeUrl,
                 )
               : new URLSearchParams([[name, value]]).toString();
-            if (query) url.search += (url.search ? "&" : "?") + query;
+            if (query) {
+              url.search += (url.search ? "&" : "?") + query;
+              rawCurlUrl = joinUrlAndQueryString(rawCurlUrl, query);
+            }
           }
-        } else if (!manualAuthorization) {
+        } else if (!manualAuthorization || (request._postmanSource && auth.addTo !== "cookie")) {
           if (auth.addTo === "cookie") {
             // Cookie is an explicit header, separate from the collection jar.
             // Combine existing header fields with semicolons, preserving pair order.
@@ -475,7 +487,8 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
               .map(([, value]) => value);
             values.push(`${resolve(auth.key)}=${resolve(auth.value)}`);
             setHeader("Cookie", values.filter(Boolean).join("; "));
-          } else headers.push([resolve(auth.key), resolve(auth.value)]);
+          } else if (request._postmanSource) setHeader(resolve(auth.key), resolve(auth.value));
+          else headers.push([resolve(auth.key), resolve(auth.value)]);
         }
         break;
       default:
@@ -513,6 +526,13 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
       headers.push(["Content-Type", mime]);
   } else if (mime === "application/graphql") {
     const graphql = readGraphqlBody(body.text || "{}");
+    if (body._postmanGraphqlBody === true && typeof graphql.variables === "string") {
+      const fields = [];
+      if (typeof graphql.query === "string") fields.push('"query":' + JSON.stringify(resolve(graphql.query)));
+      if (typeof graphql.operationName === "string") fields.push('"operationName":' + JSON.stringify(resolve(graphql.operationName)));
+      if (graphql.variables !== "") fields.push('"variables":' + resolve(graphql.variables));
+      text = `{${fields.join(",")}}`;
+    } else {
     const variables = JSON.parse(
       resolve(
         typeof graphql.variables === "string"
@@ -522,7 +542,7 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
     );
     if (!variables || typeof variables !== "object" || Array.isArray(variables))
       throw new Error("GraphQL variables must be a JSON object.");
-    const payload = {
+    /** @type {Record<string, any>} */ const payload = {
       query: resolve(graphql.query || ""),
       variables,
       ...(graphql.operationName
@@ -534,25 +554,52 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
           }
         : {}),
     };
-    if ((request.method || "GET").toUpperCase() === "GET") {
-      for (const name of ["query", "variables", "operationName", "extensions"])
-        url.searchParams.delete(name);
-      url.searchParams.set("query", payload.query);
-      url.searchParams.set("variables", JSON.stringify(payload.variables));
-      if (payload.operationName)
-        url.searchParams.set("operationName", payload.operationName);
-      if (payload.extensions)
-        url.searchParams.set("extensions", JSON.stringify(payload.extensions));
+    if (body._postmanGraphqlBody === true) {
+      if (!Object.hasOwn(graphql, "query")) delete payload.query;
+      else if (graphql.query === null) payload.query = null;
+      if (!Object.hasOwn(graphql, "variables") || graphql.variables === "") delete payload.variables;
+      else if (graphql.variables === null) payload.variables = null;
+      if (Object.hasOwn(graphql, "operationName")) payload.operationName = graphql.operationName === null ? null : resolve(graphql.operationName);
+    }
+    if ((request.method || "GET").toUpperCase() === "GET" && body._postmanGraphqlBody !== true) {
+      const gqlNames = ["query", "variables", "operationName", "extensions"];
+      for (const name of gqlNames) url.searchParams.delete(name);
+      const added = new URLSearchParams();
+      added.set("query", payload.query);
+      added.set("variables", JSON.stringify(payload.variables));
+      if (payload.operationName) added.set("operationName", payload.operationName);
+      if (payload.extensions) added.set("extensions", JSON.stringify(payload.extensions));
+      for (const [name, value] of added) url.searchParams.set(name, value);
+      // Mirror onto the raw cURL URL: drop reserved names, then append the new pairs.
+      const rawHash = rawCurlUrl.indexOf("#");
+      const rawHead = rawHash < 0 ? rawCurlUrl : rawCurlUrl.slice(0, rawHash);
+      const rawTail = rawHash < 0 ? "" : rawCurlUrl.slice(rawHash);
+      const qAt = rawHead.indexOf("?");
+      const kept = qAt < 0 ? [] : rawHead.slice(qAt + 1).split("&").filter((part) => {
+        try { return !gqlNames.includes(decodeURIComponent(part.split("=")[0].replace(/\+/g, " "))); } catch { return true; }
+      });
+      rawCurlUrl = joinUrlAndQueryString((qAt < 0 ? rawHead : rawHead.slice(0, qAt)) + (kept.length ? `?${kept.join("&")}` : ""), added.toString()) + rawTail;
     } else text = JSON.stringify(payload);
-    setHeader("Content-Type", "application/json");
+    }
+    if (body._postmanGraphqlBody !== true || !headers.some(([name]) => name.toLowerCase() === "content-type"))
+      setHeader("Content-Type", "application/json");
     if (!headers.some(([name]) => name.toLowerCase() === "accept"))
       headers.push([
         "Accept",
         "application/graphql-response+json, application/json",
       ]);
   } else if (mime === "application/x-www-form-urlencoded") {
-    text = (body.params ?? [])
-      .filter((/** @type {any} */ p) => !p.disabled && (p.name || p._harExplicitPart === true))
+    const formRows = (body.params ?? [])
+      .filter((/** @type {any} */ p) => !p.disabled && (p.name || p.sendEmptyName === true || p._harExplicitPart === true));
+    if (body._postmanUrlencodedString === true) {
+      /** @type {Record<string,string[]>} */ const grouped = Object.create(null);
+      for (const row of formRows) {
+        const name = resolve(row.name), value = resolve(row.value);
+        (grouped[name] ??= []).push(value);
+      }
+      const encode = (/** @type {string} */ value) => encodeURIComponent(value).replace(/[!'()*]/g, char => `%${char.charCodeAt(0).toString(16).toUpperCase()}`);
+      text = Object.keys(grouped).flatMap(name => grouped[name].map(value => `${encode(name)}=${encode(value)}`)).join("&");
+    } else text = formRows
       .map((/** @type {any} */ p) =>
         p._openapiSerialization?.formBody
           ? serializeOpenApiForm(
@@ -614,7 +661,7 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
     headers.push(["Content-Type", encoded.contentType]);
   } else if (mime === "multipart/form-data") {
     multipart = (body.params ?? [])
-      .filter((/** @type {any} */ p) => !p.disabled && (p._harExplicitPart === true || (body._legacyMultipart === true
+      .filter((/** @type {any} */ p) => !p.disabled && (p.sendEmptyName === true || p._harExplicitPart === true || (body._legacyMultipart === true
         ? p.name || p.value || p.fileName || p._legacyFilePath || (p.type === "file" && typeof p.base64 === "string") : p.name)))
       .flatMap((/** @type {any} */ p) => p._openapiSerialization?.style === "swagger"
         ? swaggerArrayValues(resolve(p.name || ""), resolve(p.value || ""), p._openapiSerialization, "formData")
@@ -696,6 +743,11 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
     workspaceId: workspaceFor(data.resources, request._id),
     method: protocol === "websocket" ? "GET" : request.method || "GET",
     url: url.toString(),
+    rawUrlBase64: protocol !== "websocket" && (request._curlSource && !encodeUrl || request.body?.curlQuery === true)
+      ? encodeBase64(request.body?.curlQuery === true
+          ? appendCurlFileQuery(request.pathParameters?.length || request._openapiPath ? url.toString() : rawCurlUrl, composeCurlBody(request.body, resolve))
+          : new TextEncoder().encode(request.pathParameters?.length || request._openapiPath ? url.toString() : rawCurlUrl))
+      : null,
     socketPath,
     headers:headers.filter(([name])=>!suppressedDefaults.has(name.toLowerCase())||explicitHeaders.has(name.toLowerCase())),
     suppressDefaultHeaders:[...suppressedDefaults].filter(name=>!explicitHeaders.has(name)),
@@ -710,6 +762,7 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
     multipart,
     multipartContentType,
     bodyBase64,
+    curlUpload: request.body?.curlFileMode === "upload-file",
     digest,
     oauth1,
     aws,
@@ -817,6 +870,12 @@ export async function send(request, signal) {
     signal.throwIfAborted();
     return result;
   }
+  if (request.rawUrlBase64) {
+    const raw = Uint8Array.from(atob(request.rawUrlBase64), c => c.charCodeAt(0));
+    if (raw.some(byte => byte >= 128))
+      throw new Error("Raw cURL URL bytes require the desktop app.");
+    request = {...request, url:new TextDecoder("utf-8", {fatal:true}).decode(raw)};
+  }
   if (request.httpVersion)
     throw new Error("HTTP version selection requires the desktop app.");
   if (request.socketPath)
@@ -893,6 +952,8 @@ export async function send(request, signal) {
     body = form;
   } else if (typeof request.bodyBase64 === "string")
     body = Uint8Array.from(atob(request.bodyBase64), (c) => c.charCodeAt(0));
+  if (["GET", "HEAD"].includes(request.method) && body != null)
+    throw new Error("GET and HEAD bodies require the desktop app.");
   const timeoutMs = request.requestTimeoutMs ?? request.timeoutMs;
   const fetchSignal = timeoutMs === 0 ? signal : AbortSignal.any([
     signal, AbortSignal.timeout(timeoutMs),

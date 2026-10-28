@@ -29,6 +29,8 @@ tauri-plugin-fs = "2"
 reqwest = { version = "=0.12.28", default-features = false, features = ["rustls-tls", "json", "multipart", "cookies", "gzip", "brotli", "deflate", "stream", "http2", "socks", "system-proxy"] }
 tokio = { version = "1.53.1", features = ["sync", "time", "macros", "net", "rt", "io-util"] }
 base64 = "0.22"
+curl = { version = "0.4", features = ["http2"] }
+curl-sys = "0.4"
 atomic-write-file = "0.3.1"
 cookie_store = { version = "0.22.1", features = ["serde_json"] }
 cookie = "=0.18.2"

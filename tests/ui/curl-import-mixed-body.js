@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { withNativeApp, poll, selectedNativeProbeIdentifier, integrationProbeIdentifier } from "./helpers/native-app.js";
+import { withNativeApp, poll, selectedNativeProbeIdentifier, integrationProbeIdentifier, resourceCrudProbeIdentifier } from "./helpers/native-app.js";
 import { preserveNativeProfile } from "./helpers/native-profile-preservation.js";
-import { withResourceProbePreserved, registerResourceProbeCollection } from "./helpers/resource-manager-cases.js";
+import { withResourceProbePreserved, registerResourceProbeCollection, resourceSaved } from "./helpers/resource-manager-cases.js";
+import { respondToOwnedSaveDialog } from "./helpers/windows-save-dialog.js";
+import { descendants } from "../../src/lib/model.js";
 process.env.INSOMNIUM_UI_BUILD_STATE ||=
   "artifacts/native-curl-mixed-ui-probe/build-state.json";
 /** @type {Buffer[]} */ const received = [];
@@ -16,10 +18,13 @@ const server = Bun.serve({
   },
 });
 try {
-  const run = async () => withResourceProbePreserved(async () => {
+  const identifier=selectedNativeProbeIdentifier(),isolated=identifier===resourceCrudProbeIdentifier;
+  const ownership={expectedIdentifier:identifier,profileOwnershipPath:process.env.INSOMNIUM_UI_PROFILE_OWNERSHIP};
+  const run = async () => withResourceProbePreserved(async (capture) => {
   await withNativeApp(
     "curl-import-mixed-body",
-    async ({ page, invoke, output }) => {
+    async ({ page, invoke, output, pid }) => {
+      if (isolated) { await resourceSaved(page); await capture(); }
       const bytes = Buffer.from(Array.from({ length: 256 }, (_, i) => i));
       const base = "http://127.0.0.1:" + server.port + "/mixed";
       const before = await invoke("load_workspace");
@@ -200,6 +205,39 @@ try {
       ]);
       assert.equal(code, 0, err || out);
       assert.deepEqual(received[0], received[1]);
+      const collection = imported.resources.find((/** @type {any} */ r) => !oldIds.has(r._id) && r._type === "workspace");
+      const exportPath = join(output, "mixed-export.json");
+      const saving = respondToOwnedSaveDialog(pid, output, exportPath);
+      void saving.catch(() => {});
+      await page.getByRole("button", { name: "Export collections", exact: true }).click();
+      await saving;
+      await poll(() => Bun.file(exportPath).exists(), "Mixed collection exported");
+      const exported = await Bun.file(exportPath).json();
+      const ids = descendants(exported.resources, collection._id);
+      exported.resources = exported.resources.filter((/** @type {any} */ r) => ids.has(r._id));
+      assert.deepEqual(exported.resources.find((/** @type {any} */ r) => r._id === request._id).body, snapshot.body);
+      const existing = new Set((await invoke("load_workspace")).resources.map((/** @type {any} */ r) => r._id));
+      await page.getByRole("button", { name: "Import collection", exact: true }).click();
+      const roundtrip = page.getByRole("dialog");
+      await roundtrip.getByLabel("Import collection or cURL commands", { exact: true }).fill(JSON.stringify(exported));
+      await roundtrip.getByRole("button", { name: "Review import", exact: true }).click();
+      await roundtrip.getByRole("button", { name: "Import", exact: true }).click();
+      await roundtrip.waitFor({ state: "detached" });
+      /** @type {any} */ let copy;
+      await poll(async () => {
+        copy = (await invoke("load_workspace")).resources.find((/** @type {any} */ r) => r._type === "workspace" && !existing.has(r._id));
+        return !!copy;
+      }, "Mixed collection reimported");
+      registerResourceProbeCollection(copy._id, copy.name);
+      const copiedRequest = (await invoke("load_workspace")).resources.find((/** @type {any} */ r) => r._type === "request" && !existing.has(r._id));
+      assert.deepEqual(copiedRequest.body, snapshot.body);
+      await page.getByLabel("Collection", { exact: true }).selectOption(copy._id);
+      await select();
+      await page.getByRole("button", { name: "Send", exact: true }).click();
+      await poll(async () => received.length === 3, "Reimported mixed body received");
+      assert.deepEqual(received[2], expected);
+      await poll(async () => !(await page.getByRole("button", { name: "Cancel", exact: true }).count()), "Reimported send settled");
+      await page.getByLabel("Collection", { exact: true }).selectOption(collection._id);
       await page.reload();
       assert.deepEqual((await saved()).body, snapshot.body);
       await select();
@@ -221,6 +259,7 @@ try {
               "Latest same-row selection wins over delayed old read",
               "Literal edit and reload retain exact converted bytes",
               "Native mixed body matches actual curl with all256byte fixtures",
+              "Native export and reimport preserve mixed body and wire bytes",
               "Body-type switch clears segment metadata",
             ],
           },
@@ -229,8 +268,9 @@ try {
         ),
       );
     },
+    ownership,
   );
-  }, { expectedIdentifier: selectedNativeProbeIdentifier() });
+  }, { ...ownership, lazyCapture: isolated });
   if (selectedNativeProbeIdentifier() === integrationProbeIdentifier) await preserveNativeProfile(run);
   else await run();
 } finally {

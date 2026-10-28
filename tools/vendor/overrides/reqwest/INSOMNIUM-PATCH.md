@@ -1,5 +1,9 @@
 # Insomnium reqwest extensions
 
+## Proxy Digest response verification
+
+The per-connection challenge session may return a response verifier for its last authenticated request. The proxy transport checks response headers and encoded body/trailers through EOF before returning the socket lease; CONNECT checks its bodyless proof before exposing the tunnel. A previous authenticated 407 is drained and verified before retry. This verifier is independent of the origin verifier, so both may run on the same response. Maintain these hooks and lease-on-error behavior when updating reqwest. RFC 7615: https://www.rfc-editor.org/rfc/rfc7615.html.
+
 ## Origin Digest response verification
 
 ResponseVerifier is an opt-in request-owned Arc carried through Request extensions to the native HTTP builder, then through the existing pre-decompression DownloadMeter. It checks original headers, encoded entity chunks, trailers and transport EOF. Header failures remain visible to the application before upgrade; body failures suppress the corresponding frame/successful EOF. Consumers can check verified completion when a content decoder finishes. Requests without a verifier retain ordinary counting and decoding. Request::extensions_mut is public for this native attachment; only the verifier extension is forwarded, leaving request configuration/timeout handling intact.

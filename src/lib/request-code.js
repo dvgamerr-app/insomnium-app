@@ -39,7 +39,7 @@ function curlParts(request){
     for(const bytes of multipart.bytes)for(let offset=0;offset<bytes.length;offset+=8192)data+=String.fromCharCode(...bytes.subarray(offset,offset+8192));
     encoded=btoa(data);
   }else if(typeof request.bodyBase64==='string'){binaryData(request.bodyBase64,request.serializedMultipart);encoded=request.bodyBase64;}
-  else if(text.includes('\0')||text.startsWith('@')||new TextEncoder().encode(text).length>8192){
+  else if(text.includes('\0')||text.startsWith('@')||/[^\x00-\x7f]/.test(text)||new TextEncoder().encode(text).length>8192){
     const bytes=new TextEncoder().encode(text);let data='';
     for(let offset=0;offset<bytes.length;offset+=8192)data+=String.fromCharCode(...bytes.subarray(offset,offset+8192));
     encoded=btoa(data);
@@ -78,12 +78,22 @@ function curlParts(request){
  * @param {CodeRequest} request */
 export function shellCurlCode(request){
   const {options,encoded,text,warning}=curlParts(request);
-  const command=['curl --disable',...options.map(([name,value])=>'--'+name+(value===undefined?'':' '+shellQuote(value)))];
+  const config=options.some(([,value])=>value&&/[^\x00-\x7f]/.test(value));
+  const command=config?['curl --disable --config "$curlConfig"']:['curl --disable',...options.map(([name,value])=>'--'+name+(value===undefined?'':' '+shellQuote(value)))];
   if(encoded!==null)command.push('--data-binary @-');
   else if(text!=='')command.push('--data-binary '+shellQuote(text));
   const source=command.join(' \\\n  ');
   const output=encoded===null?source:"# POSIX shell; requires curl and base64 -d.\nbase64 -d <<'INSOMNIUM_BODY' | "+source+'\n'+(encoded.match(/.{1,76}/g)?.join('\n')??'')+'\nINSOMNIUM_BODY';
-  return warning+output;
+  return warning+(config?`(\n  curlConfig=$(mktemp) || exit 1\n  trap 'rm -f "$curlConfig"' EXIT\n  trap 'exit 129' HUP\n  trap 'exit 130' INT\n  trap 'exit 143' TERM\n  printf '%s' '${utf8Base64(curlConfig(options))}' | base64 -d > "$curlConfig" || exit 1\n${output}\n)`:output);
+}
+/** @param {[string,string?][]} options */
+function curlConfig(options){
+  return options.map(([name,value])=>{
+    if(value===undefined)return name;
+    if(value.includes('\0'))throw Error('cURL arguments cannot contain NUL bytes.');
+    const escaped=value.replace(/[\\"\t\n\r\v]/g,char=>({'\\':'\\\\','"':'\\"','\t':'\\t','\n':'\\n','\r':'\\r','\v':'\\v'}[char]??char));
+    return name+' = "'+escaped+'"';
+  }).join('\n')+'\n';
 }
 /** @param {string} value */
 function utf8Base64(value){
@@ -95,12 +105,7 @@ function utf8Base64(value){
  * @param {CodeRequest} request */
 export function windowsCurlCode(request){
   const {options,encoded,text,hasBody,warning}=curlParts(request);
-  const config=options.map(([name,value])=>{
-    if(value===undefined)return name;
-    if(value.includes('\0'))throw Error('cURL arguments cannot contain NUL bytes.');
-    const escaped=value.replace(/[\\"\t\n\r\v]/g,char=>({'\\':'\\\\','"':'\\"','\t':'\\t','\n':'\\n','\r':'\\r','\v':'\\v'}[char]??char));
-    return name+' = "'+escaped+'"';
-  }).join('\n')+'\n';
+  const config=curlConfig(options);
   return warning+`# Windows PowerShell 5.1+; requires curl.exe.
 $curlDirectory = [IO.Path]::Combine([IO.Path]::GetTempPath(), 'insomnium-curl-' + [Guid]::NewGuid().ToString('N'))
 $curlConfig = [IO.Path]::Combine($curlDirectory, 'request.conf')

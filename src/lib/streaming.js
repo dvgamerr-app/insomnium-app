@@ -35,7 +35,7 @@ export async function connectStream(request, protocol, signal, onmessage) {
   channel.onmessage = ({ event, sequence }) => {
     if (event.kind === "started") cancellation.started();
     try {
-      onmessage(event);
+      if (!deliveryFailed) onmessage(event);
     } catch (error) {
       failed(error);
     } finally {
@@ -44,9 +44,17 @@ export async function connectStream(request, protocol, signal, onmessage) {
     }
   };
   try {
-    await invoke("connect_stream", { request, protocol, onEvent: channel });
+    let transportFailed = false;
+    /** @type {unknown} */ let transportError;
+    try {
+      await invoke("connect_stream", { request, protocol, onEvent: channel });
+    } catch (error) {
+      transportFailed = true;
+      transportError = error;
+    }
     await drain();
     if (deliveryFailed) throw deliveryError;
+    if (transportFailed) throw transportError;
   } finally {
     await drain();
     await cancellation.close();

@@ -25,6 +25,36 @@ pub struct HawkCredentials {
     pub dlg: String,
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn signs_literal_marker_path_and_query() {
+        let credentials = HawkCredentials {
+            id: "owned".into(),
+            key: "owned-key".into(),
+            algorithm: "sha256".into(),
+            body_mode: "standard".into(),
+            nonce: "fixed".into(),
+            timestamp: "1700000000".into(),
+            ..Default::default()
+        };
+        let request = reqwest::Client::new()
+            .get("http://127.0.0.1:8080/v1/__ENC__2F/%E0%B9%84%E0%B8%97%E0%B8%A2%20space?owned=__RAW__3A")
+            .build()
+            .unwrap();
+        let header = Signer::new(&credentials)
+            .unwrap()
+            .header(&request, false)
+            .unwrap();
+        assert_eq!(
+            header.to_str().unwrap(),
+            "Hawk id=\"owned\", ts=\"1700000000\", nonce=\"fixed\", mac=\"Lp4Bqg7q2LcIt4kV8iiJWnrui4kQcWef6IlWEy99h3w=\""
+        );
+    }
+}
+
 pub(crate) struct Signer<'a>(&'a HawkCredentials);
 
 fn payload_hash<D: Digest>(body: &[u8], mime: &str) -> String {

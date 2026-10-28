@@ -117,6 +117,7 @@ struct OwnedBody {
     driver: Driver,
     lease: Option<Lease>,
     reusable: bool,
+    verifier: Option<Arc<dyn crate::ResponseVerifier>>,
 }
 impl Drop for OwnedBody {
     fn drop(&mut self) {
@@ -137,13 +138,32 @@ impl HttpBody for OwnedBody {
         }
         match Pin::new(&mut self.incoming).poll_frame(cx) {
             Poll::Ready(None) => {
+                if let Some(verifier) = &self.verifier {
+                    if let Err(error) = verifier.finish() {
+                        return Poll::Ready(Some(Err(error)));
+                    }
+                }
                 if let Some(mut lease) = self.lease.take() {
                     lease.reusable = self.reusable;
                 }
                 Poll::Ready(None)
             }
             Poll::Ready(Some(Err(error))) => Poll::Ready(Some(Err(Box::new(error)))),
-            Poll::Ready(Some(Ok(frame))) => Poll::Ready(Some(Ok(frame))),
+            Poll::Ready(Some(Ok(frame))) => {
+                if let Some(verifier) = &self.verifier {
+                    if let Some(bytes) = frame.data_ref() {
+                        if let Err(error) = verifier.data(bytes) {
+                            return Poll::Ready(Some(Err(error)));
+                        }
+                    }
+                    if let Some(trailers) = frame.trailers_ref() {
+                        if let Err(error) = verifier.trailers(trailers) {
+                            return Poll::Ready(Some(Err(error)));
+                        }
+                    }
+                }
+                Poll::Ready(Some(Ok(frame)))
+            }
             Poll::Pending => Poll::Pending,
         }
     }
@@ -166,18 +186,31 @@ fn headers_bounded(headers: &HeaderMap) -> Result<(), BoxError> {
     }
     Ok(())
 }
-async fn drain(mut incoming: hyper::body::Incoming, driver: &Driver) -> Result<(), BoxError> {
+async fn drain(
+    mut incoming: hyper::body::Incoming,
+    driver: &Driver,
+    verifier: Option<&Arc<dyn crate::ResponseVerifier>>,
+) -> Result<(), BoxError> {
     let mut size = 0usize;
     while let Some(frame) = driver.run(incoming.frame()).await? {
         let frame = frame.map_err(|error| Box::new(error) as BoxError)?;
         if let Some(bytes) = frame.data_ref() {
+            if let Some(verifier) = verifier {
+                verifier.data(bytes)?;
+            }
             size = size
                 .checked_add(bytes.len())
                 .ok_or_else(|| failed("Proxy challenge body exceeds limit"))?;
         }
+        if let (Some(verifier), Some(trailers)) = (verifier, frame.trailers_ref()) {
+            verifier.trailers(trailers)?;
+        }
         if size > 1024 * 1024 {
             return Err(failed("Proxy challenge body exceeds 1 MiB"));
         }
+    }
+    if let Some(verifier) = verifier {
+        verifier.finish()?;
     }
     Ok(())
 }
@@ -189,7 +222,13 @@ async fn exchange(
     bytes: Bytes,
     provider: Arc<dyn ProxyChallengeProvider>,
     challenge: bool,
-) -> Result<Response<hyper::body::Incoming>, BoxError> {
+) -> Result<
+    (
+        Response<hyper::body::Incoming>,
+        Option<Arc<dyn crate::ResponseVerifier>>,
+    ),
+    BoxError,
+> {
     let mut session = None;
     let mut authorization = None;
     for round in 0..=3 {
@@ -214,12 +253,31 @@ async fn exchange(
             .await?
             .map_err(|error| Box::new(error) as BoxError)?;
         if !challenge || response.status() != StatusCode::PROXY_AUTHENTICATION_REQUIRED {
-            return Ok(response);
+            let proof =
+                session
+                    .as_ref()
+                    .and_then(|session: &Box<dyn crate::ProxyChallengeSession>| {
+                        session.response_verifier()
+                    });
+            if let Some(proof) = &proof {
+                proof.headers(response.status(), response.headers())?;
+            }
+            return Ok((response, proof));
         }
         if round == 3 {
             return Err(failed("Proxy authentication retry limit exceeded"));
         }
         headers_bounded(response.headers())?;
+        let previous =
+            session
+                .as_ref()
+                .and_then(|session: &Box<dyn crate::ProxyChallengeSession>| {
+                    session.response_verifier()
+                });
+        if let Some(proof) = &previous {
+            proof.headers(response.status(), response.headers())?;
+        }
+        let challenge_headers = response.headers().clone();
         if response
             .headers()
             .get(header::CONNECTION)
@@ -233,6 +291,7 @@ async fn exchange(
                 "Proxy closed challenged connection; authentication cannot reconnect",
             ));
         }
+        drain(response.into_body(), &live.driver, previous.as_ref()).await?;
         if session.is_none() {
             session = Some(provider.create_session()?);
         }
@@ -240,7 +299,7 @@ async fn exchange(
             .as_mut()
             .expect("proxy session")
             .authenticate_request(
-                response.headers(),
+                &challenge_headers,
                 live.certificate.as_deref(),
                 &method,
                 &uri.to_string(),
@@ -250,7 +309,6 @@ async fn exchange(
             return Err(failed("Proxy authentication header exceeds limit"));
         }
         authorization = Some(value);
-        drain(response.into_body(), &live.driver).await?;
     }
     unreachable!()
 }
@@ -352,7 +410,7 @@ pub(crate) async fn request(
             .unwrap_or("/")
             .parse()?;
     }
-    let response = match exchange(
+    let (response, verifier) = match exchange(
         live,
         parts.method,
         parts.uri,
@@ -395,6 +453,7 @@ pub(crate) async fn request(
             driver,
             lease: Some(lease),
             reusable,
+            verifier,
         }
         .boxed(),
     ))
@@ -433,7 +492,7 @@ where
         origin_certificate: None,
         connected: Connected::new(),
     };
-    let response = exchange(
+    let (response, verifier) = exchange(
         &mut live,
         http::Method::CONNECT,
         authority.parse()?,
@@ -445,6 +504,9 @@ where
     .await?;
     if !response.status().is_success() {
         return Err(failed("Proxy refused CONNECT tunnel"));
+    }
+    if let Some(verifier) = verifier {
+        verifier.finish()?;
     }
     live.driver
         .upgrade(hyper::upgrade::on(response))

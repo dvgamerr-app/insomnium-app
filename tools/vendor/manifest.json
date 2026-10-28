@@ -369,7 +369,7 @@
         "src/proxy_challenge.rs",
         "src/tls.rs"
       ],
-      "treeSHA256": "8940585e4859255d7821de4b07ed2a55539540745e71fab9422877b09db92ef9"
+      "treeSHA256": "c6a063e1bfdb3cd0898624ce6dc4fee130cae96c0669030c7906ad75d45584b6"
     },
     {
       "directory": "reqwest-websocket",

@@ -147,8 +147,8 @@ pub(crate) fn authorization(
     target: &str,
     body: &[u8],
     method: &Method,
-) -> Result<header::HeaderValue, String> {
-    signed_authorization(prompt, username, password, target, body, method).map(|(header, _)| header)
+) -> Result<(header::HeaderValue, crate::digest_response::Proof), String> {
+    signed_authorization(prompt, username, password, target, body, method, true)
 }
 
 fn signed_authorization(
@@ -158,6 +158,7 @@ fn signed_authorization(
     target: &str,
     body: &[u8],
     method: &Method,
+    proxy: bool,
 ) -> Result<(header::HeaderValue, crate::digest_response::Proof), String> {
     let normalize = |value: &str| -> String { value.nfc().collect() };
     let (username, password) = if prompt.charset == Charset::UTF8 {
@@ -181,7 +182,8 @@ fn signed_authorization(
     let mut answer = prompt
         .respond(&context)
         .map_err(|_| "Could not calculate Digest response")?;
-    let proof = crate::digest_response::Proof::new(&answer, &context, *method == Method::HEAD);
+    let proof =
+        crate::digest_response::Proof::new(&answer, &context, *method == Method::HEAD, proxy);
     // RFC 7616 / RFC 5987: preserve normalized UTF-8 in username*.
     let value = if !answer.userhash && !answer.username.is_ascii() {
         let username = std::mem::take(&mut answer.username);
@@ -395,6 +397,7 @@ where
                 &uri,
                 body,
                 outgoing.method(),
+                false,
             )?;
             if digest_proof.is_some() {
                 drain_authenticated(reply.into_response()).await?;

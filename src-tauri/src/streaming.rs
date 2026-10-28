@@ -41,6 +41,7 @@ struct Delivery {
 impl Delivery {
     // Keep only one data event in flight through IPC. A slow WebView backpressures the socket.
     async fn message(&mut self, event: StreamEvent) -> Result<(), String> {
+        let terminal = matches!(&event, StreamEvent::Finished);
         self.sequence += 1;
         let sequence = self.sequence;
         if let Err(error) = self.channel.send(StreamPacket {
@@ -66,7 +67,8 @@ impl Delivery {
                 }
                 Err(_) => (Err("Stream view stopped acknowledging messages".into()), true),
             },
-            _ = self.cancelled.changed() => (Err("Stream cancelled".into()), false),
+            // The final delivery barrier must outlive session cancellation.
+            _ = self.cancelled.changed(), if !terminal => (Err("Stream cancelled".into()), false),
         };
         if failed {
             self.can_drain = false;
@@ -315,6 +317,289 @@ mod sse_limit_tests {
         limits.accept(b"\n\r\n").unwrap();
         assert_eq!(limits.line_bytes, 0);
         assert_eq!(limits.data_bytes, 0);
+    }
+
+    #[tokio::test]
+    async fn exact_size_event_dispatches_and_next_byte_is_rejected() {
+        let mut event = b"data:".to_vec();
+        event.extend(vec![b'x'; MAX_MESSAGE - 5]);
+        event.extend_from_slice(b"\n\n");
+        let split = event.len() / 2;
+        let mut limits = SseLimits::default();
+        let parts = [
+            Bytes::copy_from_slice(&event[..split]),
+            Bytes::copy_from_slice(&event[split..]),
+        ]
+        .into_iter()
+        .flat_map(|chunk| {
+            let accepted = limits.accept(&chunk);
+            sse_checked_parts(chunk, limits.valid_prefix, accepted)
+        });
+        let parsed = sse_text(futures_util::stream::iter(parts))
+            .eventsource()
+            .collect::<Vec<_>>()
+            .await;
+        assert_eq!(parsed.len(), 1);
+        let parsed = parsed[0].as_ref().unwrap();
+        assert_eq!(parsed.data.len(), MAX_MESSAGE - 5);
+        assert!(parsed.data.bytes().all(|byte| byte == b'x'));
+        validate_sse_text(&parsed.event, &parsed.id, &parsed.data).unwrap();
+
+        let mut limits = SseLimits::default();
+        limits.accept(&event[..event.len() - 2]).unwrap();
+        assert!(limits.accept(b"x").unwrap_err().contains("20 MiB"));
+        assert_eq!(limits.valid_prefix, 0);
+
+        let mut multi = b"data:".to_vec();
+        multi.extend(vec![b'a'; MAX_MESSAGE / 2 - 5]);
+        multi.extend_from_slice(b"\r\n:heartbeat\r\ndata:");
+        multi.extend(vec![b'b'; MAX_MESSAGE / 2 - 5]);
+        multi.extend_from_slice(b"\r\n\r\n");
+        let mut limits = SseLimits::default();
+        let split = MAX_MESSAGE / 2 + 1;
+        let parts = [
+            Bytes::copy_from_slice(&multi[..split]),
+            Bytes::copy_from_slice(&multi[split..]),
+        ]
+        .into_iter()
+        .flat_map(|chunk| {
+            let accepted = limits.accept(&chunk);
+            sse_checked_parts(chunk, limits.valid_prefix, accepted)
+        });
+        let parsed = sse_text(futures_util::stream::iter(parts))
+            .eventsource()
+            .collect::<Vec<_>>()
+            .await;
+        assert_eq!(parsed.len(), 1);
+        let parsed = parsed[0].as_ref().unwrap();
+        assert_eq!(parsed.data.len(), MAX_MESSAGE - 9);
+        let (first, second) = parsed.data.split_once('\n').unwrap();
+        assert_eq!(first.len(), MAX_MESSAGE / 2 - 5);
+        assert_eq!(second.len(), MAX_MESSAGE / 2 - 5);
+        assert!(first.bytes().all(|byte| byte == b'a'));
+        assert!(second.bytes().all(|byte| byte == b'b'));
+        validate_sse_text(&parsed.event, &parsed.id, &parsed.data).unwrap();
+        let mut limits = SseLimits::default();
+        limits.accept(&multi[..multi.len() - 4]).unwrap();
+        assert!(limits.accept(b"x").unwrap_err().contains("20 MiB"));
+
+        use sha2::{Digest, Sha256};
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let expected_raw = Sha256::digest(&multi);
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let mut request = [0; 2048];
+            assert!(socket.read(&mut request).await.unwrap() > 0);
+            socket
+                .write_all(format!("HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", multi.len()).as_bytes())
+                .await
+                .unwrap();
+            for chunk in multi.chunks(64 * 1024) {
+                socket.write_all(chunk).await.unwrap();
+            }
+        });
+        let url = format!("http://{address}/events");
+        let request: HttpRequest = serde_json::from_value(serde_json::json!({
+            "id":"owned-sse", "workspaceId":"owned", "method":"GET", "url":url,
+            "headers":[], "timeoutMs":0, "followRedirects":false,
+            "validateCertificates":true, "useCookies":false,
+            "sendCookies":false, "storeCookies":false
+        }))
+        .unwrap();
+        let outgoing = reqwest::Client::builder()
+            .no_proxy()
+            .build()
+            .unwrap()
+            .get(&url);
+        let (ack_sender, acknowledgements) = mpsc::channel(8);
+        let release_ack = ack_sender.clone();
+        let (held_sender, mut held_receiver) = mpsc::unbounded_channel();
+        let (_cancel_sender, cancelled) = watch::channel(false);
+        let observed = Arc::new(Mutex::new((Sha256::new(), 0_usize, 0_u64, false)));
+        let received = observed.clone();
+        let channel = Channel::new(move |body| {
+            let tauri::ipc::InvokeResponseBody::Json(body) = body else {
+                panic!("Expected JSON packet")
+            };
+            let packet: serde_json::Value = serde_json::from_str(&body).unwrap();
+            let mut received = received.lock().unwrap();
+            if let Some(sequence) = packet["sequence"].as_u64() {
+                assert_eq!(sequence, received.2 + 1);
+                received.2 = sequence;
+                if sequence == 1 {
+                    held_sender.send(sequence).unwrap();
+                } else {
+                    ack_sender.try_send(sequence).unwrap();
+                }
+            }
+            match packet["event"]["kind"].as_str().unwrap() {
+                "sseRaw" => received.0.update(
+                    STANDARD
+                        .decode(packet["event"]["data"].as_str().unwrap())
+                        .unwrap(),
+                ),
+                "sse" => {
+                    let data = packet["event"]["data"].as_str().unwrap();
+                    let (first, second) = data.split_once('\n').unwrap();
+                    assert_eq!(first.len(), MAX_MESSAGE / 2 - 5);
+                    assert_eq!(second.len(), MAX_MESSAGE / 2 - 5);
+                    assert!(first.bytes().all(|byte| byte == b'a'));
+                    assert!(second.bytes().all(|byte| byte == b'b'));
+                    received.1 += 1;
+                }
+                "closed" => received.3 = true,
+                "open" => {}
+                other => panic!("Unexpected SSE packet {other}"),
+            }
+            Ok(())
+        });
+        let mut delivery = Delivery {
+            channel,
+            acknowledgements,
+            cancelled,
+            sequence: 0,
+            can_drain: true,
+        };
+        {
+            let mut jar_flush = Default::default();
+            let mut netrc_load = Default::default();
+            let session = sse_session(
+                &request,
+                outgoing,
+                &mut delivery,
+                None,
+                &mut jar_flush,
+                &mut netrc_load,
+                Instant::now(),
+            );
+            tokio::pin!(session);
+            tokio::select! {
+                held = held_receiver.recv() => assert_eq!(held, Some(1)),
+                result = &mut session => panic!("Session ended before held ACK: {result:?}"),
+                _ = tokio::time::sleep(Duration::from_secs(10)) => panic!("First SSE packet did not arrive"),
+            }
+            tokio::select! {
+                result = &mut session => panic!("Session ended while ACK held: {result:?}"),
+                _ = tokio::time::sleep(Duration::from_millis(100)) => {},
+            }
+            assert_eq!(observed.lock().unwrap().2, 1);
+            release_ack.send(1).await.unwrap();
+            session.await.unwrap();
+        }
+        server.await.unwrap();
+        let received = observed.lock().unwrap();
+        assert_eq!(received.0.clone().finalize(), expected_raw);
+        assert_eq!(received.1, 1);
+        assert!(received.2 > 1 && received.3 && delivery.can_drain);
+    }
+
+    #[tokio::test]
+    async fn cancelling_sse_with_unacknowledged_raw_packet_drains_without_late_event() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let mut input = [0; 2048];
+            assert!(socket.read(&mut input).await.unwrap() > 0);
+            socket.write_all(b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\ndata:").await.unwrap();
+            let _ = socket.write_all(&vec![b'x'; 64 * 1024]).await;
+            let result = tokio::time::timeout(Duration::from_secs(5), socket.read(&mut input))
+                .await
+                .unwrap();
+            assert!(
+                matches!(result, Ok(0) | Err(_)),
+                "Cancelled peer must close"
+            );
+        });
+        let url = format!("http://{address}/events");
+        let request: HttpRequest = serde_json::from_value(serde_json::json!({
+            "id":"owned-cancel", "workspaceId":"owned", "method":"GET", "url":url,
+            "headers":[], "timeoutMs":0, "followRedirects":false,
+            "validateCertificates":true, "useCookies":false,
+            "sendCookies":false, "storeCookies":false
+        }))
+        .unwrap();
+        let outgoing = reqwest::Client::builder()
+            .no_proxy()
+            .build()
+            .unwrap()
+            .get(&url);
+        let (ack_sender, acknowledgements) = mpsc::channel(8);
+        let (cancel_sender, cancelled) = watch::channel(false);
+        let (packet_sender, mut packets) = mpsc::unbounded_channel();
+        let channel = Channel::new(move |body| {
+            let tauri::ipc::InvokeResponseBody::Json(body) = body else {
+                panic!("Expected JSON packet")
+            };
+            let packet: serde_json::Value = serde_json::from_str(&body).unwrap();
+            packet_sender
+                .send((
+                    packet["event"]["kind"].as_str().unwrap().to_owned(),
+                    packet["sequence"].as_u64(),
+                ))
+                .unwrap();
+            Ok(())
+        });
+        let mut delivery = Delivery {
+            channel,
+            acknowledgements,
+            cancelled,
+            sequence: 0,
+            can_drain: true,
+        };
+        {
+            let mut jar_flush = Default::default();
+            let mut netrc_load = Default::default();
+            let session = sse_session(
+                &request,
+                outgoing,
+                &mut delivery,
+                None,
+                &mut jar_flush,
+                &mut netrc_load,
+                Instant::now(),
+            );
+            tokio::pin!(session);
+            tokio::select! {
+                packet = packets.recv() => assert_eq!(packet, Some(("open".into(),None))),
+                result = &mut session => panic!("Session ended before open: {result:?}"),
+                _ = tokio::time::sleep(Duration::from_secs(10)) => panic!("Open did not arrive"),
+            }
+            tokio::select! {
+                packet = packets.recv() => assert_eq!(packet, Some(("sseRaw".into(),Some(1)))),
+                result = &mut session => panic!("Session ended before raw packet: {result:?}"),
+                _ = tokio::time::sleep(Duration::from_secs(10)) => panic!("Raw packet did not arrive"),
+            }
+            cancel_sender.send(true).unwrap();
+            let result = tokio::time::timeout(Duration::from_secs(5), &mut session)
+                .await
+                .unwrap();
+            assert!(result.is_ok() || result.unwrap_err().contains("cancel"));
+        }
+        server.await.unwrap();
+        while let Ok((kind, sequence)) = packets.try_recv() {
+            assert_eq!((kind.as_str(), sequence), ("closed", None));
+        }
+        assert!(delivery.can_drain);
+        cancel_sender.send(true).unwrap();
+        ack_sender.send(1).await.unwrap();
+        let finished = delivery.message(StreamEvent::Finished);
+        tokio::pin!(finished);
+        tokio::select! {
+            packet = packets.recv() => assert_eq!(packet, Some(("finished".into(),Some(2)))),
+            result = &mut finished => panic!("Late ACK released Finished: {result:?}"),
+            _ = tokio::time::sleep(Duration::from_secs(5)) => panic!("Finished did not arrive"),
+        }
+        cancel_sender.send(true).unwrap();
+        tokio::select! {
+            result = &mut finished => panic!("Late ACK released Finished: {result:?}"),
+            _ = tokio::time::sleep(Duration::from_millis(100)) => {},
+        }
+        ack_sender.send(2).await.unwrap();
+        finished.await.unwrap();
     }
 
     #[tokio::test]
@@ -857,7 +1142,135 @@ fn websocket_close_result(
 
 #[cfg(test)]
 mod websocket_close_tests {
-    use super::websocket_close_result;
+    use super::*;
+
+    #[tokio::test]
+    async fn cancellation_during_websocket_delivery_keeps_finished_barrier() {
+        use sha1::{Digest, Sha1};
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let mut bytes = Vec::new();
+            let mut buffer = [0; 2048];
+            while !bytes.windows(4).any(|window| window == b"\r\n\r\n") {
+                let n = socket.read(&mut buffer).await.unwrap();
+                assert!(n > 0);
+                bytes.extend_from_slice(&buffer[..n]);
+            }
+            let headers = std::str::from_utf8(&bytes).unwrap();
+            let key = headers
+                .lines()
+                .find_map(|line| {
+                    let (name, value) = line.split_once(':')?;
+                    name.eq_ignore_ascii_case("sec-websocket-key")
+                        .then(|| value.trim())
+                })
+                .unwrap();
+            let accept = STANDARD.encode(Sha1::digest(
+                format!("{key}258EAFA5-E914-47DA-95CA-C5AB0DC85B11").as_bytes(),
+            ));
+            socket.write_all(format!("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {accept}\r\n\r\n").as_bytes()).await.unwrap();
+            socket.write_all(b"\x81\x05hello").await.unwrap();
+            let closed = tokio::time::timeout(Duration::from_secs(5), socket.read(&mut buffer))
+                .await
+                .unwrap();
+            assert!(
+                matches!(closed, Ok(0) | Err(_)),
+                "Cancelled websocket peer must close"
+            );
+        });
+        let url = format!("http://{address}/ws");
+        let request: HttpRequest = serde_json::from_value(serde_json::json!({
+            "id":"owned-ws", "workspaceId":"owned", "method":"GET", "url":url,
+            "headers":[], "timeoutMs":0, "followRedirects":false,
+            "validateCertificates":true, "useCookies":false,
+            "sendCookies":false, "storeCookies":false
+        }))
+        .unwrap();
+        let outgoing = reqwest::Client::builder()
+            .no_proxy()
+            .build()
+            .unwrap()
+            .get(&url);
+        let (ack_sender, acknowledgements) = mpsc::channel(8);
+        let (cancel_sender, cancelled) = watch::channel(false);
+        let (packet_sender, mut packets) = mpsc::unbounded_channel();
+        let channel = Channel::new(move |body| {
+            let tauri::ipc::InvokeResponseBody::Json(body) = body else {
+                panic!("Expected JSON packet")
+            };
+            let packet: serde_json::Value = serde_json::from_str(&body).unwrap();
+            if packet["event"]["kind"] == "message" {
+                assert_eq!(packet["event"]["data"], "hello");
+                assert_eq!(packet["event"]["format"], "text");
+            }
+            packet_sender
+                .send((
+                    packet["event"]["kind"].as_str().unwrap().to_owned(),
+                    packet["sequence"].as_u64(),
+                ))
+                .unwrap();
+            Ok(())
+        });
+        let mut delivery = Delivery {
+            channel,
+            acknowledgements,
+            cancelled,
+            sequence: 0,
+            can_drain: true,
+        };
+        let streams = StreamState::default();
+        {
+            let mut jar_flush = Default::default();
+            let mut netrc_load = Default::default();
+            let session = websocket_session(
+                &request,
+                outgoing,
+                &streams,
+                &mut delivery,
+                None,
+                &mut jar_flush,
+                &mut netrc_load,
+                Instant::now(),
+            );
+            tokio::pin!(session);
+            tokio::select! {
+                packet = packets.recv() => assert_eq!(packet, Some(("open".into(),None))),
+                result = &mut session => panic!("Websocket ended before open: {result:?}"),
+                _ = tokio::time::sleep(Duration::from_secs(10)) => panic!("Websocket open did not arrive"),
+            }
+            tokio::select! {
+                packet = packets.recv() => assert_eq!(packet, Some(("message".into(),Some(1)))),
+                result = &mut session => panic!("Websocket ended before message: {result:?}"),
+                _ = tokio::time::sleep(Duration::from_secs(10)) => panic!("Websocket message did not arrive"),
+            }
+            cancel_sender.send(true).unwrap();
+            let result = tokio::time::timeout(Duration::from_secs(5), &mut session)
+                .await
+                .unwrap();
+            assert!(result.unwrap_err().contains("cancel"));
+        }
+        server.await.unwrap();
+        assert!(packets.try_recv().is_err());
+        assert!(delivery.can_drain);
+        ack_sender.send(1).await.unwrap();
+        let finished = delivery.message(StreamEvent::Finished);
+        tokio::pin!(finished);
+        tokio::select! {
+            packet = packets.recv() => assert_eq!(packet, Some(("finished".into(),Some(2)))),
+            result = &mut finished => panic!("Late ACK released Finished: {result:?}"),
+            _ = tokio::time::sleep(Duration::from_secs(5)) => panic!("Finished did not arrive"),
+        }
+        cancel_sender.send(true).unwrap();
+        tokio::select! {
+            result = &mut finished => panic!("Cancel released Finished: {result:?}"),
+            _ = tokio::time::sleep(Duration::from_millis(100)) => {},
+        }
+        ack_sender.send(2).await.unwrap();
+        finished.await.unwrap();
+    }
 
     #[test]
     fn close_reply_distinguishes_completion_from_transport_failure() {
@@ -907,7 +1320,12 @@ async fn sse_session(
         request.signing(netrc_load),
         request.follow_redirects,
         request.has_identity(),
-        |outgoing| async { client.execute(outgoing).await.map_err(|e| e.to_string()) },
+        |outgoing| async {
+            client
+                .execute(outgoing)
+                .await
+                .map_err(|e| crate::digest_response::body_error(&e))
+        },
     );
     let mut response = tokio::select! {
         response = crate::http::timeouts::run(
@@ -943,7 +1361,10 @@ async fn sse_session(
     // `then` holds at most the current decoded transport chunk. Each fragment
     // uses the same acknowledged delivery sequence as parsed events; no queue
     // or second reader can race parsing or terminal invocation completion.
-    let proof = response.extensions().get::<Arc<dyn reqwest::ResponseVerifier>>().cloned();
+    let proof = response
+        .extensions()
+        .get::<Arc<dyn reqwest::ResponseVerifier>>()
+        .cloned();
     let bytes = response
         .bytes_stream()
         .then(move |chunk| {

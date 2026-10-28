@@ -527,7 +527,7 @@ fn certificate_chain(value: &str) -> Result<String, String> {
     Ok(output)
 }
 
-fn key_material(value: &str, password: &str) -> Result<String, String> {
+pub(crate) fn key_material(value: &str, password: &str) -> Result<String, String> {
     for label in [
         "ENCRYPTED PRIVATE KEY",
         "RSA PRIVATE KEY",

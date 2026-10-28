@@ -28,7 +28,7 @@ export async function requestDownload(operation, workspaceId, requestId, signal,
 export function safeResponseFilename(value) {
   let name=value.split(/[\\/]/).pop()?.replace(/[\x00-\x1f\x7f-\x9f<>:"|?*]/g,'_').trim().replace(/[. ]+$/,'')||'';
   if(!name || name==='.' || name==='..')return '';
-  if(/^(?:con|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³])(?:\.|$)/i.test(name))name='_'+name;
+  if(/^(?:con|prn|aux|nul|conin\$|conout\$|com[1-9¹²³]|lpt[1-9¹²³])(?:\.|$)/i.test(name))name='_'+name;
   // Match the native portable basename budget, retaining a normal extension.
   // Iterating code points avoids splitting a surrogate pair or UTF-8 sequence.
   const encoder = new TextEncoder();

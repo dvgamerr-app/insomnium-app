@@ -201,9 +201,11 @@ pub(crate) fn hop(
         status.as_u16(),
         status.canonical_reason().unwrap_or("")
     ));
-    lines.extend(response.headers().iter().map(|(name, value)| {
-        format!("< {name}: {}", String::from_utf8_lossy(value.as_bytes()))
-    }));
+    lines.extend(
+        response.headers().iter().map(|(name, value)| {
+            format!("< {name}: {}", String::from_utf8_lossy(value.as_bytes()))
+        }),
+    );
     lines.push("<".into());
     lines
 }

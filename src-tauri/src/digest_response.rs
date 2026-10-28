@@ -77,6 +77,7 @@ pub(crate) struct Proof {
     qop: Option<Qop>,
     uri: String,
     head: bool,
+    proxy: bool,
     state: Mutex<State>,
 }
 impl fmt::Debug for Proof {
@@ -86,7 +87,12 @@ impl fmt::Debug for Proof {
     }
 }
 impl Proof {
-    pub(crate) fn new(answer: &AuthorizationHeader, context: &AuthContext<'_>, head: bool) -> Self {
+    pub(crate) fn new(
+        answer: &AuthorizationHeader,
+        context: &AuthContext<'_>,
+        head: bool,
+        proxy: bool,
+    ) -> Self {
         let algorithm = answer.algorithm;
         let mut ha1 = algorithm.hash_str(&format!(
             "{}:{}:{}",
@@ -108,6 +114,7 @@ impl Proof {
             qop: answer.qop,
             uri: answer.uri.clone(),
             head,
+            proxy,
             state: Mutex::new(State {
                 headers_seen: false,
                 present: false,
@@ -147,23 +154,31 @@ impl Proof {
             .as_ref()
             .map_or(Ok(()), |error| Err(ProofError(error.clone()).to_string()))
     }
-    fn parameters(state: &mut State, headers: &HeaderMap) -> Result<(), String> {
-        for value in headers.get_all("authentication-info") {
+    fn header_label(&self) -> &'static str {
+        if self.proxy {
+            "Proxy-Authentication-Info"
+        } else {
+            "Authentication-Info"
+        }
+    }
+    fn parameters(&self, state: &mut State, headers: &HeaderMap) -> Result<(), String> {
+        let label = self.header_label();
+        for value in headers.get_all(label.to_ascii_lowercase()) {
             state.present = true;
             state.bytes += value.as_bytes().len();
             if state.bytes > 8192 {
-                return Err("Authentication-Info exceeds 8 KiB".into());
+                return Err(format!("{label} exceeds 8 KiB"));
             }
             let text = std::str::from_utf8(value.as_bytes())
-                .map_err(|_| "invalid Authentication-Info encoding")?;
+                .map_err(|_| format!("invalid {label} encoding"))?;
             let prefixed = format!("Digest {text}");
             let mut parsed = http_auth::ChallengeParser::new(&prefixed);
             let item = parsed
                 .next()
-                .ok_or("empty Authentication-Info")?
-                .map_err(|_| "malformed Authentication-Info")?;
+                .ok_or_else(|| format!("empty {label}"))?
+                .map_err(|_| format!("malformed {label}"))?;
             if item.params.is_empty() || parsed.next().is_some() {
-                return Err("malformed Authentication-Info".into());
+                return Err(format!("malformed {label}"));
             }
             for (name, value) in &item.params {
                 if state.fields.len() >= 32
@@ -172,7 +187,7 @@ impl Proof {
                         .insert(name.to_ascii_lowercase(), value.to_unescaped())
                         .is_some()
                 {
-                    return Err("duplicate or excessive Authentication-Info parameters".into());
+                    return Err(format!("duplicate or excessive {label} parameters"));
                 }
             }
         }
@@ -208,7 +223,7 @@ impl Proof {
             return Err("missing Digest response proof parameters".into());
         }
         if final_body && state.advertised && !state.present {
-            return Err("missing Authentication-Info trailer".into());
+            return Err(format!("missing {} trailer", self.header_label()));
         }
         if let Some(actual) = fields.get("rspauth") {
             let a2 = if self.qop == Some(Qop::AUTH_INT) {
@@ -268,12 +283,16 @@ impl ResponseVerifier for Proof {
                 .iter()
                 .any(|value| {
                     value.to_str().is_ok_and(|value| {
-                        value
-                            .split(',')
-                            .any(|name| name.trim().eq_ignore_ascii_case("authentication-info"))
+                        value.split(',').any(|name| {
+                            name.trim().eq_ignore_ascii_case(if self.proxy {
+                                "proxy-authentication-info"
+                            } else {
+                                "authentication-info"
+                            })
+                        })
                     })
                 });
-            Self::parameters(state, headers)?;
+            self.parameters(state, headers)?;
             self.verify(state, None, false)?;
             if self.head
                 || status.is_informational()
@@ -298,7 +317,7 @@ impl ResponseVerifier for Proof {
     }
     fn trailers(&self, headers: &HeaderMap) -> Result<(), BoxError> {
         self.apply(|state| {
-            Self::parameters(state, headers)?;
+            self.parameters(state, headers)?;
             self.verify(state, None, false)
         })
     }
@@ -337,4 +356,98 @@ pub(crate) fn body_error(error: &reqwest::Error) -> String {
         source = error.source();
     }
     error.to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use reqwest::{header, Method};
+    use sha2::{Digest, Sha256};
+
+    fn proxy_proof() -> Proof {
+        let mut challenge = HeaderMap::new();
+        challenge.insert(
+            header::PROXY_AUTHENTICATE,
+            r#"Digest realm="r", nonce="n", algorithm=SHA-256, qop="auth-int""#
+                .parse()
+                .unwrap(),
+        );
+        let mut prompt =
+            crate::digest::challenge_from_headers(&challenge, header::PROXY_AUTHENTICATE).unwrap();
+        crate::digest::authorization(
+            &mut prompt,
+            "user",
+            "password",
+            "/echo",
+            b"request",
+            &Method::POST,
+        )
+        .unwrap()
+        .1
+    }
+
+    fn information(proof: &Proof, body: &[u8]) -> String {
+        let hash = |input: &[u8]| format!("{:x}", Sha256::digest(input));
+        let ha1 = hash(b"user:r:password");
+        let ha2 = hash(format!(":/echo:{}", hash(body)).as_bytes());
+        let cnonce = proof.cnonce.as_ref().unwrap();
+        let rspauth = hash(format!("{ha1}:n:{:08x}:{cnonce}:auth-int:{ha2}", proof.nc).as_bytes());
+        format!(
+            "qop=auth-int, rspauth=\"{rspauth}\", cnonce=\"{cnonce}\", nc={:08x}",
+            proof.nc
+        )
+    }
+
+    #[test]
+    fn proxy_auth_int_checks_encoded_body_and_trailer() {
+        let proof = proxy_proof();
+        let info = information(&proof, b"response");
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            header::TRAILER,
+            "Proxy-Authentication-Info".parse().unwrap(),
+        );
+        headers.insert(
+            "authentication-info",
+            "invalid origin proof".parse().unwrap(),
+        );
+        proof.headers(StatusCode::OK, &headers).unwrap();
+        proof.data(b"res").unwrap();
+        proof.data(b"ponse").unwrap();
+        assert!(proof.check_complete().is_err());
+        let mut trailers = HeaderMap::new();
+        trailers.insert("proxy-authentication-info", info.parse().unwrap());
+        proof.trailers(&trailers).unwrap();
+        proof.finish().unwrap();
+        proof.check_complete().unwrap();
+
+        let proof = proxy_proof();
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            "proxy-authentication-info",
+            information(&proof, b"response").parse().unwrap(),
+        );
+        proof.headers(StatusCode::OK, &headers).unwrap();
+        proof.data(b"tampered").unwrap();
+        assert!(proof
+            .finish()
+            .unwrap_err()
+            .to_string()
+            .contains("invalid rspauth"));
+        assert!(proof.check_complete().is_err());
+
+        let proof = proxy_proof();
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            header::TRAILER,
+            "Proxy-Authentication-Info".parse().unwrap(),
+        );
+        proof.headers(StatusCode::OK, &headers).unwrap();
+        proof.data(b"response").unwrap();
+        assert!(proof
+            .finish()
+            .unwrap_err()
+            .to_string()
+            .contains("missing Proxy-Authentication-Info trailer"));
+    }
 }

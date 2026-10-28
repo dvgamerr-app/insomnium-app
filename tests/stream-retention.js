@@ -82,12 +82,21 @@ saved.history = [
     _id: "res_valid",
     requestId: "req",
     protocol: "websocket",
-    events: [{ kind: "closed", code: 1000 }],
+    events: [{ _id: "evt_valid", kind: "closed", code: 1000 }],
   },
   { _id: "res_legacy", requestId: "req", protocol: "sse" },
 ];
 assert.deepEqual(validateData(saved).history, saved.history);
 cases.push("valid-and-legacy-stream-history-remain-intact");
+for (const settings of [[], "owned", 0, false]) {
+  const data = /** @type {any} */ (initialData());
+  data.settings = settings;
+  assert.throws(() => validateData(data), /Invalid saved workspace settings/);
+  assert.deepEqual(data.settings, settings);
+}
+const legacySettings = /** @type {any} */ (initialData());
+legacySettings.settings = null;
+assert.equal(validateData(legacySettings).settings.maxHistory, 20);
 const damagedPreference = /** @type {Record<string,any>} */ (initialData());
 damagedPreference.settings.maxHistory = JSON.parse('{"toString":null}');
 const normalizedPreference = validateData(damagedPreference);

@@ -40,6 +40,7 @@ enum Phase {
 struct Session {
     credentials: Arc<Credentials>,
     phase: Phase,
+    proof: Option<Arc<dyn reqwest::ResponseVerifier>>,
 }
 
 pub(crate) fn configure_proxy(
@@ -134,10 +135,14 @@ impl ProxyChallengeProvider for Provider {
         Ok(Box::new(Session {
             credentials: self.0.clone(),
             phase: Phase::Initial,
+            proof: None,
         }))
     }
 }
 impl ProxyChallengeSession for Session {
+    fn response_verifier(&self) -> Option<Arc<dyn reqwest::ResponseVerifier>> {
+        self.proof.clone()
+    }
     fn authenticate(
         &mut self,
         headers: &HeaderMap,
@@ -234,14 +239,16 @@ impl Session {
                     realm: prompt.realm.clone(),
                     algorithm: format!("{:?}", prompt.algorithm),
                 };
-                crate::digest::authorization(
+                let (value, proof) = crate::digest::authorization(
                     &mut prompt,
                     &self.credentials.username,
                     &self.credentials.password,
                     target,
                     body,
                     method,
-                )
+                )?;
+                self.proof = Some(Arc::new(proof));
+                Ok(value)
             }
             Phase::Digest {
                 nonce,
@@ -259,14 +266,16 @@ impl Session {
                 {
                     return Err("Proxy Digest authentication was rejected".into());
                 }
-                crate::digest::authorization(
+                let (value, proof) = crate::digest::authorization(
                     &mut prompt,
                     &self.credentials.username,
                     &self.credentials.password,
                     target,
                     body,
                     method,
-                )
+                )?;
+                self.proof = Some(Arc::new(proof));
+                Ok(value)
             }
             Phase::Initial if basic == 1 && schemes.len() == 1 => {
                 let encoded = STANDARD.encode(format!(

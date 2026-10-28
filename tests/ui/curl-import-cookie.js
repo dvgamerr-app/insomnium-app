@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { withNativeApp, poll } from "./helpers/native-app.js";
+import { withResourceProbePreserved, registerResourceProbeCollection } from "./helpers/resource-manager-cases.js";
 process.env.INSOMNIUM_UI_BUILD_STATE ||=
   "artifacts/native-curl-cookie-ui-probe/build-state.json";
 /** @type {any[]} */ const received = [];
@@ -17,7 +18,7 @@ const server = Bun.serve({
   },
 });
 try {
-  await withNativeApp(
+  await withResourceProbePreserved(async () => withNativeApp(
     "curl-import-cookie",
     async ({ page, invoke, output }) => {
       const base = "http://127.0.0.1:" + server.port;
@@ -71,6 +72,8 @@ try {
         );
         return added.length === cases.length;
       }, "Cookie import persisted");
+      const imported=(await invoke("load_workspace")).resources.filter((/** @type {any} */ r)=>!oldIds.has(r._id)&&r._type==="workspace");
+      for(const collection of imported)registerResourceProbeCollection(collection._id,collection.name);
       assert.equal(received.length, 0, "Import never sends");
       await page.reload();
       for (let i = 0; i < cases.length; i++) {
@@ -113,13 +116,15 @@ try {
           ),
           request,
         );
-      for (const original of before.resources)
-        assert.deepEqual(
-          final.resources.find(
-            /** @param {any} r */ (r) => r._id === original._id,
-          ),
-          original,
-        );
+      for (const original of before.resources) {
+        const current=final.resources.find(/** @param {any} r */ (r) => r._id === original._id);
+        if(original._type==='workspace_meta'&&original.parentId===before.activeWorkspaceId){
+          assert.equal(current.activeRequestId,before.activeRequestId);
+          const {activeRequestId:_currentSelection,modified:_currentModified,...currentRest}=current;
+          const {activeRequestId:_originalSelection,modified:_originalModified,...originalRest}=original;
+          assert.deepEqual(currentRest,originalRest);
+        } else assert.deepEqual(current,original);
+      }
       await writeFile(
         join(output, "acceptance.json"),
         JSON.stringify(
@@ -140,7 +145,7 @@ try {
         ),
       );
     },
-  );
+  ));
 } finally {
   server.stop(true);
 }

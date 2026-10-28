@@ -19,6 +19,8 @@ mod multipart_encoding;
 pub(crate) mod timeouts;
 #[path = "http_versions.rs"]
 pub(crate) mod versions;
+#[path = "http_curl.rs"]
+mod curl_transport;
 
 #[derive(Default)]
 pub struct NetworkState {
@@ -174,6 +176,8 @@ pub struct HttpRequest {
     pub(crate) method: String,
     pub(crate) url: String,
     #[serde(default)]
+    pub(crate) raw_url_base64: Option<String>,
+    #[serde(default)]
     pub(crate) socket_path: Option<String>,
     pub(crate) headers: Vec<(String, String)>,
     #[serde(default)]
@@ -186,6 +190,8 @@ pub struct HttpRequest {
     pub(crate) decode_response: Option<bool>,
     pub(crate) body: Option<String>,
     pub(crate) body_base64: Option<String>,
+    #[serde(default)]
+    pub(crate) curl_upload: bool,
     pub(crate) multipart: Option<Vec<FormPart>>,
     #[serde(default)]
     pub(crate) multipart_content_type: Option<String>,
@@ -323,6 +329,9 @@ pub async fn send_http(
     state: tauri::State<'_, NetworkState>,
     cookie_state: tauri::State<'_, crate::cookies::CookieState>,
 ) -> Result<HttpResponse, HttpFailure> {
+    if request.raw_url_base64.is_some() {
+        return curl_transport::send(app, request, on_started, webview, state, cookie_state).await;
+    }
     timeouts::validate(request.request_timeout_ms, request.connect_timeout_ms)
         .map_err(HttpFailure::early)?;
     let url =
@@ -404,7 +413,7 @@ pub async fn send_http(
                             return Err(if error.is_timeout() {
                                 "Request timed out".into()
                             } else {
-                                error.to_string()
+                                crate::digest_response::body_error(&error)
                             });
                         }
                     };
@@ -891,4 +900,17 @@ pub(crate) fn build_request(
         outgoing = reqwest::RequestBuilder::from_parts(client, built);
     }
     Ok(outgoing)
+}
+
+#[cfg(test)]
+mod raw_target_tests {
+    #[test]
+    fn http_uri_preserves_valid_utf8_but_rejects_arbitrary_bytes() {
+        let uri: tauri::http::Uri = "http://localhost/wire?name=ไทย".parse().unwrap();
+        assert_eq!(
+            uri.path_and_query().unwrap().as_str().as_bytes(),
+            "/wire?name=ไทย".as_bytes()
+        );
+        assert!(tauri::http::Uri::try_from(&b"http://localhost/wire?q=\xff\x80"[..]).is_err());
+    }
 }

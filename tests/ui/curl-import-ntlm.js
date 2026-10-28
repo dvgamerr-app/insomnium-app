@@ -4,6 +4,7 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { withNativeApp, poll } from "./helpers/native-app.js";
+import { withResourceProbePreserved, registerResourceProbeCollection } from "./helpers/resource-manager-cases.js";
 
 process.env.INSOMNIUM_UI_BUILD_STATE ||=
   "artifacts/native-curl-ntlm-ui-probe/build-state.json";
@@ -124,7 +125,7 @@ await new Promise((resolve) =>
   server.listen(0, "127.0.0.1", () => resolve(undefined)),
 );
 try {
-  await withNativeApp("curl-import-ntlm", async ({ page, invoke, output }) => {
+  await withResourceProbePreserved(async () => withNativeApp("curl-import-ntlm", async ({ page, invoke, output }) => {
     const address = server.address();
     assert.ok(address && typeof address !== "string");
     const base = "http://127.0.0.1:" + address.port;
@@ -160,6 +161,8 @@ try {
       );
       return added.length === 2;
     }, "NTLM import persisted");
+    const imported=(await invoke("load_workspace")).resources.filter((/** @type {any} */ r)=>!oldIds.has(r._id)&&r._type==='workspace');
+    for(const collection of imported)registerResourceProbeCollection(collection._id,collection.name);
     assert.equal(received.length, 0);
     for (const request of added) {
       assert.equal(request.authentication.type, "ntlm");
@@ -232,7 +235,7 @@ try {
         2,
       ),
     );
-  });
+  }));
 } finally {
   server.closeAllConnections();
   await new Promise((resolve) => server.close(() => resolve(undefined)));

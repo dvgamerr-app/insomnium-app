@@ -1,13 +1,15 @@
 import assert from "node:assert/strict";
-import { withNativeApp, poll, integrationProbeIdentifier, selectedNativeProbeIdentifier } from "./helpers/native-app.js";
+import { withNativeApp, poll, integrationProbeIdentifier, selectedNativeProbeIdentifier, resourceCrudProbeIdentifier } from "./helpers/native-app.js";
 import { preserveNativeProfile } from "./helpers/native-profile-preservation.js";
-import { withResourceProbePreserved, registerResourceProbeCollection } from "./helpers/resource-manager-cases.js";
+import { withResourceProbePreserved, registerResourceProbeCollection, resourceSaved } from "./helpers/resource-manager-cases.js";
 import { serveUntrustedGitTls } from "./helpers/git-untrusted-tls.js";
 
-assert.equal(selectedNativeProbeIdentifier(), integrationProbeIdentifier, "Use only the isolated integration profile");
 assert.ok(process.env.INSOMNIUM_UI_BUILD_STATE, "Explicit current native build required");
-await preserveNativeProfile(async () => withResourceProbePreserved(async () => {
+const identifier=selectedNativeProbeIdentifier(),isolated=identifier===resourceCrudProbeIdentifier;
+const ownership={expectedIdentifier:identifier,profileOwnershipPath:process.env.INSOMNIUM_UI_PROFILE_OWNERSHIP};
+const run=async()=>withResourceProbePreserved(async (capture) => {
   await withNativeApp("curl-import-tls", async ({page, invoke, output}) => {
+    if (isolated) { await resourceSaved(page); await capture(); }
     const tls = await serveUntrustedGitTls(output);
     let expectedGlobal = false;
     const checks = /** @type {Record<string,any>[]} */ ([]);
@@ -50,7 +52,9 @@ await preserveNativeProfile(async () => withResourceProbePreserved(async () => {
           const error=page.getByRole("region",{name:"Response",exact:true}).locator(".error-state pre");
           await error.waitFor();
           response={error:await error.innerText(),status:null};
-          assert.deepEqual((await invoke("load_workspace")).history,before.history,"Failed TLS transfer does not create a successful response history entry");
+          const history=(await invoke("load_workspace")).history;
+          assert.deepEqual(history.filter((/** @type {any} */ row)=>historyIds.has(row._id)),before.history,"Earlier history remains unchanged");
+          assert.ok(history.filter((/** @type {any} */ row)=>!historyIds.has(row._id)).every((/** @type {any} */ row)=>row.requestId===request._id&&row.status===0&&row.error),"TLS failure creates no successful response");
         }
         assert.ok(response);
         assert.equal(tls.state.requests,requests+(allowed?1:0),"Certificate refusal occurs before HTTP dispatch");
@@ -94,5 +98,6 @@ await preserveNativeProfile(async () => withResourceProbePreserved(async () => {
       checks.push({kind:"actual-curl-insecure-control",statusCode:503});
       await Bun.write(output+"/acceptance.json",JSON.stringify({passed:true,checks,requests:tls.state.requests,testedGlobalValidation:[false,true],limits:"Owned untrusted Windows HTTPS fixture; no proxy/provider/other-platform acceptance"},null,2));
     } finally {tls.close();}
-  });
-}, {expectedIdentifier:integrationProbeIdentifier}));
+  }, ownership);
+}, {...ownership,lazyCapture:isolated});
+if(identifier===integrationProbeIdentifier)await preserveNativeProfile(run);else await run();

@@ -73,30 +73,25 @@ export function composeCurlBody(body, resolve) {
 }
 
 /** Apply curl's C-string query behavior after selected file conversion.
- * @param {URL} url @param {Uint8Array} bytes */
+ * @param {string} url @param {Uint8Array} bytes */
 export function appendCurlFileQuery(url, bytes) {
   const nul = bytes.indexOf(0);
   if (nul >= 0) bytes = bytes.subarray(0, nul);
   if (bytes.some((value) => value <= 32 || value === 127))
-    throw new Error(
-      "cURL GET file data contains characters invalid in a URL. Use --data-urlencode.",
-    );
-  let query;
-  try {
-    query = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
-  } catch {
-    throw new Error(
-      "Raw non-UTF-8 cURL GET queries require native raw-URL support. Use --data-urlencode.",
-    );
-  }
-  query = query.replace(/%[\da-fA-F]{2}/g, (value) => value.toUpperCase());
-  const current = url.toString(),
-    hash = current.indexOf("#");
-  const head = hash < 0 ? current : current.slice(0, hash);
-  return new URL(
-    head +
-      (head.includes("?") ? (/[?&]$/.test(head) ? "" : "&") : "?") +
-      query +
-      (hash < 0 ? "" : current.slice(hash)),
-  );
+    throw new Error("cURL GET file data contains characters invalid in a URL. Use --data-urlencode.");
+  const query = bytes.slice();
+  const hex = (/** @type {number} */ b) => b >= 48 && b <= 57 || b >= 65 && b <= 70 || b >= 97 && b <= 102;
+  for (let i = 0; i + 2 < query.length; i++)
+    if (query[i] === 37 && hex(query[i + 1]) && hex(query[i + 2])) {
+      for (let j = 1; j <= 2; j++) if (query[i + j] >= 97) query[i + j] -= 32;
+      i += 2;
+    }
+  const hash = url.indexOf("#");
+  const head = hash < 0 ? url : url.slice(0, hash);
+  const encoder = new TextEncoder();
+  const prefix = encoder.encode(head + (head.includes("?") ? (/[?&]$/.test(head) ? "" : "&") : "?"));
+  const suffix = encoder.encode(hash < 0 ? "" : url.slice(hash));
+  const result = new Uint8Array(prefix.length + query.length + suffix.length);
+  result.set(prefix); result.set(query, prefix.length); result.set(suffix, prefix.length + query.length);
+  return result;
 }

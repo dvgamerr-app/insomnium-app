@@ -414,6 +414,40 @@ pub struct CookieProvider {
     generation: u64,
     request_store: Mutex<CookieStore>,
 }
+impl CookieProvider {
+    pub(crate) fn curl_current(&self) -> Result<(), String> {
+        let data = self.jar.inner.lock().map_err(|e| e.to_string())?;
+        self.jar.ensure_active()?;
+        if data.generation != self.generation { return Err("Cookie snapshot is no longer current.".into()); }
+        Ok(())
+    }
+    pub(crate) fn curl_seed(&self) -> Result<Vec<String>, String> {
+        if !self.send { return Ok(Vec::new()); }
+        let data = self.jar.inner.lock().map_err(|e| e.to_string())?;
+        self.jar.ensure_active()?;
+        if data.generation != self.generation { return Err("Cookie snapshot is no longer current.".into()); }
+        let store = self.request_store.lock().map_err(|e| e.to_string())?;
+        store.iter_unexpired().filter_map(|cookie| {
+            let (domain, subdomains) = match &cookie.domain {
+                CookieDomain::HostOnly(domain) => (domain.as_str(), "FALSE"),
+                CookieDomain::Suffix(domain) => (domain.as_str(), "TRUE"),
+                _ => return None,
+            };
+            let expiry = match cookie.expires {
+                cookie_store::CookieExpiration::AtUtc(time) => time.unix_timestamp(),
+                cookie_store::CookieExpiration::SessionEnd => 0,
+            };
+            let path: &str = cookie.path.as_ref();
+            if [domain, path, cookie.name(), cookie.value()].iter().any(|value| value.contains(['\t', '\r', '\n'])) {
+                return Some(Err("Cookie contains invalid tabular separators.".into()));
+            }
+            Some(Ok(format!("{}{}\t{}\t{}\t{}\t{}\t{}\t{}",
+                if cookie.http_only().unwrap_or(false) { "#HttpOnly_" } else { "" },
+                domain, subdomains, path, if cookie.secure().unwrap_or(false) { "TRUE" } else { "FALSE" },
+                expiry, cookie.name(), cookie.value())))
+        }).collect()
+    }
+}
 // RFC6265 section5.4 prefers longer paths. Native storage lacks creation time;
 // domain/name provide deterministic ties until that metadata is migrated.
 fn matching_cookies<'a>(

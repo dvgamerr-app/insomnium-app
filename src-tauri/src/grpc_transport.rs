@@ -1343,7 +1343,8 @@ mod status_tests {
                 .await
                 .unwrap();
         });
-        let endpoint = tonic::transport::Endpoint::from_shared(format!("http://{address}")).unwrap();
+        let endpoint =
+            tonic::transport::Endpoint::from_shared(format!("http://{address}")).unwrap();
         let mut service =
             endpoint.connect_with_connector_ready_lazy(tower::service_fn(move |_| async move {
                 tokio::net::TcpStream::connect(address)
@@ -1376,9 +1377,10 @@ mod status_tests {
             }
         })
         .await;
-        let still_open = tokio::time::timeout(Duration::from_millis(100), response.body_mut().frame())
-            .await
-            .is_err();
+        let still_open =
+            tokio::time::timeout(Duration::from_millis(100), response.body_mut().frame())
+                .await
+                .is_err();
         drop(response);
         drop(service);
         server.abort();
@@ -1392,6 +1394,4 @@ mod status_tests {
             "GOAWAY must retire READY before the active response drains"
         );
     }
-
-
 }

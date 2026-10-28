@@ -8,12 +8,15 @@ import {
   integrationProbeIdentifier,
 } from "./helpers/native-app.js";
 import { preserveNativeProfile } from "./helpers/native-profile-preservation.js";
+import { respondToOwnedOpenDialog } from "./helpers/windows-open-dialog.js";
 import {
   withResourceProbePreserved,
   registerResourceProbeCollection,
 } from "./helpers/resource-manager-cases.js";
 const encodingMode = process.env.INSOMNIUM_CURL_PART_ENCODING === "1";
 const partHeaderFilesMode = process.env.INSOMNIUM_CURL_PART_HEADER_FILES === "1";
+const physicalPicker = process.env.INSOMNIUM_CURL_PART_PHYSICAL_PICKER === "1";
+assert.ok(!physicalPicker || partHeaderFilesMode);
 if (encodingMode || partHeaderFilesMode) {
   assert.equal(selectedNativeProbeIdentifier(), integrationProbeIdentifier);
   assert.ok(
@@ -56,7 +59,7 @@ try {
           partHeaderFilesMode ? "curl-import-part-header-files" : encodingMode
             ? "curl-import-multipart-encoding"
             : "curl-import-multipart",
-          async ({ page, invoke, output }) => {
+          async ({ page, invoke, output, pid }) => {
             const initial = await invoke("load_workspace");
             const registered = new Set(
               initial.resources.map((/** @type {any} */ r) => r._id),
@@ -72,7 +75,7 @@ try {
             };
             if (partHeaderFilesMode) {
               const url=`http://127.0.0.1:${server.port}/part-header-files`;
-              const command=`curl '${url}' -F 'text=value;headers="X-First: before";headers=@"one; ไทย.txt";headers="X-Middle:  middle  ";headers=<two.txt;headers="X-Last: after"' -F 'bundle=(;headers=@group.txt' -F 'inner=value;headers=@child.txt' -F '=)'`;
+              const command=`curl '${url}' -F 'text=value;headers="X-First: before";headers=@"one; ไทย.txt";headers="X-Middle:  middle  ";headers=<two.json;headers="X-Last: after"' -F 'bundle=(;headers=@group.txt' -F 'inner=value;headers=@child.txt' -F '=)'`;
               await page.getByRole("button",{name:"Import collection",exact:true}).click();
               const dialog=page.getByRole("dialog");await dialog.getByLabel("Import collection or cURL commands").fill(command);
               await dialog.getByRole("button",{name:"Review import",exact:true}).click();
@@ -94,19 +97,25 @@ try {
               assert.equal(await first.getAttribute("aria-invalid"),"true");
               assert.deepEqual((await load()).resources.find((/** @type {any} */row)=>row._id===request._id).body,originalBody);
               const inputs=[
-                {label:"Part header file for text 4",name:"two.txt",text:" folded\r\nX-Duplicate: b\r\nX-Empty:\r\n"},
+                {label:"Part header file for text 4",name:"two.json",text:" folded\r\nX-Duplicate: b\r\nX-Empty:\r\n"},
                 {label:"Part header file for text 2",name:"one; ไทย.txt",text:"# ignored\r\n continuation  \t\r\nX-File:  first\r\nX-Duplicate: a\n"},
                 {label:"Part header file for bundle 1",name:"group.txt",text:"X-Group:  yes  \r\n"},
                 {label:"Part header file for inner 1",name:"child.txt",text:"X-Child:  child\r\n"},
               ];
+              const pickerReceipts=[];
               for(const item of inputs){
-                await page.getByLabel(item.label,{exact:true}).setInputFiles({name:item.name,mimeType:"text/plain",buffer:Buffer.from(item.text)});
+                const input=page.getByLabel(item.label,{exact:true});
+                await Bun.write(join(output,item.name),item.text);
+                if(physicalPicker && item===inputs[0]){
+                  let chooser=respondToOwnedOpenDialog(pid,output,null,"file",".json",{webview:true});void chooser.catch(()=>{});await input.click();pickerReceipts.push(await chooser);
+                  assert.deepEqual((await load()).resources.find((/** @type {any} */row)=>row._id===request._id).body,originalBody);
+                  chooser=respondToOwnedOpenDialog(pid,output,join(output,item.name),"file",".json",{webview:true});void chooser.catch(()=>{});await input.click();pickerReceipts.push(await chooser);
+                }else await input.setInputFiles({name:item.name,mimeType:"text/plain",buffer:Buffer.from(item.text)});
                 await poll(async()=>{
                   const current=(await load()).resources.find((/** @type {any} */row)=>row._id===request._id);
                   const parent=item.name==="group.txt"?current.body.params[1]:item.name==="child.txt"?current.body.params[1].params[0]:current.body.params[0];
                   return !parent._curlPartHeaderSources||parent._curlPartHeaderSources.some((/** @type {any} */s)=>s.fileName===item.name&&s.text===item.text);
                 },"Selected multipart header snapshot persisted");
-                await Bun.write(join(output,item.name),item.text);
               }
               request=(await load()).resources.find((/** @type {any} */row)=>row._id===request._id);
               assert.equal(request.body.params[0]._curlPartHeaderSources,undefined);
@@ -115,7 +124,7 @@ try {
               await poll(()=>Promise.resolve(received.length===1),"Actual native multipart header-file Send");
               await poll(async()=>(await load()).history.some((/** @type {any} */row)=>row.requestId===request._id&&row.status===200),"Successful native response persisted");
               const native=received[0];
-              const forms=[`text=value;headers="X-First: before";headers=@"${join(output,"one; ไทย.txt")}";headers="X-Middle:  middle  ";headers=<"${join(output,"two.txt")}";headers="X-Last: after"`,`bundle=(;headers=@"${join(output,"group.txt")}"`,`inner=value;headers=@"${join(output,"child.txt")}"`,"=)"];
+              const forms=[`text=value;headers="X-First: before";headers=@"${join(output,"one; ไทย.txt")}";headers="X-Middle:  middle  ";headers=<"${join(output,"two.json")}";headers="X-Last: after"`,`bundle=(;headers=@"${join(output,"group.txt")}"`,`inner=value;headers=@"${join(output,"child.txt")}"`,"=)"];
               const curl=Bun.spawn(["curl.exe","--silent","--show-error","--noproxy","*",...forms.flatMap(form=>["-F",form]),url],{stdout:"pipe",stderr:"pipe"});assert.equal(await curl.exited,0);assert.equal(received.length,2);
               /** @param {{type:string,body:Buffer}} record */
               const canonical=record=>{
@@ -131,11 +140,9 @@ try {
               assert.equal(await page.getByLabel("Part headers for text",{exact:true}).inputValue(),request.body.params[0].partHeaders);
               assert.deepEqual((await load()).resources.find((/** @type {any} */row)=>row._id===request._id).body,request.body);assert.equal(received.length,2);
               await page.screenshot({path:join(output,"part-header-files.png")});
-              await Bun.write(join(output,"part-header-files-acceptance.json"),JSON.stringify({passed:true,renderingMode:"native-hidden",missingFileRefusal:true,invalidUtf8PreservesBody:true,associatedFieldError:true,orderedOutOfOrderSelection:true,nestedGroupAndChild:true,rawHeaderWhitespace:true,selectedFiles:4,nativeRequests:1,curlRequests:1,exactMimeExceptBoundaries:true,reload:true,noImplicitResend:true},null,2));return;
+              await Bun.write(join(output,"part-header-files-acceptance.json"),JSON.stringify({passed:true,renderingMode:"native-hidden",pickerReceipts,missingFileRefusal:true,invalidUtf8PreservesBody:true,associatedFieldError:true,orderedOutOfOrderSelection:true,nestedGroupAndChild:true,rawHeaderWhitespace:true,selectedFiles:4,nativeRequests:1,curlRequests:1,exactMimeExceptBoundaries:true,reload:true,noImplicitResend:true},null,2));return;
             }
             if (refererMode) {
-              const original = await invoke("load_workspace");
-              try {
                 for (const [label, options, initial, auto] of [
                   [
                     "static",
@@ -226,18 +233,9 @@ try {
                     2,
                   ),
                 );
-              } finally {
-                await invoke("save_workspace", { data: original });
-                await page.reload();
-                await page
-                  .locator('button[aria-label="Preferences"]')
-                  .waitFor();
-              }
               return;
             }
             if (process.env.INSOMNIUM_CURL_HEADERS === "1") {
-              const original = await invoke("load_workspace");
-              try {
                 for (const [label, options, present] of [
                   [
                     "custom",
@@ -333,13 +331,6 @@ try {
                     2,
                   ),
                 );
-              } finally {
-                await invoke("save_workspace", { data: original });
-                await page.reload();
-                await page
-                  .locator('button[aria-label="Preferences"]')
-                  .waitFor();
-              }
               return;
             }
             const before = await invoke("load_workspace"),

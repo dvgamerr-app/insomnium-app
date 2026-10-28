@@ -13,7 +13,6 @@ export const setDefaultProtocol = (url, defaultProto) => {
   }
   return trimmedUrl;
 };
-const ESCAPE_REGEX_MATCH = /[-[\]/{}()*+?.\\^$|]/g;
 const RFC_3986_GENERAL_DELIMITERS = ":@";
 const RFC_3986_SUB_DELIMITERS = "$+,;=";
 const URL_PATH_CHARACTER_WHITELIST = `${RFC_3986_GENERAL_DELIMITERS}${RFC_3986_SUB_DELIMITERS}`;
@@ -136,22 +135,10 @@ export const smartEncodeUrl = (url, encode) => {
   }
 };
 export const flexibleEncodeComponent = (str = "", ignore = "") => {
-  str = str.replace(/%20/g, " ");
-  str = str.replace(/%([0-9a-fA-F]{2})/g, "__ENC__$1");
-  for (const c of ignore) {
-    const code = encodeURIComponent(c).replace("%", "");
-    const escaped = c.replace(ESCAPE_REGEX_MATCH, "\\$&");
-    const re2 = new RegExp(escaped, "g");
-    str = str.replace(re2, `__RAW__${code}`);
-  }
-  str = encodeURIComponent(str);
-  for (const match of str.match(/__RAW__([0-9a-fA-F]{2})/g) || []) {
-    const code = match.replace("__RAW__", "");
-    str = str.replace(match, decodeURIComponent(`%${code}`));
-  }
-  for (const match of str.match(/__ENC__([0-9a-fA-F]{2})/g) || []) {
-    const code = match.replace("__ENC__", "");
-    str = str.replace(match, `%${code}`);
-  }
-  return str;
+  return str.split(/(%[0-9a-fA-F]{2})/g).map((part, index) =>
+    index % 2 ? part : encodeURIComponent(part).replace(/%[0-9A-F]{2}/g, encoded => {
+      const char = String.fromCharCode(parseInt(encoded.slice(1), 16));
+      return ignore.includes(char) ? char : encoded;
+    }),
+  ).join("");
 };
