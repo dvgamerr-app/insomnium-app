@@ -410,3 +410,12 @@ export function createPluginValueCodec(profile="standard") {
   }
   return Object.freeze({ encode, decode });
 }
+
+/** @param {unknown} error */
+export function pluginErrorText(error) {
+  const message = String(error instanceof Error ? error.message : error).slice(0, 8192);
+  // Streaming decode drops a clipped final character without exceeding the native byte limit.
+  return new TextDecoder("utf-8", { ignoreBOM: true }).decode(
+    new TextEncoder().encode(message).subarray(0, 8192), { stream: true },
+  );
+}

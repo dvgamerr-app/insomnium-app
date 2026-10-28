@@ -116,7 +116,7 @@ Object.defineProperty(globalThis,'__pluginFileModule',{value:Object.freeze({
     }
     return bytes.buffer;
   }}:{}),
-  objectURLPacket(value){const data=blobState(value);if(data.parts.every(part=>part.bytes)){const bytes=new Uint8Array(data.size);let offset=0;for(const part of data.parts){bytes.set(part.bytes,offset);offset+=part.bytes.length;}return {bytes:bytes.buffer,type:data.type};}return {type:data.type,parts:packetParts(data)};},
+  objectURLPacket(value){const data=blobState(value);if(nativeFiles?.isBlob(value))return {bytes:nativeFiles.readSync(value),type:data.type};if(data.parts.every(part=>part.bytes)){const bytes=new Uint8Array(data.size);let offset=0;for(const part of data.parts){bytes.set(part.bytes,offset);offset+=part.bytes.length;}return {bytes:bytes.buffer,type:data.type};}return {type:data.type,parts:packetParts(data)};},
   isOwned:value=>blobData.has(value),
   isBlob,
   read:(value,from,to)=>nativeFiles?.isBlob(value)?nativeFiles.read(value,from,to):readParts(blobState(value),from,to),

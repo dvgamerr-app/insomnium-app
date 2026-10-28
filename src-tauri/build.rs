@@ -13,6 +13,7 @@ fn main() {
             "end_plugin_clipboard_probe",
             "write_clipboard_text",
             "send_http",
+            "read_openapi_files",
             "response_download",
             "cancel_http",
             "fetch_oauth_token",

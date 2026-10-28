@@ -54,7 +54,7 @@ export function exerciseEventSubclasses(realm,focus='') {
   const keys = /** @type {Record<string,string[]>} */ ({
     UIEvent: ["detail", "view"],
     ErrorEvent: ['message','filename','lineno','colno','error'],
-    MessageEvent: ['data','origin','lastEventId','source','ports'],
+    MessageEvent: ['data','origin','lastEventId','source','ports','userActivation'],
     StorageEvent: ['key','oldValue','newValue','url','storageArea'],
     AnimationEvent: ["animation","animationName","elapsedTime","pseudoElement"],
     TransitionEvent: ["animation","propertyName","elapsedTime","pseudoElement"],
@@ -153,6 +153,7 @@ export function exerciseEventSubclasses(realm,focus='') {
       row.factory=['StorageEvent','sToRaGeEvEnT'].map(kind=>{try{const value=realm.document.createEvent(kind);return {kind,tag:Object.prototype.toString.call(value),type:value.type,key:value.key,oldValue:value.oldValue,newValue:value.newValue,url:value.url,storageArea:value.storageArea};}catch(error){return {kind,error:/** @type {any} */(error).name};}});
     }
     if(name==='MessageEvent'){
+      row.activation=[undefined,null,{},true].map(userActivation=>{try{return new ctor('x',{userActivation}).userActivation;}catch(error){return /** @type {any} */(error).name;}});
       row.dataIdentity=event.data===init.data;row.portsFrozen=Object.isFrozen(event.ports);row.portsSame=event.ports===event.ports;
       let portsClosed=false;try{new ctor('x',{ports:{[Symbol.iterator](){return {next(){return {done:false,value:{}};},return(){portsClosed=true;return {done:true};}};}}});}catch{}row.portIteratorClosed=portsClosed;
       row.sources=[undefined,null,{},realm.document,realm.window].map(source=>{try{const value=new ctor('x',{source});return {owned:value.source===realm.window,null:value.source===null};}catch(error){return {error:/** @type {any} */(error).name};}});

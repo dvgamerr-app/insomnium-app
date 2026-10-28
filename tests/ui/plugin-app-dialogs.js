@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readdir } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { withPreview } from "./helpers/preview-app.js";
+import { exercisePluginTheme } from "./helpers/dialog-theme.js";
 import { createSvelteUiFixturePlugin } from "./helpers/component-fixture.js";
 import { poll } from "./helpers/native-app.js";
 
@@ -40,25 +41,8 @@ await withPreview(actionUi?"plugin-resource-actions":"plugin-app-dialogs", async
       await page.evaluate(url=>/** @type {any} */(window).__resourceActions.open(url,true),url);
       const root=page.getByRole('region',{name:'Plugin action fixture'});
       try{
-        const select=root.getByRole('combobox',{name:'Theme',exact:true});
-        await select.selectOption('plugin:insomnia-plugin-action-ui:ocean');
-        await page.waitForFunction(()=>document.body.getAttribute('theme')==='ocean');
-        assert.equal(await page.locator('body').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(18, 52, 86)');
-        assert.equal(await page.locator('body').evaluate(el=>getComputedStyle(el).getPropertyValue('--theme-probe').trim()),'active');
-        await root.getByRole('checkbox',{name:'Follow system colour scheme',exact:true}).check();
-        await root.getByRole('combobox',{name:'Dark theme',exact:true}).selectOption('plugin:insomnia-plugin-action-ui:ocean');
-        await page.emulateMedia({colorScheme:'light'});
-        await page.waitForFunction(()=>document.documentElement.dataset.theme==='light'&&!document.querySelector('style[data-plugin-theme]'));
-        await page.emulateMedia({colorScheme:'dark'});
-        await page.waitForFunction(()=>document.body.getAttribute('theme')==='ocean');
-        await root.getByRole('checkbox',{name:'Follow system colour scheme',exact:true}).uncheck();
-        await page.evaluate(()=>/** @type {any} */(window).__resourceActions.unload());
-        await page.waitForFunction(()=>!document.querySelector('style[data-plugin-theme]'));
-        assert.equal(await page.locator('body').getAttribute('theme'),null);
-        assert.equal(await select.inputValue(),'plugin:insomnia-plugin-action-ui:ocean');
-        await select.selectOption('light');
-        await page.waitForFunction(()=>document.documentElement.dataset.theme==='light');
-        await Bun.write(output+'/theme-ui-acceptance.json',JSON.stringify({passed:true,headless:true,workerSha256,checks:['actual Preferences selection','production theme host and guest metadata','raw CSS theme selector','system light/dark changes with independent theme choice','manual selection recovery','unload stylesheet and attribute cleanup','unavailable selection retained','built-in recovery'],limits:'Isolated browser workspace; native persistence and full legacy visual parity unverified'},null,2));
+        const checks=await exercisePluginTheme({page,root,themeId:'plugin:insomnia-plugin-action-ui:ocean',unload:()=>page.evaluate(()=>/** @type {any} */(window).__resourceActions.unload())});
+        await Bun.write(output+'/theme-ui-acceptance.json',JSON.stringify({passed:true,headless:true,workerSha256,checks,limits:'Isolated browser workspace; native persistence and full legacy visual parity unverified'},null,2));
       }finally{await page.evaluate(()=>/** @type {any} */(window).__resourceActions.close());}
       return;
     }

@@ -15,17 +15,20 @@ export const pluginEventHandlerTypes=Object.freeze([
  * @param {(url:string)=>void} revokeURL
  * @param {(callback:()=>void,milliseconds:number)=>void} scheduleTimeout
  * @param {(url:string,size:number)=>ArrayBuffer} readBlobSync
- * @param {(task:()=>void)=>()=>void} [bindTask] */
-export function createPluginGuestDom(call,retain,now,handlerTypes,decodeFileText,createURL,revokeURL,scheduleTimeout,readBlobSync,bindTask=task=>task) {
+ * @param {(task:()=>void)=>()=>void} [bindTask]
+ * @param {{state:(signal:any)=>{reason:any},bind:(signal:any,algorithm:()=>void)=>()=>void,isTarget:(target:any)=>boolean,callTarget:(target:any,method:string,args:any[])=>any,createEvent:(constructor:any,type:string,init:any)=>any,isEvent:(event:any)=>boolean,eventGet:(event:any,key:string)=>any,eventSet:(event:any,key:string,value:any)=>void,eventCall:(event:any,method:string,args:any[])=>any,bindEventDispatch:(handler:(target:any,event:any,run:()=>any)=>any)=>void}} [nativeSignal] */
+export function createPluginGuestDom(call,retain,now,handlerTypes,decodeFileText,createURL,revokeURL,scheduleTimeout,readBlobSync,bindTask=task=>task,nativeSignal=undefined) {
   const ids=new WeakMap(),nodes=new Map(),listeners=new WeakMap(),styleObjects=new WeakMap();
   const secret=Symbol("owned DOM node");
   const domString=(/** @type {any} */ value)=>{if(typeof value==='symbol')throw new TypeError('Invalid DOM string');return String(value);};
   const eventData=new WeakMap();
   const eventCheckpoints=/** @type {Set<any>[]} */([]);
   const tasks=/** @type {(()=>void)[]} */([]);
+  let pendingReads=0;
   const checkpointTasks=new WeakSet();
   const queueTask=(/** @type {()=>void} */task,checkpoint=false)=>{if(tasks.length>=128)throw Error('Plugin DOM task limit exceeded');task=bindTask(task);if(checkpoint){checkpointTasks.add(task);tasks.unshift(task);}else tasks.push(task);};
   const hasDomTasks=(checkpoint=false)=>checkpoint?Number(!!tasks.length&&checkpointTasks.has(tasks[0])):tasks.length;
+  const hasPendingDomTasks=()=>tasks.length||pendingReads;
   const executeDomTask=()=>{const task=tasks.shift();if(task)task();};
   const beginEventCheckpoint=()=>{eventCheckpoints.push(new Set());};
   const finishEventCheckpoint=()=>{
@@ -33,36 +36,41 @@ export function createPluginGuestDom(call,retain,now,handlerTypes,decodeFileText
     for(const data of checkpoint){data.active=false;data.passive=false;data.currentTarget=null;data.phase=0;data.path=[];data.stopped=false;data.immediate=false;}
   };
   const eventState=(/** @type {any} */ value)=>{const data=eventData.get(value);if(!data)throw new TypeError('Illegal invocation');return data;};
-  const trust=(/** @type {any} */ value)=>Object.defineProperty(value,'isTrusted',{get(){return eventState(this).trusted;},enumerable:true,configurable:false});
+  const readEvent=(/** @type {any} */ value,/** @type {string} */ key,/** @type {string} */ field,duringDispatch=false,invert=false)=>{const data=eventData.get(value);if(!data&&nativeSignal?.isEvent(value))return nativeSignal.eventGet(value,key);if(!data)throw new TypeError('Illegal invocation');if(duringDispatch&&data.nativeDispatch&&nativeSignal)return nativeSignal.eventGet(value,key);return invert?!data[field]:data[field];};
+  // shortcut: host-derived events lack a Bun native slot, preserve their trusted state until Bun exposes one.
+  const trust=(/** @type {any} */ value)=>{if(!nativeSignal?.isEvent(value))Object.defineProperty(value,'isTrusted',{get(){return eventState(this).trusted;},enumerable:true,configurable:false});};
   class GuestEvent {
     /** @param {any} type @param {any} [init] */
     /** @param {any} type @param {any} [init] */
     constructor(type,init={}){
       if(!arguments.length)throw new TypeError('Event type is required');
       if(init!==null&&(typeof init!=='object'&&typeof init!=='function'))throw new TypeError('EventInit must be a dictionary');
-      eventData.set(this,{initialized:true,type:domString(type),bubbles:!!init?.bubbles,cancelable:!!init?.cancelable,composed:!!init?.composed,timeStamp:now(),trusted:false,target:null,currentTarget:null,phase:0,prevented:false,stopped:false,immediate:false,active:false,passive:false,path:[]});trust(this);
+      const name=domString(type),bubbles=!!init?.bubbles,cancelable=!!init?.cancelable,composed=!!init?.composed,value=nativeSignal?nativeSignal.createEvent(new.target,name,{bubbles,cancelable,composed}):this;
+      eventData.set(value,{initialized:true,type:name,bubbles,cancelable,composed,timeStamp:now(),trusted:false,target:null,currentTarget:null,phase:0,prevented:false,stopped:false,immediate:false,active:false,passive:false,path:[]});trust(value);return value;
     }
-    get type(){return eventState(this).type;}
-    get target(){return eventState(this).target;}
-    get srcElement(){return eventState(this).target;}
-    get currentTarget(){return eventState(this).currentTarget;}
-    get eventPhase(){return eventState(this).phase;}
-    get bubbles(){return eventState(this).bubbles;}
-    get cancelable(){return eventState(this).cancelable;}
-    get composed(){return eventState(this).composed;}
-    get timeStamp(){return eventState(this).timeStamp;}
-    get defaultPrevented(){return eventState(this).prevented;}
-    get cancelBubble(){return eventState(this).stopped;}
-    set cancelBubble(value){if(value)this.stopPropagation();else eventState(this);}
-    get returnValue(){return !eventState(this).prevented;}
-    set returnValue(value){if(!value)this.preventDefault();else eventState(this);}
-    preventDefault(){const data=eventState(this);if(data.cancelable&&(!data.active||!data.passive)){if(data.id)call(data.active?'dom.event':'dom.event-late',[data.id,'preventDefault']);data.prevented=true;}}
-    stopPropagation(){const data=eventState(this);data.stopped=true;if(data.id)call(data.active?'dom.event':'dom.event-late',[data.id,'stopPropagation']);}
-    stopImmediatePropagation(){const data=eventState(this);data.stopped=true;data.immediate=true;if(data.id)call(data.active?'dom.event':'dom.event-late',[data.id,'stopImmediatePropagation']);}
-    composedPath(){return eventState(this).path.slice();}
+    get type(){return readEvent(this,'type','type');}
+    get target(){return readEvent(this,'target','target',true);}
+    get srcElement(){return readEvent(this,'srcElement','target',true);}
+    get currentTarget(){return readEvent(this,'currentTarget','currentTarget',true);}
+    get eventPhase(){return readEvent(this,'eventPhase','phase',true);}
+    get bubbles(){return readEvent(this,'bubbles','bubbles');}
+    get cancelable(){return readEvent(this,'cancelable','cancelable');}
+    get composed(){return readEvent(this,'composed','composed');}
+    get timeStamp(){return readEvent(this,'timeStamp','timeStamp');}
+    get defaultPrevented(){return readEvent(this,'defaultPrevented','prevented',true);}
+    get cancelBubble(){return readEvent(this,'cancelBubble','stopped',true);}
+    set cancelBubble(value){if(!eventData.has(this)&&nativeSignal?.isEvent(this)){nativeSignal.eventSet(this,'cancelBubble',value);return;}if(value)Reflect.apply(guestStopPropagation,this,[]);else eventState(this);}
+    get returnValue(){return readEvent(this,'returnValue','prevented',true,true);}
+    set returnValue(value){if(!eventData.has(this)&&nativeSignal?.isEvent(this)){nativeSignal.eventSet(this,'returnValue',value);return;}if(!value)Reflect.apply(guestPreventDefault,this,[]);else eventState(this);}
+    preventDefault(){if(!eventData.has(this)&&nativeSignal?.isEvent(this))return nativeSignal.eventCall(this,'preventDefault',[]);const data=eventState(this);if(data.nativeDispatch&&nativeSignal){nativeSignal.eventCall(this,'preventDefault',[]);data.prevented=nativeSignal.eventGet(this,'defaultPrevented');return;}if(data.cancelable&&(!data.active||!data.passive)){if(data.id)call(data.active?'dom.event':'dom.event-late',[data.id,'preventDefault']);data.prevented=true;}}
+    stopPropagation(){if(!eventData.has(this)&&nativeSignal?.isEvent(this))return nativeSignal.eventCall(this,'stopPropagation',[]);const data=eventState(this);data.stopped=true;if(data.nativeDispatch&&nativeSignal){nativeSignal.eventCall(this,'stopPropagation',[]);return;}if(data.id)call(data.active?'dom.event':'dom.event-late',[data.id,'stopPropagation']);}
+    stopImmediatePropagation(){if(!eventData.has(this)&&nativeSignal?.isEvent(this))return nativeSignal.eventCall(this,'stopImmediatePropagation',[]);const data=eventState(this);data.stopped=true;data.immediate=true;if(data.nativeDispatch&&nativeSignal){nativeSignal.eventCall(this,'stopImmediatePropagation',[]);return;}if(data.id)call(data.active?'dom.event':'dom.event-late',[data.id,'stopImmediatePropagation']);}
+    composedPath(){if(!eventData.has(this)&&nativeSignal?.isEvent(this))return nativeSignal.eventCall(this,'composedPath',[]);const data=eventState(this);return data.nativeDispatch&&nativeSignal?nativeSignal.eventCall(this,'composedPath',[]):data.path.slice();}
     /** @param {any} type @param {any} [bubbles] @param {any} [cancelable] */
-    initEvent(type,bubbles=false,cancelable=false){const data=eventState(this);if(!arguments.length)throw new TypeError('Event type is required');const convertedType=domString(type),convertedBubbles=!!bubbles,convertedCancelable=!!cancelable;if(data.active)return;data.initialized=true;data.type=convertedType;data.bubbles=convertedBubbles;data.cancelable=convertedCancelable;data.trusted=false;data.prevented=false;data.stopped=false;data.immediate=false;data.target=null;}
+    initEvent(type,bubbles=false,cancelable=false){if(!eventData.has(this)&&nativeSignal?.isEvent(this))return nativeSignal.eventCall(this,'initEvent',Array.from(arguments));const data=eventState(this);if(!arguments.length)throw new TypeError('Event type is required');const convertedType=domString(type),convertedBubbles=!!bubbles,convertedCancelable=!!cancelable;if(data.active)return;if(nativeSignal?.isEvent(this))nativeSignal.eventCall(this,'initEvent',[convertedType,convertedBubbles,convertedCancelable]);data.initialized=true;data.type=convertedType;data.bubbles=convertedBubbles;data.cancelable=convertedCancelable;data.trusted=false;data.prevented=false;data.stopped=false;data.immediate=false;data.target=null;}
   }
+  const guestStopPropagation=GuestEvent.prototype.stopPropagation,guestPreventDefault=GuestEvent.prototype.preventDefault;
+  nativeSignal?.bindEventDispatch((target,event,run)=>{const data=eventData.get(event);if(!data)return run();if(data.active||data.dispatching||!data.initialized)throw new DOMException('Event is already being dispatched','InvalidStateError');if(!nativeSignal.isEvent(event))return run();if(data.prevented)nativeSignal.eventCall(event,'preventDefault',[]);if(data.immediate)nativeSignal.eventCall(event,'stopImmediatePropagation',[]);else if(data.stopped)nativeSignal.eventCall(event,'stopPropagation',[]);data.nativeDispatch=true;data.active=true;data.trusted=false;let complete=false;try{const value=run();complete=true;return value;}finally{if(complete)data.target=target;data.prevented=nativeSignal.eventGet(event,'defaultPrevented');data.nativeDispatch=false;data.active=false;data.passive=false;data.currentTarget=null;data.phase=0;data.path=[];data.stopped=false;data.immediate=false;}});
   Object.defineProperty(GuestEvent,'name',{value:'Event'});
   Object.defineProperty(GuestEvent,'length',{value:1});
   for(const name of Object.getOwnPropertyNames(GuestEvent.prototype))if(name!=='constructor'){const descriptor=Object.getOwnPropertyDescriptor(GuestEvent.prototype,name);Object.defineProperty(GuestEvent.prototype,name,{...descriptor,enumerable:true});}
@@ -79,6 +87,8 @@ export function createPluginGuestDom(call,retain,now,handlerTypes,decodeFileText
   Object.freeze(guestWindow);
   // shortcut: own Window/null and no ports, extend when owned messaging handles exist.
   const messageSource=(/** @type {any} */value)=>{if(value===null||value===guestWindow)return value;throw new TypeError('An owned MessageEvent source is required');};
+  // shortcut: only null activation is supported, upgrade when an owned UserActivation facade exists.
+  const messageActivation=(/** @type {any} */value)=>{if(value===null)return null;throw new TypeError('An owned UserActivation is required');};
   /** Web IDL sequence conversion does not close an iterator on element conversion failure.
    * @param {any} value @param {(value:any)=>any} convert */
   const sequenceOf=(value,convert)=>{
@@ -190,13 +200,13 @@ export function createPluginGuestDom(call,retain,now,handlerTypes,decodeFileText
     // shortcut: retain Chromium filename UTF-16, revisit when adding another engine's native acceptance.
     ErrorEvent: {message:['string',''],filename:['string',''],lineno:['ulong',0],colno:['ulong',0],error:['any',undefined]},
     // shortcut: Chromium constructors retain origin UTF-16, revisit with other-engine native acceptance.
-    MessageEvent: {data:['any',null],origin:['string',''],lastEventId:['string',''],source:['messageSource',null],ports:['messagePorts',undefined]},
+    MessageEvent: {data:['any',null],origin:['string',''],lastEventId:['string',''],source:['messageSource',null],ports:['messagePorts',undefined],userActivation:['userActivation',null]},
     StorageEvent: {key:['nullableString',null],oldValue:['nullableString',null],newValue:['nullableString',null],url:['usvString',''],storageArea:['storageArea',null]},
     CompositionEvent: { data: ["string", ""] },
     CustomEvent: { detail: ["any", null] },
   });
   const convert = (/** @type {any} */ value, /** @type {string} */ kind) =>
-    kind === 'usvString'?domString(value).toWellFormed():kind === 'storageArea'?storageArea(value):kind === 'messageSource'?messageSource(value):kind==='messagePorts'?messagePorts(value):kind === "nullableDouble"
+    kind === 'usvString'?domString(value).toWellFormed():kind === 'storageArea'?storageArea(value):kind === 'messageSource'?messageSource(value):kind==='messagePorts'?messagePorts(value):kind==='userActivation'?messageActivation(value):kind === "nullableDouble"
       ? value===null?null:finiteNumber(value)
       : kind === "bool"
       ? !!value
@@ -228,7 +238,7 @@ export function createPluginGuestDom(call,retain,now,handlerTypes,decodeFileText
     return result;
   };
   const modifierKeys=['altKey','ctrlKey','metaKey','modifierAltGraph','modifierCapsLock','modifierFn','modifierNumLock','modifierScrollLock','modifierSymbol','shiftKey'];
-  const dictionaryKeys=/** @type {Record<string,string[]>} */ ({DragEvent:['dataTransfer'],UIEvent:['detail','sourceCapabilities','view'],MouseEvent:['button','buttons','clientX','clientY','movementX','movementY','region','relatedTarget','screenX','screenY'],KeyboardEvent:['charCode','code','isComposing','key','keyCode','location','repeat'],PointerEvent:['altitudeAngle','azimuthAngle','coalescedEvents','height','isPrimary','persistentDeviceId','pointerId','pointerType','predictedEvents','pressure','tangentialPressure','tiltX','tiltY','twist','width'],HashChangeEvent:['newURL','oldURL'],ErrorEvent:['colno','error','filename','lineno','message'],MessageEvent:['data','lastEventId','origin','ports','source'],StorageEvent:['key','newValue','oldValue','storageArea','url'],SubmitEvent:['submitter'],AnimationEvent:['animation','animationName','elapsedTime','pseudoElement'],TransitionEvent:['animation','elapsedTime','propertyName','pseudoElement'],DeviceOrientationEvent:['absolute','alpha','beta','gamma'],DeviceMotionEvent:['acceleration','accelerationIncludingGravity','interval','rotationRate'],BeforeUnloadEvent:[],CloseEvent:['code','reason','wasClean'],ProgressEvent:['lengthComputable','loaded','total'],TextEvent:['data'],CompositionEvent:['data'],CustomEvent:['detail']});
+  const dictionaryKeys=/** @type {Record<string,string[]>} */ ({DragEvent:['dataTransfer'],UIEvent:['detail','sourceCapabilities','view'],MouseEvent:['button','buttons','clientX','clientY','movementX','movementY','region','relatedTarget','screenX','screenY'],KeyboardEvent:['charCode','code','isComposing','key','keyCode','location','repeat'],PointerEvent:['altitudeAngle','azimuthAngle','coalescedEvents','height','isPrimary','persistentDeviceId','pointerId','pointerType','predictedEvents','pressure','tangentialPressure','tiltX','tiltY','twist','width'],HashChangeEvent:['newURL','oldURL'],ErrorEvent:['colno','error','filename','lineno','message'],MessageEvent:['data','lastEventId','origin','ports','source','userActivation'],StorageEvent:['key','newValue','oldValue','storageArea','url'],SubmitEvent:['submitter'],AnimationEvent:['animation','animationName','elapsedTime','pseudoElement'],TransitionEvent:['animation','elapsedTime','propertyName','pseudoElement'],DeviceOrientationEvent:['absolute','alpha','beta','gamma'],DeviceMotionEvent:['acceleration','accelerationIncludingGravity','interval','rotationRate'],BeforeUnloadEvent:[],CloseEvent:['code','reason','wasClean'],ProgressEvent:['lengthComputable','loaded','total'],TextEvent:['data'],CompositionEvent:['data'],CustomEvent:['detail']});
   const motionVectors=new WeakMap(),motionToken=Symbol('motion vector');
   class GuestDeviceMotionEventAcceleration {
     /** @param {any} token */
@@ -281,7 +291,7 @@ export function createPluginGuestDom(call,retain,now,handlerTypes,decodeFileText
     if(kind==='MouseEvent'&&data.relatedTarget!==null)idOf(data.relatedTarget);
     if(kind==='FocusEvent'&&data.relatedTarget!==null&&!ids.has(data.relatedTarget))throw new TypeError('An owned related target is required');
   };
-  const initializeLegacyEvent=(/** @type {any} */ value,/** @type {any} */ type,/** @type {any} */ bubbles,/** @type {any} */ cancelable)=>{const data=eventState(value);const converted=domString(type);if(data.active)return;data.initialized=true;data.type=converted;data.bubbles=!!bubbles;data.cancelable=!!cancelable;data.trusted=false;data.prevented=false;data.stopped=false;data.immediate=false;data.target=null;};
+  const initializeLegacyEvent=(/** @type {any} */ value,/** @type {any} */ type,/** @type {any} */ bubbles,/** @type {any} */ cancelable)=>{const data=eventState(value);const converted=domString(type);if(data.active)return;if(nativeSignal?.isEvent(value))nativeSignal.eventCall(value,'initEvent',[converted,!!bubbles,!!cancelable]);data.initialized=true;data.type=converted;data.bubbles=!!bubbles;data.cancelable=!!cancelable;data.trusted=false;data.prevented=false;data.stopped=false;data.immediate=false;data.target=null;};
   class GuestUIEvent extends GuestEvent {
     /** @param {any} type @param {any} [init] */
     constructor(type, init = {}) {
@@ -880,13 +890,14 @@ export function createPluginGuestDom(call,retain,now,handlerTypes,decodeFileText
     return call('dom.node',[idOf(receiver),method,[otherId]]);
   };
   const signalData=new WeakMap(),controllerData=new WeakMap(),abortToken=Symbol('AbortSignal');
-  const signalState=(/** @type {any} */signal)=>{const data=signalData.get(signal);if(!data)throw new TypeError('An owned AbortSignal is required');return data;};
+  const signalState=(/** @type {any} */signal)=>{const data=signalData.get(signal);if(data)return data;if(nativeSignal)return nativeSignal.state(signal);throw new TypeError('An owned AbortSignal is required');};
   const retainSignal=(/** @type {any} */signal)=>{const data=signalState(signal);if(!data.sources)return;const keep=data.reason===undefined&&(data.algorithms.size>0||localTarget(signal).some((/** @type {any} */row)=>row.type==='abort'));for(const reference of data.sources){const root=reference.deref();if(root){const retained=signalState(root).retained;if(keep)retained.add(signal);else retained.delete(signal);}}};
   const signalFinalizer=new FinalizationRegistry((/** @type {{sources:WeakRef<any>[],link:WeakRef<any>}} */held)=>{for(const reference of held.sources){const root=reference.deref();if(root)signalState(root).dependents.delete(held.link);}});
   const listenerFinalizer=new FinalizationRegistry((/** @type {{signal:WeakRef<any>,algorithm:()=>void}} */held)=>{const signal=held.signal.deref();if(signal){signalState(signal).algorithms.delete(held.algorithm);retainSignal(signal);}});
   // Chromium keeps weak target/callback abort steps after manual or once removal.
   const abortListener=(/** @type {WeakRef<any>} */targetRef,/** @type {WeakRef<any>} */listenerRef,/** @type {string} */type,/** @type {boolean} */capture)=>()=>{const target=targetRef.deref(),listener=listenerRef.deref();if(!target||!listener)return;const owned=ids.has(target),list=owned?listeners.get(target)||[]:localTarget(target),row=list.find((/** @type {any} */value)=>value.type===type&&value.listener===listener&&value.capture===capture);if(row){if(owned)removeNodeListener(target,row,list);else removeLocalListener(target,row);}};
-  const bindSignal=(/** @type {any} */signal,/** @type {any} */target,/** @type {string} */type,/** @type {any} */listener,/** @type {boolean} */capture)=>{if(signal===undefined)return;const data=signalState(signal),algorithm=abortListener(new WeakRef(target),new WeakRef(listener),type,capture);data.algorithms.add(algorithm);listenerFinalizer.register(listener,{signal:new WeakRef(signal),algorithm},algorithm);retainSignal(signal);};;
+  const bindSignal=(/** @type {any} */signal,/** @type {any} */target,/** @type {string} */type,/** @type {any} */listener,/** @type {boolean} */capture)=>{if(signal===undefined)return;const algorithm=abortListener(new WeakRef(target),new WeakRef(listener),type,capture);if(nativeSignal&&!signalData.has(signal))return nativeSignal.bind(signal,algorithm);const data=signalState(signal);data.algorithms.add(algorithm);listenerFinalizer.register(listener,{signal:new WeakRef(signal),algorithm},algorithm);retainSignal(signal);};;
+  const listenerAborted=(/** @type {any} */row)=>{const signal=row.signal?.deref();return signal!==undefined&&signalState(signal).reason!==undefined;};
   const removeLocalListener=(/** @type {any} */target,/** @type {any} */row)=>{const list=localTarget(target);row.removed=true;const index=list.indexOf(row);if(index>=0)list.splice(index,1);if(signalData.has(target))retainSignal(target);};
   const removeNodeListener=(/** @type {any} */target,/** @type {any} */row,/** @type {any[]} */list)=>{call('dom.unlisten',[idOf(target),row.type,row.id,row.capture]);const index=list.indexOf(row);if(index>=0)list.splice(index,1);};
   const listenerOptions=(/** @type {any} */value,more=false)=>{
@@ -902,7 +913,7 @@ export function createPluginGuestDom(call,retain,now,handlerTypes,decodeFileText
   const localDispatch=(/** @type {any} */target,/** @type {any} */event,trusted=false,checkpoint=false)=>{
     const list=localTarget(target),data=eventState(event);if(!data.initialized||data.active||data.dispatching)throw new DOMException('Event is already being dispatched','InvalidStateError');
     data.trusted=trusted;data.target=target;data.currentTarget=target;data.phase=2;data.active=true;data.path=[target];
-    const invoke=(/** @type {any} */row)=>{if(row.removed||row.type!==data.type)return;if(row.once)removeLocalListener(target,row);data.passive=row.passive;try{if(typeof row.listener==='function')Reflect.apply(row.listener,target,[event]);else Reflect.apply(row.listener.handleEvent,row.listener,[event]);}catch(error){queueTask(()=>{throw error;});}};
+    const invoke=(/** @type {any} */row)=>{if(row.removed||row.type!==data.type||listenerAborted(row))return;if(row.once)removeLocalListener(target,row);data.passive=row.passive;try{if(typeof row.listener==='function')Reflect.apply(row.listener,target,[event]);else Reflect.apply(row.listener.handleEvent,row.listener,[event]);}catch(error){queueTask(()=>{throw error;});}};
     const cleanup=()=>{data.active=false;data.passive=false;data.currentTarget=null;data.phase=0;data.path=[];data.stopped=false;data.immediate=false;};
     const rows=list.slice();
     if(checkpoint)return (async()=>{try{for(const row of rows){if(data.immediate)break;invoke(row);await new Promise(resolve=>queueTask(()=>resolve(undefined),true));}return !data.prevented;}finally{cleanup();}})();
@@ -912,12 +923,13 @@ export function createPluginGuestDom(call,retain,now,handlerTypes,decodeFileText
     constructor(){localTargets.set(this,[]);}
     /** @param {any} type @param {any} listener @param {any} [options] */
     addEventListener(type,listener,options={}){
+      if(nativeSignal?.isTarget(this))return nativeSignal.callTarget(this,'addEventListener',Array.from(arguments));
       const list=localTarget(this);if(arguments.length<2)throw new TypeError('Listener arguments are required');if(ids.has(this))return GuestNode.prototype.addEventListener.call(this,type,listener,options);type=domString(type);validateListener(listener);const {capture,once,passive,signal}=listenerOptions(options,true);
-      if(signal!==undefined&&signalState(signal).reason!==undefined||listener==null||list.some((/** @type {any} */row)=>row.type===type&&row.listener===listener&&row.capture===capture))return;const row={type,listener,capture,once,passive,removed:false};bindSignal(signal,this,type,listener,capture);list.push(row);if(signalData.has(this))retainSignal(this);
+      if(signal!==undefined&&signalState(signal).reason!==undefined||listener==null)return;const old=list.find((/** @type {any} */row)=>row.type===type&&row.listener===listener&&row.capture===capture);if(old){if(!listenerAborted(old))return;old.cleanup?.();removeLocalListener(this,old);}const row={type,listener,capture,once,passive,removed:false,signal:signal===undefined?undefined:new WeakRef(signal),cleanup:/** @type {(()=>void)|undefined} */(undefined)};row.cleanup=bindSignal(signal,this,type,listener,capture);list.push(row);if(signalData.has(this))retainSignal(this);
     }
     /** @param {any} type @param {any} listener @param {any} [options] */
-    removeEventListener(type,listener,options={}){const list=localTarget(this);if(arguments.length<2)throw new TypeError('Listener arguments are required');if(ids.has(this))return GuestNode.prototype.removeEventListener.call(this,type,listener,options);type=domString(type);validateListener(listener);const {capture}=listenerOptions(options);const row=list.find((/** @type {any} */row)=>row.type===type&&row.listener===listener&&row.capture===capture);if(row)removeLocalListener(this,row);}
-    /** @param {any} event */dispatchEvent(event){if(ids.has(this))return GuestNode.prototype.dispatchEvent.call(this,event);localTarget(this);if(!arguments.length)throw new TypeError('Event is required');return localDispatch(this,event);}
+    removeEventListener(type,listener,options={}){if(nativeSignal?.isTarget(this))return nativeSignal.callTarget(this,'removeEventListener',Array.from(arguments));const list=localTarget(this);if(arguments.length<2)throw new TypeError('Listener arguments are required');if(ids.has(this))return GuestNode.prototype.removeEventListener.call(this,type,listener,options);type=domString(type);validateListener(listener);const {capture}=listenerOptions(options);const row=list.find((/** @type {any} */row)=>row.type===type&&row.listener===listener&&row.capture===capture);if(row)removeLocalListener(this,row);}
+    /** @param {any} event */dispatchEvent(event){if(nativeSignal?.isTarget(this))return nativeSignal.callTarget(this,'dispatchEvent',Array.from(arguments));if(ids.has(this))return GuestNode.prototype.dispatchEvent.call(this,event);localTarget(this);if(!arguments.length)throw new TypeError('Event is required');return localDispatch(this,event);}
   }
   const signalAddListener=GuestEventTarget.prototype.addEventListener,signalRemoveListener=GuestEventTarget.prototype.removeEventListener;
   const runAbortSteps=(/** @type {any} */signal,checkpoint=false)=>{const data=signalState(signal);if(data.sources){for(const reference of data.sources){const root=reference.deref();if(root){const source=signalState(root);source.dependents.delete(data.link);source.retained.delete(signal);}}data.sources.length=0;signalFinalizer.unregister(signal);}for(const algorithm of data.algorithms){listenerFinalizer.unregister(algorithm);algorithm();}data.algorithms.clear();return localDispatch(signal,new GuestEvent('abort'),true,checkpoint);};
@@ -965,17 +977,19 @@ export function createPluginGuestDom(call,retain,now,handlerTypes,decodeFileText
   for(const key of ['abort','any','timeout'])Object.defineProperty(GuestAbortSignal,key,{...Object.getOwnPropertyDescriptor(GuestAbortSignal,key),enumerable:true});
   const readerData=new WeakMap();
   const readerState=(/** @type {any} */reader)=>{const data=readerData.get(reader);if(!data)throw new TypeError('Illegal FileReader invocation');return data;};
-  const fireReader=(/** @type {any} */reader,/** @type {string} */type,loaded=0,total=0,computable=true,checkpoint=true)=>localDispatch(reader,new GuestProgressEvent(type,{lengthComputable:computable,loaded,total}),true,checkpoint);
+  const fireReader=(/** @type {any} */reader,/** @type {string} */type,loaded=0,total=0,computable=true,checkpoint=true)=>{const event=Object.create(GuestProgressEvent.prototype);eventData.set(event,{initialized:true,type,bubbles:false,cancelable:false,composed:false,timeStamp:now(),trusted:false,target:null,currentTarget:null,phase:0,prevented:false,stopped:false,immediate:false,active:false,passive:false,path:[]});trust(event);initialize(event,'ProgressEvent',{lengthComputable:computable,loaded,total});return localDispatch(reader,event,true,checkpoint);};
   const cancelReaderTasks=(/** @type {any} */data)=>{if(data.pending){const index=tasks.indexOf(data.pending);if(index>=0)tasks.splice(index,1);data.pending=null;}data.version++;};
   const readReader=(/** @type {any} */reader,/** @type {any} */blob,/** @type {string} */mode,/** @type {any} */encoding=undefined)=>{
     const data=readerState(reader),module=fileModule();if(!module.isBlob(blob))throw new TypeError('A Blob argument is required');const label=encoding===undefined?undefined:domString(encoding);if(mode==='text')data.encoding=label;if(data.state===1)throw new DOMException('A read is already in progress','InvalidStateError');
     const info=module.info(blob);if(tasks.length>=128)throw Error('Plugin DOM task limit exceeded');data.state=1;data.finished=false;data.result=null;data.error=null;const version=++data.version,current=()=>version===data.version&&data.state===1;
     const schedule=(/** @type {()=>void} */task)=>{const queued=()=>{data.pending=null;if(current())task();};queueTask(queued);data.pending=queued;};
     let loaded=0,lastProgress=/** @type {number|undefined} */(undefined);const chunks=/** @type {Uint8Array[]} */([]);
-    const fail=(/** @type {any} */error)=>schedule(async()=>{data.state=2;data.finished=true;data.error=new DOMException(error?.message??String(error),error?.name??'NotReadableError');await fireReader(reader,'error',loaded,info.size);if(data.state!==1)await fireReader(reader,'loadend',loaded,info.size);});
+    const fail=(/** @type {any} */error)=>schedule(async()=>{const name=error?.name;data.state=2;data.finished=true;data.error=new DOMException(error?.message??String(error),error instanceof DOMException?name:'NotReadableError');await fireReader(reader,'error',loaded,info.size);if(data.state!==1)await fireReader(reader,'loadend',loaded,info.size);});
     const next=async()=>{
       try{
-        const end=Math.min(loaded+65536,info.size),bytes=await module.read(blob,loaded,end);if(!current())return;chunks.push(bytes);loaded=end;
+        const end=Math.min(loaded+65536,info.size);let bytes;
+        pendingReads++;try{bytes=await module.read(blob,loaded,end);}finally{pendingReads--;}
+        if(!current())return;chunks.push(bytes);loaded=end;
         if(loaded<info.size){if(lastProgress===undefined){lastProgress=now();void next();}else if(now()-lastProgress>=50){lastProgress=now();schedule(async()=>{await fireReader(reader,'progress',loaded,info.size);if(current())void next();});}else void next();return;}
         schedule(async()=>{
           data.finished=true;if(loaded)await fireReader(reader,'progress',loaded,info.size);if(!current())return;
@@ -1034,15 +1048,17 @@ export function createPluginGuestDom(call,retain,now,handlerTypes,decodeFileText
       if(!ids.has(this))throw new TypeError('Illegal EventTarget invocation');if(arguments.length<2)throw new TypeError('Listener arguments are required');type=domString(type);validateListener(listener);const {capture,once,passive,signal}=listenerOptions(options,true);
       if(signal!==undefined&&signalState(signal).reason!==undefined||listener==null)return;
       const list=listeners.get(this)||[];
-      if(list.some((/** @type {any} */ row)=>row.type===type&&row.listener===listener&&row.capture===capture))return;
+      const old=list.find((/** @type {any} */row)=>row.type===type&&row.listener===listener&&row.capture===capture);if(old){if(!listenerAborted(old))return;old.cleanup?.();removeNodeListener(this,old,list);}
+      const signalRef=signal===undefined?undefined:new WeakRef(signal);
       const id=retain(event=>{
+        const bound=signalRef?.deref();if(bound!==undefined&&signalState(bound).reason!==undefined)return;
         const value=nativeEvent(event),data=eventState(value);
         if(once){const index=list.findIndex((/** @type {any} */ row)=>row.id===id);if(index>=0){list.splice(index,1);}}
         try{return typeof listener==="function"?listener.call(this,value):listener.handleEvent(value);}
         finally{eventCheckpoints.at(-1)?.add(data);}
       });
       call("dom.listen",[idOf(this),type,id,{capture,once,passive}]);
-      const row={type,listener,capture,id,cleanup:/** @type {(()=>void)|undefined} */(undefined)};bindSignal(signal,this,type,listener,capture);list.push(row);listeners.set(this,list);
+      const row={type,listener,capture,id,signal:signalRef,cleanup:/** @type {(()=>void)|undefined} */(undefined)};row.cleanup=bindSignal(signal,this,type,listener,capture);list.push(row);listeners.set(this,list);
     }
     /** Dispatch the actual host-owned Event while preserving the guest Event's local identity.
      * @param {any} event */
@@ -1282,7 +1298,7 @@ export function createPluginGuestDom(call,retain,now,handlerTypes,decodeFileText
     for(const [key,descriptor] of definitions)if(!defineOwned(target,key,descriptor,true))throw new TypeError('Cannot define property');
     return target;
   }}).defineProperties});
-  return Object.freeze({createObjectURL,revokeObjectURL,EventTarget:GuestEventTarget,FileReader:GuestFileReader,FileReaderSync:GuestFileReaderSync,AbortController:GuestAbortController,AbortSignal:GuestAbortSignal,AbstractRange:GuestAbstractRange,StaticRange:GuestStaticRange,document,window:guestWindow,self:guestWindow,...eventClasses,DeviceMotionEventAcceleration:GuestDeviceMotionEventAcceleration,DeviceMotionEventRotationRate:GuestDeviceMotionEventRotationRate,Node:GuestNode,CharacterData:GuestCharacterData,Text:GuestText,Comment:GuestComment,HTMLElement:GuestElement,DocumentFragment:GuestDocumentFragment,DataTransfer:GuestDataTransfer,DataTransferItem:GuestDataTransferItem,DataTransferItemList:GuestDataTransferItemList,FileList:GuestFileList,NodeList:GuestNodeList,HTMLCollection:GuestHTMLCollection,DOMTokenList:GuestDOMTokenList,DOMStringMap:GuestDOMStringMap,DOMException,beginEventCheckpoint,finishEventCheckpoint,hasDomTasks,executeDomTask,
+  return Object.freeze({createObjectURL,revokeObjectURL,EventTarget:GuestEventTarget,FileReader:GuestFileReader,FileReaderSync:GuestFileReaderSync,AbortController:GuestAbortController,AbortSignal:GuestAbortSignal,AbstractRange:GuestAbstractRange,StaticRange:GuestStaticRange,document,window:guestWindow,self:guestWindow,...eventClasses,DeviceMotionEventAcceleration:GuestDeviceMotionEventAcceleration,DeviceMotionEventRotationRate:GuestDeviceMotionEventRotationRate,Node:GuestNode,CharacterData:GuestCharacterData,Text:GuestText,Comment:GuestComment,HTMLElement:GuestElement,DocumentFragment:GuestDocumentFragment,DataTransfer:GuestDataTransfer,DataTransferItem:GuestDataTransferItem,DataTransferItemList:GuestDataTransferItemList,FileList:GuestFileList,NodeList:GuestNodeList,HTMLCollection:GuestHTMLCollection,DOMTokenList:GuestDOMTokenList,DOMStringMap:GuestDOMStringMap,DOMException,beginEventCheckpoint,finishEventCheckpoint,hasDomTasks,hasPendingDomTasks,executeDomTask,
     /** @param {()=>boolean} current */app(current){return Object.freeze({
       /** @param {string} title @param {any} body @param {any} [options] */
       dialog(title,body,options={}) {

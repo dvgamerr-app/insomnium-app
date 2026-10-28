@@ -2,7 +2,7 @@ import {drainMicrotasks} from 'bun:jsc';
 import {AsyncLocalStorage} from 'node:async_hooks';
 import {createSessionInput} from './input.js';
 import {Readable} from 'node:stream';
-import {createPluginValueCodec} from '../../src/lib/plugin-values.js';
+import {createPluginValueCodec,pluginErrorText} from '../../src/lib/plugin-values.js';
 import {createPluginTagMetadata} from '../../src/lib/plugin-tag-metadata.js';
 import {validatePluginCallContext} from '../../src/lib/plugin-call-context.js';
 import {createPluginRequestContext} from '../../src/lib/plugin-request-context.js';
@@ -10,15 +10,16 @@ import {createPluginResponseContext} from '../../src/lib/plugin-response-context
 import {createPluginRunHelpers} from '../../src/lib/plugin-run-helpers.js';
 import {createPluginAppAsyncHelpers} from '../../src/lib/plugin-app-async.js';
 import {createPluginAppSyncHelpers} from '../../src/lib/plugin-app-sync.js';
-import {bindPluginDom,createPluginDomApp,beginPluginEvent,finishPluginEvent,hasPluginDomTasks,executePluginDomTask} from './dom.js';
+import {bindPluginDom,bindPluginObjectUrls,createPluginDomApp,beginPluginEvent,finishPluginEvent,hasPluginDomTasks,hasPendingPluginDomTasks,executePluginDomTask} from './dom.js';
 
 // Captured before package initialization; the OS parent still treats every frame as untrusted.
 const codec=createPluginValueCodec(),hookCodec=createPluginValueCodec('hook'),tags=createPluginTagMetadata();
 const ownerContext=new AsyncLocalStorage(),immediate=setImmediate;
 const kinds=['templateTags','templateTagMetadata','templateTagAction','requestHooks','responseHooks','requestGroupActions','requestActions','workspaceActions','documentActions','domCallback','domRelease','domEvent'];
 
-/** @param {any} exports @param {(packet:any)=>void} send @param {(code:number)=>never} exit @param {string} syncHandle */
-export function runPluginSession(exports,send,exit,syncHandle){
+/** @param {(packet:any)=>void} send @param {(code:number)=>never} exit @param {string} syncHandle */
+export function runPluginSession(send,exit,syncHandle){
+ let exports=/** @type {any} */(undefined);
  let nextRequest=0;
  const live=new Set(),pending=new Map(),callbacks=new Map(),cache={bodies:new Map(),retained:0};let nextCallback=0;
  const execution=owner=>{const frame=ownerContext.getStore();return live.has(frame)&&frame?.live&&frame.principal===owner.principal?frame:undefined;};
@@ -44,7 +45,7 @@ export function runPluginSession(exports,send,exit,syncHandle){
   if(typeof reply.error==='string')throw Error(reply.error);
   return codec.decode(reply.wire);
  };
- bindPluginDom((method,args)=>{const owner=ownerContext.getStore();if(!owner||!current(owner)||!owner.dom)throw Error('Plugin DOM owner is no longer current');return sync(owner,method,args,'dom');},(callback,purpose)=>{
+ const bindDom=()=>bindPluginDom((method,args)=>{const owner=ownerContext.getStore();if(!owner||!current(owner)||!owner.dom)throw Error('Plugin DOM owner is no longer current');return sync(owner,method,args,'dom');},(callback,purpose)=>{
   const owner=ownerContext.getStore();
   if(purpose!==undefined&&purpose!=='dialog')throw Error('Invalid Bun DOM callback purpose');
   if(!owner||!current(owner)||!owner.dom||typeof callback!=='function')throw Error('Plugin DOM callback owner is no longer current');
@@ -56,10 +57,12 @@ export function runPluginSession(exports,send,exit,syncHandle){
   callbacks.set(id,{callback,principal:owner.principal});return id;
  },(method,args)=>{const owner=ownerContext.getStore();if(!owner||!current(owner)||!owner.dom)return Promise.reject(Error('Plugin File owner is no longer current'));return rpc(owner,'file',method,args);},task=>{
   const owner=ownerContext.getStore();if(!owner||!current(owner)||!owner.dom)throw Error('Plugin DOM task owner is no longer current');
+  // A callback may await a DOM task before its final drain can run.
+  immediate(()=>{if(hasPluginDomTasks())executePluginDomTask();});
   return ()=>ownerContext.run(owner,()=>{if(current(owner))task();});
  });
  const ownPending=owner=>[...pending.values()].filter(item=>item.owner===owner);
- async function drain(owner){do{await Promise.allSettled(ownPending(owner).map(item=>item.promise));await new Promise(resolve=>immediate(resolve));while(hasPluginDomTasks()){executePluginDomTask();await new Promise(resolve=>immediate(resolve));}}while(ownPending(owner).length);}
+ async function drain(owner){do{await Promise.allSettled(ownPending(owner).map(item=>item.promise));await new Promise(resolve=>immediate(resolve));while(hasPluginDomTasks()){executePluginDomTask();await new Promise(resolve=>immediate(resolve));}}while(ownPending(owner).length||hasPendingPluginDomTasks());}
  const retire=owner=>{owner.live=false;live.delete(owner);};
  function invokeNested(message,checkpoint){
   const parent=checkpoint?[...live].find(frame=>frame.id===message?.parentId):ownerContext.getStore(),retained=callbacks.get(message?.index);
@@ -72,7 +75,7 @@ export function runPluginSession(exports,send,exit,syncHandle){
   if(settled&&rejected){retire(owner);throw value;}
   if(settled&&!ownPending(owner).length){try{send({type:'result',protocol:1,callId:owner.id,wire:codec.encode(value)});}finally{retire(owner);}return;}
   send({type:'prefix',protocol:1,callId:owner.id});
-  void ownerContext.run(owner,async()=>{try{const value=await result;await drain(owner);send({type:'result',protocol:1,callId:owner.id,wire:codec.encode(value)});}catch(error){send({type:'failure',protocol:1,callId:owner.id,error:String(error).slice(0,8192)});}finally{retire(owner);}});
+  void ownerContext.run(owner,async()=>{try{const value=await result;await drain(owner);send({type:'result',protocol:1,callId:owner.id,wire:codec.encode(value)});}catch(error){send({type:'failure',protocol:1,callId:owner.id,error:pluginErrorText(error)});}finally{retire(owner);}});
  }
  async function invoke(message){
   const {callId:id,kind,index,wire,helpers,synchronous,dom}=message;
@@ -144,12 +147,20 @@ export function runPluginSession(exports,send,exit,syncHandle){
   try{
    if(message?.closed){exit(0);return;}
    if(message?.protocol!==1)throw Error('Invalid Bun plugin protocol');
-   if(message.type==='invoke'||message.type==='invoke-sibling'){void invoke(message).catch(error=>{send({type:'failure',protocol:1,callId:message.callId,error:String(error).slice(0,8192)});});return;}
+   if(message.type==='invoke'||message.type==='invoke-sibling'){void invoke(message).catch(error=>{send({type:'failure',protocol:1,callId:message.callId,error:pluginErrorText(error)});});return;}
    if(message.type!=='helper-result')throw Error('Invalid Bun plugin input');
    const request=pending.get(message.requestId);
    if(!request||!live.has(request.owner)||!request.owner.live||message.callId!==request.owner.id)throw Error('Plugin helper reply is no longer current');
    pending.delete(message.requestId);
    ownerContext.run(request.owner,()=>{if(typeof message.error==='string')request.reject(Error(message.error));else request.resolve(codec.decode(message.wire));});
-  }catch(error){send({type:'fatal',protocol:1,error:String(error).slice(0,8192)});}
- },error=>{send({type:'fatal',protocol:1,error:String(error).slice(0,8192)});exit(1);},(message,checkpoint)=>{try{invokeNested(message,checkpoint);}catch(error){send({type:'failure',protocol:1,callId:message?.callId,error:String(error).slice(0,8192)});exit(1);}});
+  }catch(error){send({type:'fatal',protocol:1,error:pluginErrorText(error)});}
+ },error=>{send({type:'fatal',protocol:1,error:pluginErrorText(error)});exit(1);},(message,checkpoint)=>{try{invokeNested(message,checkpoint);}catch(error){send({type:'failure',protocol:1,callId:message?.callId,error:pluginErrorText(error)});exit(1);}});
+ bindPluginObjectUrls((method,args)=>{
+  if(!Number.isSafeInteger(++nextRequest))throw Error('Bun object URL request limit exceeded');
+  const requestId=nextRequest,reply=input.synchronous(requestId,()=>send({type:'object-url',protocol:1,requestId,method,argsWire:codec.encode(args)}));
+  if(reply?.protocol!==1||reply.type!=='object-url-result'||reply.requestId!==requestId)throw Error('Invalid Bun object URL reply');
+  if(typeof reply.error==='string')throw Error(reply.error);
+  return codec.decode(reply.wire);
+ });
+ return value=>{exports=value;bindDom();};
 }

@@ -123,6 +123,15 @@ impl InspectionState {
     }
 }
 
+pub(crate) fn cancel_for_navigation(state: &InspectionState) {
+    let mut state = state.0.lock().unwrap_or_else(|error| error.into_inner());
+    for op in state.entries.values() {
+        op.cancelled.store(true, Ordering::SeqCst);
+    }
+    // Running jobs keep their slots until their leases finish native cleanup.
+    state.entries.retain(|_, op| op.started);
+}
+
 pub(crate) fn cancel_all(state: &InspectionState) {
     let mut state = state.0.lock().unwrap_or_else(|error| error.into_inner());
     state.closed = true;
@@ -243,6 +252,40 @@ pub async fn run_plugin_inspection(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn navigation_cancels_old_work_without_reopening_a_closed_window() {
+        let state = InspectionState::default();
+        let network = NetworkState::default();
+        let active = state.reserve().unwrap();
+        let lease = state
+            .start(
+                active.clone(),
+                network.retain_native_work("navigation".into()).unwrap(),
+            )
+            .unwrap();
+        let pending = state.reserve().unwrap();
+        cancel_for_navigation(&state);
+        assert!(lease.check().is_err());
+        {
+            let operations = state.0.lock().unwrap();
+            assert!(operations.entries.contains_key(&active));
+            assert!(!operations.entries.contains_key(&pending));
+        }
+        for _ in 0..3 {
+            state.reserve().unwrap();
+        }
+        assert!(state.reserve().is_err());
+        drop(lease);
+        state.reserve().unwrap();
+        assert!(state.reserve().is_err());
+        cancel_for_navigation(&state);
+        assert!(state.0.lock().unwrap().entries.is_empty());
+        state.reserve().unwrap();
+        cancel_all(&state);
+        cancel_for_navigation(&state);
+        assert!(state.reserve().is_err());
+    }
+
     #[test]
     fn cancellation_and_close_retain_running_inspections_until_cleanup() {
         let state = InspectionState::default();

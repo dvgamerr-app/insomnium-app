@@ -9,19 +9,23 @@ const open=dlopen,pointer=ptr;
 export function createSessionInput(handle,receive,fail,nested){
  if(typeof handle!=='string'||!/^\d{1,20}$/.test(handle)||BigInt(handle)<=0n||BigInt(handle)>=18446744073709551615n)throw Error('Invalid Bun synchronous pipe');
  const native=open('kernel32.dll',{ReadFile:{args:['u64','ptr','u32','ptr','ptr'],returns:'i32'}});
- const pipe=BigInt(handle),bytes=Buffer.alloc(65536),count=new Uint32Array(new ArrayBuffer(4));
+ const pipe=BigInt(handle),count=new Uint32Array(new ArrayBuffer(4));
  const lines=createInterface({input:process.stdin,crlfDelay:Infinity});
  lines.on('line',line=>{try{if(Buffer.byteLength(line)>20*1024*1024)throw Error('Bun plugin input exceeds its limit');receive(JSON.parse(line));}catch(error){fail(error);}});
  lines.on('close',()=>receive({closed:true}));
- let pending=Buffer.alloc(0);
+ let pending=Buffer.allocUnsafe(65536),start=0,end=0;
  function next(checkpoint){
    while(true){
-    const end=pending.indexOf(10);
-    if(end>4*1024*1024)throw Error('Bun synchronous reply exceeds its limit');
-    if(end>=0){const text=pending.subarray(0,end).toString('utf8');pending=pending.subarray(end+1);const message=JSON.parse(text);if(message?.type==='invoke-nested'){nested(message,checkpoint);continue;}return message;}
-    if(pending.length>4*1024*1024)throw Error('Bun synchronous reply exceeds its limit');
+    const newline=pending.subarray(start,end).indexOf(10);
+    if(newline>4*1024*1024)throw Error('Bun synchronous reply exceeds its limit');
+    if(newline>=0){const text=pending.toString('utf8',start,start+newline);start+=newline+1;const message=JSON.parse(text);if(message?.type==='invoke-nested'){nested(message,checkpoint);continue;}return message;}
+    if(end-start>4*1024*1024)throw Error('Bun synchronous reply exceeds its limit');
+    if(start){pending.copyWithin(0,start,end);end-=start;start=0;}
+    // Reuse reply storage instead of recopying every partial 64 KiB pipe read.
+    if(pending.length-end<65536){const next=Buffer.allocUnsafe(Math.min(4*1024*1024+65536,pending.length*2));pending.copy(next,0,0,end);pending=next;}
+    const bytes=pending.subarray(end,end+65536);
     if(!native.symbols.ReadFile(pipe,pointer(bytes),bytes.length,pointer(count),null)||!count[0]||count[0]>bytes.length)throw Error('Bun synchronous pipe closed');
-    pending=Buffer.concat([pending,bytes.subarray(0,count[0])]);
+    end+=count[0];
    }
  }
  return {

@@ -1,4 +1,3 @@
-import {invoke} from '@tauri-apps/api/core';
 import {createPluginValueCodec} from './plugin-values.js';
 
 /** Child metadata is data, never evidence of callback or helper authority.
@@ -30,18 +29,8 @@ export function decodePluginInspection(reply) {
  * @param {string} directory @param {{signal?:AbortSignal}} [options] */
 export async function inspectBunPluginPackage(directory,options={}) {
   if(options.signal?.aborted)throw new DOMException('Plugin inspection cancelled','AbortError');
-  const id=await invoke('reserve_plugin_inspection');
-  let cancelled=false;
-  const cancel=()=>{cancelled=true;void invoke('cancel_plugin_inspection',{id}).catch(()=>{});};
-  options.signal?.addEventListener('abort',cancel,{once:true});
-  const timer=setTimeout(cancel,5000);
-  try{
-    if(options.signal?.aborted){await invoke('cancel_plugin_inspection',{id});throw new DOMException('Plugin inspection cancelled','AbortError');}
-    const reply=await invoke('run_plugin_inspection',{id,directory});
-    if(cancelled)throw new DOMException('Plugin inspection cancelled','AbortError');
-    return decodePluginInspection(reply);
-  }finally{
-    clearTimeout(timer);options.signal?.removeEventListener('abort',cancel);
-    await invoke('cancel_plugin_inspection',{id});
-  }
+  const {openBunPluginSession}=await import('./plugin-bun-session.js');
+  const session=await openBunPluginSession(directory,{isCurrent:()=>!options.signal?.aborted,signal:options.signal});
+  try{return {snapshot:session.snapshot,metadata:session.metadata};}
+  finally{await session.dispose();}
 }

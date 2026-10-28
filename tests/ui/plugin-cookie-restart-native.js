@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
-import { mkdir, readFile, writeFile, lstat, realpath, unlink, readdir } from "node:fs/promises";
+import { mkdir, readFile, writeFile, lstat, realpath, unlink, readdir, rmdir } from "node:fs/promises";
 import { join, resolve, relative } from "node:path";
 import { createHash } from "node:crypto";
-import { withNativeApp, probeIdentifier } from "./helpers/native-app.js";
+import { withNativeApp, integrationProbeIdentifier, selectedNativeProbeIdentifier } from "./helpers/native-app.js";
+import { preserveNativeProfile, cookieLifecycleFile, validateCookieLifecycle } from "./helpers/native-profile-preservation.js";
 import { assertCookieProviderCases } from "./helpers/cookie-provider-cases.js";
 
 const hash = (/** @type {Uint8Array} */ bytes) => createHash("sha256").update(bytes).digest("hex");
+const selectedIdentifier=selectedNativeProbeIdentifier();
+const run=async()=>{
 assert.ok(process.env.APPDATA);
 assert.ok(process.env.INSOMNIUM_COOKIE_RESTART_FIXTURE);
 const fixture = resolve(process.env.INSOMNIUM_COOKIE_RESTART_FIXTURE);
@@ -17,12 +20,15 @@ const bytes = await readFile(fixture), cookies = JSON.parse(bytes.toString());
 assert.equal(cookies.length, 3);
 const expired = cookies.find((/** @type {any} */ item) => item.raw_cookie.startsWith("owned_expiry="));
 assert.ok(expired?.expires?.AtUtc && Date.parse(expired.expires.AtUtc) < Date.now());
-const root = resolve(process.env.APPDATA, probeIdentifier), cookieRoot = join(root, "cookies");
+const root = resolve(process.env.APPDATA, selectedIdentifier), cookieRoot = join(root, "cookies");
 assert.equal((await realpath(root)).toLowerCase(), root.toLowerCase());
-assert.equal((await realpath(cookieRoot)).toLowerCase(), cookieRoot.toLowerCase());
+let cookieRootExisted=true;
+try{const stat=await lstat(cookieRoot);assert.ok(stat.isDirectory()&&!stat.isSymbolicLink());assert.equal((await realpath(cookieRoot)).toLowerCase(),cookieRoot.toLowerCase());}
+catch(error){if(/** @type {any} */(error).code==='ENOENT')cookieRootExisted=false;else throw error;}
 const workspaceId = "wrk_plugin_cookie_restart_" + Date.now();
-const target = resolve(cookieRoot, workspaceId + ".json");
-const previousTarget = resolve(cookieRoot, workspaceId + ".previous.json");
+let target = resolve(cookieRoot, workspaceId + ".json");
+let previousTarget = resolve(cookieRoot, workspaceId + ".previous.json");
+let fixtureOwned=false;
 const verifyWrite = process.env.INSOMNIUM_COOKIE_RESTART_WRITE === "1";
 const verifyProvider = process.env.INSOMNIUM_COOKIE_RESTART_PROVIDER === "1";
 assert.ok(!(verifyWrite && verifyProvider), "Run persistence and provider scenarios separately");
@@ -43,7 +49,7 @@ for (const name of ["workspace-v1.json", "workspace-v1.previous.json"]) {
 }
 const inventory = async () => {
   const rows = /** @type {Record<string,string>} */ ({});
-  for (const name of await readdir(cookieRoot)) {
+  for (const name of await readdir(cookieRoot).catch(error=>{if(error.code==='ENOENT'&&!cookieRootExisted)return [];throw error;})) {
     const path = join(cookieRoot, name), stat = await lstat(path);
     assert.ok(stat.isFile() && !stat.isSymbolicLink());
     rows[name] = hash(await readFile(path));
@@ -58,10 +64,22 @@ const nativeOutputs = /** @type {string[]} */ ([]);
 const errors = /** @type {string[]} */ ([]), restored = /** @type {any[]} */ ([]);
 process.env.INSOMNIUM_UI_BUILD_STATE ||= "artifacts/native-plugin-workspace-helper-probe/build-state.json";
 try {
-  await writeFile(target, bytes);
   await withNativeApp("plugin-cookie-restart-native", async ({ page, invoke, output: native }) => {
     nativeOutput = native;
     nativeOutputs.push(native);
+    const saved=await invoke('load_workspace');
+    saved.resources.push({_id:workspaceId,_type:'workspace',parentId:null,name:'Owned cookie restart fixture',scope:'collection'});
+    await invoke('save_workspace',{data:saved});
+    const lifecycle=validateCookieLifecycle(await readFile(join(root,cookieLifecycleFile))),epoch=lifecycle.owners[workspaceId];
+    assert.equal(typeof epoch,'string');
+    const cookieBase=workspaceId+(epoch?'.'+epoch:'');
+    target=resolve(cookieRoot,cookieBase+'.json');previousTarget=resolve(cookieRoot,cookieBase+'.previous.json');
+    await mkdir(cookieRoot,{recursive:true});
+    const directory=await lstat(cookieRoot);assert.ok(directory.isDirectory()&&!directory.isSymbolicLink());
+    assert.equal((await realpath(cookieRoot)).toLowerCase(),cookieRoot.toLowerCase());
+    assert.equal(relative(cookieRoot,target),cookieBase+'.json');assert.equal(relative(cookieRoot,previousTarget),cookieBase+'.previous.json');
+    assert.equal(await Bun.file(target).exists(),false);assert.equal(await Bun.file(previousTarget).exists(),false);
+    fixtureOwned=true;await writeFile(target,bytes);
     const normal = await invoke("snapshot_request_cookies", { workspaceId });
     const model = await invoke("snapshot_request_cookies", { workspaceId, includeExpired: true });
     await Bun.write(join(native, "cookie-restart-observations.json"), JSON.stringify({
@@ -118,6 +136,7 @@ try {
       const native = await Bun.file(join(dir, "result.json")).json();
       assert.ok(native.exit && typeof native.exit.code === "number", "Owned native must exit before cleanup");
     }
+    if(fixtureOwned){
     assert.equal((await realpath(target)).toLowerCase(), target.toLowerCase());
     assert.ok(!(await lstat(target)).isSymbolicLink());
     await writeFile(join(output, "changed-cookie.json"), await readFile(target));
@@ -131,7 +150,12 @@ try {
       await unlink(previousTarget);
       assert.equal(await Bun.file(previousTarget).exists(), false);
     }
+    }
     assert.deepEqual(await inventory(), before);
+    if(!cookieRootExisted){
+      try{const stat=await lstat(cookieRoot);assert.ok(stat.isDirectory()&&!stat.isSymbolicLink());assert.equal((await realpath(cookieRoot)).toLowerCase(),cookieRoot.toLowerCase());assert.deepEqual(await readdir(cookieRoot),[]);await rmdir(cookieRoot);}
+      catch(error){if(/** @type {any} */(error).code!=='ENOENT')throw error;}
+    }
   } catch (error) { errors.push(String(error)); }
   for (const row of originals) {
     try {
@@ -149,3 +173,6 @@ try {
   console.log(JSON.stringify({ restoration: output, workspaceRestored: restored.length, errors }));
   if (errors.length) throw Error(errors.join("\n"));
 }
+};
+if(selectedIdentifier===integrationProbeIdentifier)await preserveNativeProfile(run);
+else await run();

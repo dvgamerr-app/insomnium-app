@@ -109,6 +109,12 @@ pub(crate) enum Command {
     rename_all_fields = "camelCase"
 )]
 pub enum Event {
+    ObjectUrl {
+        request: String,
+        method: String,
+        args_wire: String,
+        replayed: bool,
+    },
     Checkpoint {
         operation: String,
     },
@@ -141,6 +147,12 @@ pub enum Event {
     deny_unknown_fields
 )]
 enum Frame {
+    ObjectUrl {
+        protocol: u32,
+        request_id: u64,
+        method: String,
+        args_wire: String,
+    },
     Checkpoint {
         protocol: u32,
         call_id: String,
@@ -200,6 +212,15 @@ struct Active {
     transferred: usize,
     pending: HashMap<String, (u64, Option<Instant>, bool)>,
     file_requests: HashSet<String>,
+}
+
+#[cfg(windows)]
+struct ObjectUrlRequest {
+    token: String,
+    child_id: u64,
+    started: Instant,
+    queued: Option<Event>,
+    replayed: bool,
 }
 fn ancestry(frames: &HashMap<String, Active>, capability: &str) -> Result<Vec<String>, String> {
     let mut result = Vec::new();
@@ -483,6 +504,7 @@ fn allowed(namespace: &str, method: &str, active: &Active) -> bool {
                         | "dom.tokens"
                         | "dom.dataset"
                         | "dom.style"
+                        | "dom.url.create"
                         | "dom.dialog"
                         | "dom.listen"
                         | "dom.unlisten"
@@ -743,7 +765,11 @@ impl Pipes {
                             .read_until(b'\n', &mut bytes);
                         let packet = match read {
                             Ok(n) if n > 0 && bytes.last() == Some(&b'\n') => Ok(bytes),
-                            Ok(_) => Err("Bun plugin output closed or exceeds its limit".into()),
+                            Ok(0) => Err("Bun plugin output ended before a complete frame".into()),
+                            Ok(_) => {
+                                Err("Bun plugin output frame was truncated or exceeds its limit"
+                                    .into())
+                            }
                             Err(error) => Err(error.to_string()),
                         };
                         let done = packet.is_err();
@@ -832,13 +858,41 @@ fn run(
     let mut pipes = Pipes::new(&sandbox, &|| lease.check())?;
     let initialized = pipes.process.started();
     let mut pumps: Vec<String> = Vec::new();
+    let mut object_url: Option<ObjectUrlRequest> = None;
+    let mut deferred_event: Option<Command> = None;
+    let mut last_object_url = 0;
+    let mut completed_object_urls = HashSet::new();
     let result = (|| {
         pipes.send(serde_json::json!({"protocol":1,"jobId":id,"name":snapshot.name,"entry":snapshot.entry,"format":snapshot.format,"mode":"session","syncHandle":pipes.sync_handle.to_string()}))?;
         let mut snapshot = Some(snapshot);
         let mut idle_cpu = Duration::ZERO;
         loop {
             lease.check()?;
+            if object_url
+                .as_ref()
+                .is_some_and(|request| request.started.elapsed() > Duration::from_secs(4))
+            {
+                return Err("Bun object URL reply exceeded 4 seconds".into());
+            }
             if pipes.process.exited()?.is_some() {
+                // An initialization error can still be buffered after the process exits.
+                if snapshot.is_some() {
+                    let remaining = Duration::from_secs(2).saturating_sub(initialized.elapsed());
+                    if let Ok(Ok(bytes)) = pipes.output.as_ref().unwrap().recv_timeout(remaining) {
+                        if let Ok(Frame::Error {
+                            protocol: 1,
+                            job_id,
+                            error,
+                        }) = serde_json::from_slice(&bytes)
+                        {
+                            if job_id == id && error.len() <= 8192 {
+                                lease.check()?;
+                                return Err(error);
+                            }
+                        }
+                    }
+                    lease.check()?;
+                }
                 return Err("Bun plugin process exited".into());
             }
             let cpu = pipes.process.cpu_time()?;
@@ -874,13 +928,58 @@ fn run(
                 // shortcut: idle work shares a CPU lease, add owned-task accounting before activation.
                 return Err("Bun plugin idle tasks exceeded their CPU limit".into());
             }
-            match commands.try_recv() {
+            let command = if object_url.is_none() {
+                deferred_event
+                    .take()
+                    .map(Ok)
+                    .unwrap_or_else(|| commands.try_recv())
+            } else {
+                commands.try_recv()
+            };
+            match command {
                 Ok(
                     command @ (Command::Invoke(..)
                     | Command::InvokeEvent(..)
                     | Command::InvokeNested(..)
                     | Command::InvokeSibling(..)),
                 ) => {
+                    if let Some(pending) = object_url
+                        .as_mut()
+                        .filter(|_| !matches!(&command, Command::Invoke(..)))
+                    {
+                        if let Some(Event::ObjectUrl {
+                            request,
+                            method,
+                            args_wire,
+                            ..
+                        }) = pending.queued.take()
+                        {
+                            let sender = match &command {
+                                Command::InvokeEvent(_, sender)
+                                | Command::InvokeNested(_, _, sender)
+                                | Command::InvokeSibling(_, _, sender) => sender,
+                                _ => {
+                                    return Err(
+                                        "Bun callback cannot overtake an object URL request".into(),
+                                    )
+                                }
+                            };
+                            if deferred_event.is_some() {
+                                return Err("Bun object URL event is already waiting".into());
+                            }
+                            sender
+                                .try_send(Event::ObjectUrl {
+                                    request,
+                                    method,
+                                    args_wire,
+                                    replayed: true,
+                                })
+                                .map_err(|_| "Bun object URL event owner disappeared")?;
+                            deferred_event = Some(command);
+                            pending.replayed = true;
+                            continue;
+                        }
+                    }
                     let (input, reply, event_steps, parent, sibling) = match command {
                         Command::Invoke(input, reply) => (input, reply, None, None, false),
                         Command::InvokeEvent(input, sender) => {
@@ -1017,6 +1116,27 @@ fn run(
                         } => (request, wire, error, reply),
                         _ => unreachable!(),
                     };
+                    if !file_only && completed_object_urls.remove(&request) {
+                        let _ = reply.send(Ok(()));
+                        continue;
+                    }
+                    if !file_only
+                        && object_url
+                            .as_ref()
+                            .is_some_and(|pending| pending.token == request)
+                    {
+                        let pending = object_url.take().unwrap();
+                        if pending.replayed {
+                            if completed_object_urls.len() >= 64 {
+                                return Err("Bun object URL acknowledgement limit exceeded".into());
+                            }
+                            completed_object_urls.insert(request);
+                        }
+                        let response = pipes.send_to(serde_json::json!({"type":"object-url-result","protocol":1,"requestId":pending.child_id,"wire":wire,"error":error}), true);
+                        let _ = reply.send(response.clone());
+                        response?;
+                        continue;
+                    }
                     let owner = active
                         .iter()
                         .find(|(_, frame)| {
@@ -1064,6 +1184,51 @@ fn run(
                     let frame: Frame =
                         serde_json::from_slice(&bytes?).map_err(|_| "Invalid Bun plugin frame")?;
                     match frame {
+                        Frame::ObjectUrl {
+                            protocol: 1,
+                            request_id,
+                            method,
+                            args_wire,
+                        } if object_url.is_none()
+                            && request_id > last_object_url
+                            && request_id <= 9_007_199_254_740_991
+                            && matches!(
+                                method.as_str(),
+                                "begin" | "chunk" | "commit" | "abort" | "revoke" | "unlisten"
+                            )
+                            && args_wire.len() <= HELPER_LIMIT =>
+                        {
+                            last_object_url = request_id;
+                            let token = uuid::Uuid::new_v4().to_string();
+                            let event = Event::ObjectUrl {
+                                request: token.clone(),
+                                method,
+                                args_wire,
+                                replayed: false,
+                            };
+                            let queued = if let Some(sender) = pumps
+                                .last()
+                                .and_then(|owner| active.get(owner))
+                                .and_then(|frame| frame.event_steps.as_ref())
+                            {
+                                sender
+                                    .try_send(event)
+                                    .map_err(|_| "Bun object URL event queue unavailable")?;
+                                None
+                            } else {
+                                events
+                                    .send(event.clone())
+                                    .map_err(|_| "Bun object URL owner disappeared")?;
+                                Some(event)
+                            };
+                            object_url = Some(ObjectUrlRequest {
+                                token,
+                                child_id: request_id,
+                                started: Instant::now(),
+                                queued,
+                                replayed: false,
+                            });
+                        }
                         Frame::Metadata {
                             protocol: 1,
                             job_id,
@@ -1273,10 +1438,11 @@ fn run(
     {
         let peak_memory = peak_memory?;
         eprintln!("bun_session_job_peak_bytes={peak_memory}");
-        assert!(
-            peak_memory <= 128 * 1024 * 1024,
-            "Bun session exceeded its original job memory budget: {peak_memory}"
-        );
+        if peak_memory > 128 * 1024 * 1024 {
+            return Err(format!(
+                "Bun session exceeded its original job memory budget: {peak_memory}"
+            ));
+        }
     }
     result
 }

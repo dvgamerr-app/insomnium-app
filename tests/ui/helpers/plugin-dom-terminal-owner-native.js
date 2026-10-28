@@ -28,6 +28,13 @@ export function pluginDomTerminalNativeSource(helper){
 /** @param {{page:import('playwright-core').Page,invoke:import('./native-app.js').NativeInvoke,output:string,wire:any[],requestId:string,plugin:string,baseUrl:string,body:(text:string)=>Promise<void>,releaseHeld:()=>void}} context */
 export async function exercisePluginDomTerminalOwnerNative({page,invoke,output,wire,requestId,plugin,baseUrl,body,releaseHeld}){
   const checks=[],observations=/** @type {any[]} */([]),reported=/** @type {string[]} */([]);
+  const bun=process.env.INSOMNIUM_BUN_PLUGIN_WORKFLOW==='1',nativeSnapshots=/** @type {any[]} */([]);
+  const nativeRetired=async()=>{
+    const reserved=[];
+    try{for(let index=0;index<3;index++)reserved.push(await invoke('reserve_plugin_inspection'));return true;}
+    catch{return false;}
+    finally{for(const id of reserved)assert.equal(await invoke('cancel_plugin_inspection',{id}),true);}
+  };
   const listener=(/** @type {import('playwright-core').ConsoleMessage} */ message)=>{if(message.type()==='error')reported.push(message.text());};
   page.on('console',listener);
   const dialog=()=>page.getByRole('dialog',{name:'Native terminal dialog',exact:true});
@@ -39,7 +46,7 @@ export async function exercisePluginDomTerminalOwnerNative({page,invoke,output,w
     await page.waitForFunction(()=>document.querySelector('.plugins-panel')?.getAttribute('aria-busy')==='false');
     const card=page.locator('.plugin-card').filter({has:page.getByRole('heading',{name:plugin,exact:true})});
     await click(card.getByRole('button',{name:action,exact:true}));
-    if(action==='Load plugin')await card.getByText('Plugin loaded in isolation. Custom template tags are available to request rendering. Hooks and actions are not connected yet.',{exact:true}).waitFor();
+    if(action==='Load plugin')await card.getByText('Plugin loaded in isolation. Supported template tags, hooks, actions and themes are available.',{exact:true}).waitFor();
     await click(page.getByRole('button',{name:'Close Preferences',exact:true}));
   };
   const changeSource=async()=>{
@@ -58,7 +65,7 @@ export async function exercisePluginDomTerminalOwnerNative({page,invoke,output,w
       assert.equal(wire.at(-1).body,'native-terminal-value');assert.equal(new URL(wire.at(-1).url).pathname,path);
       if(!heldRoot)await page.getByRole('button',{name:'Send',exact:true}).waitFor();
       const node=await dialog().locator('.plugin-dom-body > div').elementHandle();assert.ok(node);
-      const workerIndex=await node.evaluate(element=>/** @type {any} */(window).__pluginWorkerProbe.trackTerminalNode(element));
+      const workerIndex=bun?undefined:await node.evaluate(element=>/** @type {any} */(window).__pluginWorkerProbe.trackTerminalNode(element));
       if(action.startsWith('active-')||action==='queued-abort'){
         await dialog().getByRole('button',{name:'Hold native terminal helper',exact:true}).click();
         await poll(async()=>wire.length===before+2,'Retained guest helper reaches actual native HTTP peer');
@@ -76,9 +83,9 @@ export async function exercisePluginDomTerminalOwnerNative({page,invoke,output,w
       else await changeSource();
       await dialog().waitFor({state:'detached'});
       if(fatal){
-        await poll(async()=>(await pluginWorkerRecords(page))[workerIndex].terminated,'Native bounded faulty cleanup retirement',12000);
+        await poll(bun?nativeRetired:async()=>(await pluginWorkerRecords(page))[workerIndex].terminated,'Native bounded faulty cleanup retirement',12000);
         assert.equal(await node.getAttribute('data-cleanup-count'),'1');assert.ok(reported.length>beforeErrors);
-        const errors=reported.slice(beforeErrors);assert.match(errors.join('\n'),action==='throw'?/native terminal cleanup failure/:action==='cpu'?/interrupted/:/cleanup exceeded 5 seconds/i);
+        const errors=reported.slice(beforeErrors);assert.match(errors.join('\n'),action==='throw'?/native terminal cleanup failure/:action==='cpu'?(bun?/CPU limit/:/interrupted/):(bun?/cleanup exceeded 5 seconds|exceeded its wall deadline/i:/cleanup exceeded 5 seconds/i));
         observations.push({action,mode,workerIndex,cleanupStarted:true,elapsedMs:Date.now()-started,reported:errors});
       }else{
         await poll(async()=>await node.evaluate(element=>element.textContent)==='cleanup:true','Actual native detached async onHide finishes before held remote replies');
@@ -94,14 +101,15 @@ export async function exercisePluginDomTerminalOwnerNative({page,invoke,output,w
       assert.equal(await invoke('plugin_store',{plugin,operation:{action:'hasItem',key:'terminal-forbidden'}}),false);
       observations.at(-1).lateSuppression={stableForMs:750,noAdditionalWire:true,noReopen:true,forbiddenStoreAbsent:true};
       checks.push(action+': actual native ownership revocation/Close preserves exactly-once detached onHide or reports bounded faulty cleanup');
+      if(bun)nativeSnapshots.push(await node.evaluate(body=>({text:body.textContent,count:body.getAttribute('data-cleanup-count'),connected:body.isConnected,mode:body.getAttribute('data-cleanup-mode')})));
       await node.dispose();
       if(action!=='unload'&&action!=='active-unload'&&action!=='close-unload')await catalog('Unload plugin');
-      await poll(async()=>(await pluginWorkerRecords(page))[workerIndex].terminated,'Original native terminal worker retired');
+      await poll(bun?nativeRetired:async()=>(await pluginWorkerRecords(page))[workerIndex].terminated,'Original native terminal VM retired');
       await catalog('Load plugin');
     }
     await page.getByRole('textbox',{name:'Request URL',exact:true}).fill(baseUrl+'/render');
     await poll(async()=>(await saved()).url===baseUrl+'/render','Native terminal original root URL restored');
-    const records=await pluginWorkerRecords(page),snapshots=records.flatMap((/** @type {any} */ row)=>row.terminalCleanup);
+    const records=await pluginWorkerRecords(page),snapshots=bun?nativeSnapshots:records.flatMap((/** @type {any} */ row)=>row.terminalCleanup);
     assert.equal(snapshots.length,12);assert.ok(snapshots.every((/** @type {any} */ row)=>row.count==='1'&&row.connected===false));
     assert.equal(snapshots.filter((/** @type {any} */ row)=>row.text==='cleanup:true').length,9);
     const evidence={status:'passed',checks,observations,reported,snapshots,wire:wire.filter(row=>new URL(row.url).pathname==='/dom-terminal-helper-held'),clipboardTouched:false,

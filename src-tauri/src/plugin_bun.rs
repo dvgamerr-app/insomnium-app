@@ -255,6 +255,9 @@ pub(crate) fn inspect(
     if errors.len() > 65536 {
         return Err("Plugin inspection error output exceeds its limit".into());
     }
+    if code != 0 && output.is_empty() {
+        return Err("Plugin inspection process failed before initialization completed".into());
+    }
     let metadata = reply(&output, &job_id)?;
     if code != 0 {
         return Err("Plugin inspection process failed".into());

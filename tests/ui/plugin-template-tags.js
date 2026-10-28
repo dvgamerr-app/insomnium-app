@@ -6,6 +6,8 @@ import {
   unlink,
   realpath,
   lstat,
+  readdir,
+  rmdir,
 } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import {pathToFileURL} from "node:url";
@@ -13,13 +15,15 @@ import { createHash } from "node:crypto";
 import { newRequest } from "../../src/lib/model.js";
 import { builtinTemplateNames } from "../../src/lib/template-registration.js";
 import { withNativeApp, poll, probeIdentifier, integrationProbeIdentifier, selectedNativeProbeIdentifier } from "./helpers/native-app.js";
-import { preserveNativeProfile } from "./helpers/native-profile-preservation.js";
+import { preserveNativeProfile, cookieLifecycleFile, validateCookieLifecycle } from "./helpers/native-profile-preservation.js";
 import {
   installPluginWorkerProbe,
   pluginWorkerRecords,
   restorePluginWorkerProbe,
 } from "./helpers/plugin-worker-probe.js";
 import { withIpcSuccessHook } from "./helpers/ipc-success-hook.js";
+import { withIpcAudit } from "./helpers/ipc-audit.js";
+import { exercisePluginTheme } from "./helpers/dialog-theme.js";
 import { createPluginOAuthFixture } from "./helpers/plugin-oauth-native.js";
 import { createPluginGrpcFixture } from "./helpers/plugin-grpc-native.js";
 import { pluginAppInfoSource, exercisePluginAppInfoNative } from "./helpers/plugin-app-info-native.js";
@@ -38,9 +42,18 @@ import {
 
 const actionsMode=process.env.INSOMNIUM_PLUGIN_ACTIONS==="1";
 const hooksMode = process.env.INSOMNIUM_PLUGIN_HOOKS === "1";
-const editorMode = process.env.INSOMNIUM_TEMPLATE_TAG_EDITOR === "1";
 const helperMode = process.env.INSOMNIUM_PLUGIN_HELPERS === "1";
+const editorMode = process.env.INSOMNIUM_TEMPLATE_TAG_EDITOR === "1";
+const restartMode = process.env.INSOMNIUM_PLUGIN_RESTART === "1";
+const themeMode = restartMode || process.env.INSOMNIUM_PLUGIN_THEME_UI === "1";
+const bunWorkflowMode = process.env.INSOMNIUM_BUN_PLUGIN_WORKFLOW === "1";
+if (bunWorkflowMode) {
+  assert.ok(hooksMode || actionsMode || helperMode || editorMode || themeMode, "Select an existing native plugin scenario for Bun workflow");
+  const build = await Bun.file(process.env.INSOMNIUM_UI_BUILD_STATE ?? "").json();
+  assert.equal(build.runtime, "bun-workspace-candidate", "Use the explicitly bound Bun workspace candidate");
+}
 if(actionsMode&&(hooksMode||editorMode||helperMode))throw Error("Choose only the plugin actions scenario mode");
+if(themeMode&&(actionsMode||hooksMode||editorMode||helperMode))throw Error('Choose only the plugin themes scenario mode');
 const cookieMode = helperMode && process.env.INSOMNIUM_PLUGIN_HELPER_COOKIES === "1";
 const protocolMode = helperMode && process.env.INSOMNIUM_PLUGIN_HELPER_PROTOCOLS === "1";
 const oauthMode = helperMode && process.env.INSOMNIUM_PLUGIN_HELPER_OAUTH === "1";
@@ -74,6 +87,7 @@ const publicNames = [
 ];
 assert.ok(process.env.APPDATA);
 const selectedIdentifier = selectedNativeProbeIdentifier();
+if(restartMode){assert.ok(bunWorkflowMode,'Restart checks require the Bun workspace candidate');assert.equal(selectedIdentifier,integrationProbeIdentifier,'Restart checks require full integration profile preservation');}
 assert.ok([probeIdentifier,integrationProbeIdentifier].includes(selectedIdentifier));
 const storeRoot = resolve(process.env.APPDATA, selectedIdentifier);
 assert.equal(
@@ -81,6 +95,12 @@ assert.equal(
   storeRoot.toLowerCase(),
 );
 const storePath = join(storeRoot, "plugin-data-v1.json");
+const cookieRoot=join(storeRoot,'cookies');
+let ownsCookieDirectory=false;
+if(cookieMode){
+  try{const stat=await lstat(cookieRoot);assert.ok(stat.isDirectory()&&!stat.isSymbolicLink());assert.equal((await realpath(cookieRoot)).toLowerCase(),cookieRoot.toLowerCase());}
+  catch(error){if(/** @type {any} */(error).code==='ENOENT')ownsCookieDirectory=true;else throw error;}
+}
 /** @type {Buffer | undefined} */
 let originalStore;
 try {
@@ -125,11 +145,15 @@ const server = Bun.serve({
     message(socket,message) {const text=String(message);socketMessages.push(text);socket.send(text);},
   },
 });
+/** @type {{expected:any,requestId:string,themeId:string,parentOutput:string,wireCount:number}|undefined} */
+let restartContinuation;
+const ownedCookieFiles=/** @type {string[]} */([]);
+let cookieBytes=/** @type {Buffer|undefined} */(undefined);
 const run = async () => {
 try {
   await withNativeApp(
     editorMode ? "plugin-template-editor" : "plugin-template-tags",
-    async ({ page, invoke, output }) => {
+    async ({ page, invoke, output, requestNativeClose }) => {
       const original = await invoke("load_workspace"),
         collection = "wrk_plugin_render_" + Date.now(),
         requestId = "req_plugin_render_" + Date.now(),
@@ -167,7 +191,7 @@ try {
       {name:'not callable',run(){throw Error('unparseable declaration must not break other tags');}},
       {name:'persist',async run(c){await c.store.setItem('value','stored');return await c.store.getItem('value');}},
       {name:'hold',async run(c){await c.store.getItem('gate');await c.store.setItem('forbidden','leaked');return 'held';}},
-      {name:'throwing',run(){throw Error('owned plugin failure');}}
+      {name:'throwing',run(c,mode){throw Error(mode==='unicode'?'ก'.repeat(4000):'owned plugin failure');}}
     ];` + (helperMode ? `exports.templateTags.push({name:'workspacehelper',async run(c){
       const saved=await c.util.models.request.getById(${JSON.stringify(helperRequestId)});
       const w=await c.util.models.workspace.getById(${JSON.stringify(collection)});
@@ -189,6 +213,7 @@ try {
       sourceB += oauthFixture?.source(helperRequestId, collection) ?? "";
       sourceB += grpcFixture?.source(helperRequestId, collection) ?? "";
       if (appInfoMode) sourceB += pluginAppInfoSource;
+      if (themeMode) sourceB += `exports.themes=[{name:'ocean',displayName:'Ocean',theme:{background:{default:'#123456'},styles:{sidebar:{background:{default:'#234567'}}},rawCss:'[theme="ocean"] { --theme-probe: active; }'}}];`;
       if (domOwnerMode) sourceB += pluginDomOwnerNativeSource(helperRequestId);
       if (domTerminalMode) sourceB += pluginDomTerminalNativeSource(requestId+'_terminal_helper');
       if (domCollectionsMode) sourceB += pluginDomCollectionsNativeSource();
@@ -197,6 +222,7 @@ try {
       if(hooksMode)sourceB+=`
         exports.requestHooks=[async c=>{
           const source=c.request.getBody().text;
+          c.request.setHeader('X-Rendered-Tag',source);
           if(source==='cancel-request-hook')await c.app.prompt('Cancel request hook',{defaultValue:'must-not-send'});
           c.request.getEnvironment().waitResponse=source==='cancel-response-hook';
           if(c.request.getBody().text==='refuse-hook')throw Error('owned hook refusal');
@@ -239,8 +265,11 @@ try {
             version: "1.0.0",
             insomnia: {},
             main: "index.js",
+            ...(bunWorkflowMode && index === 1 ? { type: "module" } : {}),
           }),
-          "index.js": source,
+          "index.js": bunWorkflowMode && index === 1
+            ? source.replace(/exports\.(templateTags|requestHooks|responseHooks|requestActions|requestGroupActions|workspaceActions|documentActions|themes)=/g, "export const $1=").replace(/exports\.templateTags\.push/g,"templateTags.push")
+            : source,
         })) {
           const path = join(directory, file);
           await Bun.write(path, text);
@@ -393,11 +422,16 @@ try {
         });
       };
       try {
+        await invoke("save_workspace", { data: seed });
         if (cookieMode) {
-          const cookieFiles = [collection + ".json", collection + ".previous.json"];
+          const lifecycle=validateCookieLifecycle(await readFile(join(storeRoot,cookieLifecycleFile))),epoch=lifecycle.owners[collection];
+          assert.equal(typeof epoch,'string');
+          const cookieBase=collection+(epoch?'.'+epoch:'');
+          const cookieFiles = [cookieBase + ".json", cookieBase + ".previous.json"];
           for (const name of cookieFiles)
             assert.equal(await Bun.file(join(storeRoot, "cookies", name)).exists(), false,
               "Owned fixture cookie file must not pre-exist");
+          ownedCookieFiles.push(...cookieFiles.map(name=>join(storeRoot,'cookies',name)));
           await Bun.write(join(output, "cookie-fixture.json"), JSON.stringify({ collection, cookieFiles }, null, 2));
           await invoke("change_cookie", {
             workspaceId: collection, url: "https://api.example.test/cookie/child",
@@ -433,20 +467,83 @@ try {
           assert.equal(normal.cookies.length, 2);
           assert.equal(normal.cookies.some((/** @type {any} */ item) => item.key === "owned_expiry"), false);
           assert.equal(model.cookies.length, 3);
+          cookieBytes=await readFile(ownedCookieFiles[0]);
+          await writeFile(join(output,'cookie-persisted.json'),cookieBytes);
           await Bun.write(join(output, "cookie-expiry-control.json"), JSON.stringify({ expiredCookieExpiry, observedAt: Date.now(), normal, model, expiryProbes }, null, 2));
         }
-        await invoke("save_workspace", { data: seed });
         await page.reload();
         await page.locator(".app-shell").waitFor();
         await installPluginWorkerProbe(page);
         await preferences();
-        await load(names[1]);
-        await load(names[0]);
+        const loadBoth = async () => { await load(names[1]); await load(names[0]); };
+        const opening = bunWorkflowMode ? await withIpcAudit(page,'open_bun_plugin_session',loadBoth) : (await loadBoth(),undefined);
+        if (opening) assert.deepEqual({calls:opening.calls,completed:opening.completed},{calls:2,completed:2},'Both plugins opened through Bun');
         await closePreferences();
+        if(restartMode){
+          const themeId='plugin:'+names[1]+':ocean';
+          await preferences();await page.getByRole('tab',{name:'General',exact:true}).click();
+          await page.getByRole('combobox',{name:'Theme',exact:true}).selectOption(themeId);
+          await page.waitForFunction(()=>document.body.getAttribute('theme')==='ocean');
+          await closePreferences();
+          await body('{% persist %}');await send('stored');
+          assert.equal(await invoke('plugin_store',{plugin:names[1],operation:{action:'hasItem',key:'forbidden'}}),false);
+          await body('{% hold %}');
+          const expected=await invoke('load_workspace');
+          restartContinuation={expected,requestId,themeId,parentOutput:output,wireCount:wire.length};
+          let hooks=0;
+          /** @type {Promise<any>|undefined} */let closing;
+          const held=await withIpcSuccessHook(page,'plugin_store',async()=>{
+            hooks++;closing=requestNativeClose();await closing;
+          },async()=>{
+            await page.getByRole('button',{name:'Send',exact:true}).click();
+            await poll(()=>Promise.resolve(!!closing),'Native held store read reaches close boundary');
+            return await closing;
+          },{allowPageClosure:true});
+          assert.equal(hooks,1,'Exactly one real store reply held across WM_CLOSE');
+          assert.equal(wire.length,restartContinuation.wireCount,'Held render never reaches HTTP');
+          await Bun.write(join(output,'close-acceptance.json'),JSON.stringify({passed:true,held,hooks,wireCount:wire.length,themeId,runtime:'bun',checks:['real store read held during user close','WM_CLOSE exits through renderer shutdown without force','held render does not send HTTP'],reopenScope:'Fresh process is checked in the following saved scenario'},null,2));
+          return;
+        }
+        if(themeMode){
+          const themeId='plugin:'+names[1]+':ocean';
+          await preferences();await page.getByRole('tab',{name:'General',exact:true}).click();
+          const root=page.getByRole('region',{name:'Preferences',exact:true});
+          const themeChecks=await exercisePluginTheme({page,root,themeId,unload:async()=>{
+            await page.getByRole('tab',{name:'Plugins',exact:true}).click();
+            await card(names[1]).getByRole('button',{name:'Unload plugin',exact:true}).click();
+            await page.getByRole('tab',{name:'General',exact:true}).click();
+          }});
+          await poll(async()=>{const settings=(await invoke('load_workspace')).settings;return settings.theme==='light'&&settings.autoDetectColorScheme===false&&settings.darkTheme===themeId&&settings.lightTheme==='light';},'Native theme choices persisted');
+          await page.getByRole('tab',{name:'Plugins',exact:true}).click();await load(names[1]);
+          await page.getByRole('tab',{name:'General',exact:true}).click();
+          await root.getByRole('combobox',{name:'Theme',exact:true}).selectOption(themeId);
+          await page.waitForFunction(()=>document.body.getAttribute('theme')==='ocean');
+          await poll(async()=>(await invoke('load_workspace')).settings.theme===themeId,'Plugin theme saved before reopen');
+          const beforeNavigation=await invoke('reserve_plugin_inspection');
+          assert.equal(await invoke('cancel_plugin_inspection',{id:beforeNavigation}),true,'Spare native slot available before reload');
+          await page.reload();await page.locator('.app-shell').waitFor();
+          await preferences();await load(names[1]);await load(names[0]);
+          await page.getByRole('tab',{name:'General',exact:true}).click();
+          await page.waitForFunction(()=>document.body.getAttribute('theme')==='ocean');
+          assert.equal(await root.getByRole('combobox',{name:'Theme',exact:true}).inputValue(),themeId);
+          const afterNavigation=[];
+          try{
+            afterNavigation.push(await invoke('reserve_plugin_inspection'));
+            afterNavigation.push(await invoke('reserve_plugin_inspection'));
+            await assert.rejects(()=>invoke('reserve_plugin_inspection'),/Too many pending plugin inspections/,'Two loaded sessions still enforce the four-slot bound');
+          }finally{
+            for(const id of afterNavigation)assert.equal(await invoke('cancel_plugin_inspection',{id}),true,'Reload retires both old sessions and restores both spare slots');
+          }
+          await root.getByRole('combobox',{name:'Theme',exact:true}).selectOption('light');
+          await page.waitForFunction(()=>!document.querySelector('style[data-plugin-theme]'));
+          await Bun.write(join(output,'theme-acceptance.json'),JSON.stringify({passed:true,checks:[...themeChecks,'native settings persistence and page reopen with explicit plugin Load','reload restores both spare native slots while retaining the four-session bound'],themeId,opening,runtime:bunWorkflowMode?'bun':'quickjs',renderingMode:'native-hidden',reopenScope:'Page reload; not native app restart/OS-close'},null,2));
+          return;
+        }
         if(actionsMode){
           await body('action-body');await send('action-body');
           const baseline=JSON.stringify((await invoke('load_workspace')).resources.find((/** @type {any} */r)=>r._id===requestId));
-          const runAction=async(/** @type {string} */type,/** @type {import('playwright-core').Locator} */root)=>{
+          const actionCallbacks=/** @type {{kind:string,calls:number,completed:number}[]} */([]);
+          const performAction=async(/** @type {string} */type,/** @type {import('playwright-core').Locator} */root)=>{
             await root.locator('.plugin-resource-actions summary').click();
             await root.getByRole('button',{name:'Native '+type+' action · '+names[1],exact:true}).click();
             const alert=page.getByRole('dialog',{name:'Native '+type+' action',exact:true});
@@ -454,6 +551,12 @@ try {
             if(await root.locator('.inline-error').count())throw Error(await root.innerText());
             await alert.getByRole('button',{name:'Ok',exact:true}).click();
             await root.getByRole('status').filter({hasText:'Action completed.'}).waitFor();
+          };
+          const runAction=async(/** @type {string} */type,/** @type {import('playwright-core').Locator} */root)=>{
+            if(!bunWorkflowMode)return performAction(type,root);
+            const result=await withIpcAudit(page,'invoke_bun_plugin_callback',()=>performAction(type,root));
+            assert.deepEqual({calls:result.calls,completed:result.completed},{calls:1,completed:1},'One native Bun callback for '+type+' action');
+            actionCallbacks.push({kind:type,calls:result.calls,completed:result.completed});
           };
           await page.getByRole('button',{name:'Move or manage request',exact:true}).click();
           let manager=page.getByRole('dialog',{name:'Manage request',exact:true});await runAction('request',manager);
@@ -471,11 +574,17 @@ try {
           assert.equal(JSON.stringify(actual.resources.find((/** @type {any} */r)=>r._id===requestId)),baseline,'Action request argument remains detached');
           assert.equal(actual.resources.filter((/** @type {any} */r)=>r.name==='Imported '+requestId).length,3,'Raw/HTTP/file imports persisted exactly once');
           assert.equal(wire.length,2,'One baseline Send and one URI HTTP GET; HAR never sends root request');
-          await Bun.write(join(output,'actions-acceptance.json'),JSON.stringify({passed:true,renderingMode:'native-hidden',checks:['full-page four action menus/arguments/alerts','JSON/HAR export privacy/history','raw/HTTP/file import with unchanged selection','source isolation and exact two HTTP requests'],wire,requestId,collection},null,2));
+          let runtime;
+          if(bunWorkflowMode){assert.equal((await pluginWorkerRecords(page)).length,0,'Actions did not execute a QuickJS plugin worker');runtime={name:'bun',loadedFormats:['commonjs','module'],actionFormat:'module',opening,actionCallbacks,quickJSWorkers:0,defaultRuntimeChanged:false};}
+          await Bun.write(join(output,'actions-acceptance.json'),JSON.stringify({passed:true,renderingMode:'native-hidden',checks:['full-page four action menus/arguments/alerts','JSON/HAR export privacy/history','raw/HTTP/file import with unchanged selection','source isolation and exact two HTTP requests'],wire,requestId,collection,runtime},null,2));
           return;
         }
         if(hooksMode){
-          await body('hook-source');await send('hook-wire');
+          const authoredBody=bunWorkflowMode?'{% dup %}':'hook-source';
+          await body(authoredBody);
+          const callbacks=bunWorkflowMode?await withIpcAudit(page,'invoke_bun_plugin_callback',()=>send('hook-wire')):(await send('hook-wire'),undefined);
+          if(callbacks){assert.ok(callbacks.calls>0,'Send invoked native Bun callbacks');assert.equal(callbacks.completed,callbacks.calls);}
+          assert.equal(wire.at(-1).headers['x-rendered-tag'],bunWorkflowMode?'B':'hook-source');
           assert.equal(new URL(wire.at(-1).url).pathname,'/render/hooked');
           assert.equal(wire.at(-1).headers['x-hook'],'second');
           assert.match(wire.at(-1).headers.cookie,/hook=cookie/);
@@ -486,7 +595,7 @@ try {
           assert.equal(Buffer.from(history.bodyBase64,'base64').toString(),'hook-response-final');
           assert.equal(history.size,Buffer.byteLength('plugin-render-accepted'));
           assert.equal(history.bytesContent,Buffer.byteLength('hook-response-final'));
-          assert.equal(actual.resources.find((/** @type {any} */r)=>r._id===requestId).body.text,'hook-source');
+          assert.equal(actual.resources.find((/** @type {any} */r)=>r._id===requestId).body.text,authoredBody);
           for(const phase of ['request','response']){
             await body('cancel-'+phase+'-hook');
             const before=wire.length;
@@ -503,9 +612,30 @@ try {
             await body('hook-source');await send('hook-wire');
             checks.push('Root Cancel during '+phase+' hook retires prompt/VM without successful publication; fresh Send recovers');
           }
+          let runtime;
+          if (bunWorkflowMode) {
+            await preferences();
+            const teardown=await withIpcAudit(page,'cancel_plugin_inspection',async()=>{
+              await card(names[1]).getByRole('button',{name:'Unload plugin',exact:true}).click();
+              await page.waitForFunction(()=>/** @type {any} */(window).__ipcAuditFixture.completed>0);
+            });
+            assert.ok(teardown.completed>0,'Unload completed native teardown');
+            await closePreferences();
+            await body('{% dup %}');await send('A-last');
+            assert.equal(wire.at(-1).headers['x-hook'],undefined,'Unloaded request hook cannot mutate Send');
+            assert.equal((await invoke('load_workspace')).history.find((/** @type {any} */r)=>r.requestId===requestId).body,'plugin-render-accepted','Unloaded response hook cannot rewrite history');
+            assert.equal((await pluginWorkerRecords(page)).length,0,'Workflow did not execute a QuickJS plugin worker');
+            await page.reload();await page.locator('.app-shell').waitFor();
+            await preferences();await load(names[1]);await load(names[0]);await closePreferences();
+            await body('{% dup %}');await send('hook-wire');
+            assert.equal(wire.at(-1).headers['x-rendered-tag'],'B');
+            assert.equal((await invoke('load_workspace')).history.find((/** @type {any} */r)=>r.requestId===requestId).body,'hook-response-final');
+            checks.push('Bun CJS/ESM Load, template tag, native hooks/Send/history, unload and explicit reload after page reopen');
+            runtime={name:'bun',formats:['commonjs','module'],opening,callbacks,teardown,quickJSWorkers:0,defaultRuntimeChanged:false};
+          }
           await body('refuse-hook');await send(null);
           checks.push('Native ordered request/header/url/cookie/body mutations, response stream/replacement/shared environment, durable history, source isolation and pre-transport refusal');
-          await Bun.write(join(output,'hook-acceptance.json'),JSON.stringify({passed:true,checks,wire,history,requestId,sourceCommit:'8577b6bc',scenarioSupplement:'tests/ui/plugin-template-tags.js'},null,2));
+          await Bun.write(join(output,'hook-acceptance.json'),JSON.stringify({passed:true,checks,wire,history,requestId,runtime,sourceCommit:'8577b6bc',scenarioSupplement:'tests/ui/plugin-template-tags.js'},null,2));
           return;
         }
         if (editorMode) {
@@ -526,7 +656,7 @@ try {
           });
           checks.push(...editor.checks);
           observations.push(...editor.observations);
-        } else {
+        } else if (!domOwnerMode || protocolMode || cookieMode) {
           if (helperMode) {
             await body("{% workspacehelper %}");
             const before = wire.length;
@@ -566,6 +696,12 @@ try {
             assert.ok(persisted.history.some((/** @type {any} */ entry) => entry.requestId === helperRequestId && entry.httpVersion === "HTTP/1.1"));
             checks.push("Actual workspace helpers: saved-ID native send/extra info/model/body/history/cookie jar/genuine Prompt");
             observations.push({ helper: summary, nativeWire: sent });
+            if(cookieMode){
+              assert.deepEqual(await readFile(ownedCookieFiles[0]),cookieBytes,'Guest cookie edits and request filtering leave the native model file unchanged');
+              assert.equal((await pluginWorkerRecords(page)).length,bunWorkflowMode?0:2);
+              await Bun.write(join(output,'cookie-helper-acceptance.json'),JSON.stringify({passed:true,checks:['native model retains expired record while request snapshot filters it','real plugin cookie jar returns host-only/domain/path/default-path/expiry/secure/httpOnly fields','guest cookie mutation is detached from subsequent model and persisted file','saved-ID child Send and root Send preserve real response/history with genuine Prompt'],summary,opening,wireCount:wire.length,runtime:bunWorkflowMode?'bun':'quickjs',loadedFormats:bunWorkflowMode?['commonjs','module']:['commonjs'],fixture:join(output,'cookie-persisted.json')},null,2));
+              return;
+            }
           }
           if (protocolMode) {
             await page.getByRole("complementary",{name:"Collections"})
@@ -586,7 +722,7 @@ try {
             assert.equal(wire.at(-1).body,"from-extra");
             checks.push("Connected WebSocket payload retains root owner and actual workspace helpers");
             await Bun.write(join(output,"protocol-intermediate.json"),JSON.stringify({socketMessages:[...socketMessages],socketConnections,nativeHttp:wire.slice(before)},null,2));
-            await page.getByRole("textbox",{name:"WebSocket message",exact:true}).fill("{% payloadprompt %}");
+            await page.getByRole("textbox",{name:"WebSocket message",exact:true}).evaluate(el=>/** @type {any} */(el.closest('.CodeMirror')).CodeMirror.setValue("{% payloadprompt %}"));
             await poll(async()=>(await invoke("load_workspace")).resources.find((/** @type {any} */ r)=>r._id===socketPayloadId)?.value==="{% payloadprompt %}","Saved prompt payload");
             await page.getByRole("button",{name:"Send message",exact:true}).click();
             const prompt=page.getByRole("dialog",{name:"Plugin payload cancellation",exact:true});
@@ -596,7 +732,7 @@ try {
             await page.locator("button.send-button").filter({hasText:"Disconnect"})
               .evaluate(element=>/** @type {HTMLButtonElement} */ (element).click());
             await prompt.waitFor({state:"detached"});
-            await page.getByRole("button",{name:"Connect",exact:true}).waitFor();
+            await page.getByRole("button",{name:"Connect and send",exact:true}).waitFor();
             assert.equal(socketMessages.length,2);assert.equal(wire.length,before+2);assert.equal(socketConnections,1);
             checks.push("Disconnect cancels real plugin payload prompt without wire leakage");
             const protocolEvidence={socketMessages:[...socketMessages],socketConnections,nativeHttp:wire.slice(before),
@@ -760,16 +896,13 @@ try {
             await load(names[1]);
             await closePreferences();
           }
-          await body("{% throwing %}");
-          await send(null);
-          await preferences();
-          await card(names[1])
-            .getByText("owned plugin failure", { exact: true })
-            .waitFor();
-          await load(names[1]);
-          await closePreferences();
-          await body("{% dup %}");
-          await send("B");
+          const failures=[{template:'{% throwing %}',message:'owned plugin failure'},...(bunWorkflowMode?[{template:'{% throwing "unicode" %}',message:'ก'.repeat(2730)}]:[])];
+          for(const failure of failures){
+            await body(failure.template);await send(null);await preferences();
+            await card(names[1]).getByText(failure.message,{exact:true}).waitFor();
+            await load(names[1]);await closePreferences();await body('{% dup %}');await send('B');
+          }
+          if(bunWorkflowMode)checks.push('Native long Unicode error stays within 8192 UTF-8 bytes without breaking quarantine or explicit Load recovery');
           checks.push(
             "Guest callback error marks closed registry session and explicit Reload recovers",
           );
@@ -792,20 +925,20 @@ try {
           observations.push({pluginAppInfo:evidence});
           await body("{% dup %}");
         }
-        if (domOwnerMode) {
+        if (domOwnerMode && !domTerminalMode) {
           const evidence=await exercisePluginDomOwnerHttpNative({page,wire,output,body,send});
           checks.push(...evidence.checks);observations.push({pluginDomOwner:evidence});
           await body("{% dup %}");
         }
-        if(domNestedMode){
+        if(domNestedMode && !domTerminalMode){
           const evidence=await exercisePluginDomNestedOwnerNative({page,invoke,output,body,send,wire,requestId,childId:requestId+"_dialog_child",baseUrl:`http://127.0.0.1:${server.port}`,releaseHeld:()=>heldRoots.forEach(release=>release())});
           checks.push(...evidence.checks);observations.push({pluginDomNested:evidence});await body("{% dup %}");
         }
-        if(domStreamFixture){
+        if(domStreamFixture && !domTerminalMode){
           const evidence=await exercisePluginDomStreamOwnerNative({page,invoke,output,wire,fixture:domStreamFixture,ids:{websocket:requestId+"_dialog_websocket",sse:requestId+"_dialog_sse"},rootId:requestId});
           checks.push(...evidence.checks);observations.push({pluginDomStream:evidence});await body("{% dup %}");
         }
-        if(domTerminalMode){
+        if(domTerminalMode && !domCollectionsMode){
           const evidence=await exercisePluginDomTerminalOwnerNative({page,invoke,output,wire,requestId,plugin:names[1],baseUrl:`http://127.0.0.1:${server.port}`,body,releaseHeld:()=>heldRoots.forEach(release=>release())});
           checks.push(...evidence.checks);observations.push({pluginDomTerminal:evidence});await body('{% dup %}');
         }
@@ -829,6 +962,7 @@ try {
         await closePreferences();
         records.push(...(await pluginWorkerRecords(page)));
         assert.ok(records.every((record) => record.terminated));
+        if(bunWorkflowMode)assert.equal(records.length,0,'Helpers did not execute a QuickJS plugin worker');
         const workers = [];
         for (const prefix of ["plugin.worker-", "template.worker-"]) {
           const { readdir } = await import("node:fs/promises");
@@ -884,18 +1018,61 @@ try {
               actual,
               requestId,
               collection,
+              ...(bunWorkflowMode?{runtime:{name:'bun',loadedFormats:['commonjs','module'],...(editorMode?{editorFormat:'module'}:{helperFormat:'module'}),opening,quickJSWorkers:0,defaultRuntimeChanged:false}}:{}),
             },
             null,
             2,
           ),
         );
       } finally {
-        await restorePluginWorkerProbe(page);
-        await invoke("save_workspace", { data: original });
-        assert.deepEqual(await invoke("load_workspace"), original);
+        if(!page.isClosed()){
+          await restorePluginWorkerProbe(page);
+          await invoke("save_workspace", { data: original });
+          assert.deepEqual(await invoke("load_workspace"), original);
+        }
       }
     },
+    {allowNativeClose:restartMode},
   );
+  if(restartMode){
+    assert.ok(restartContinuation);const saved=restartContinuation;
+    await withNativeApp('plugin-template-tags-restart',async({page,invoke,output,requestNativeClose})=>{
+      assert.deepEqual(await invoke('load_workspace'),saved.expected,'Close drained and persisted the original workspace/history');
+      assert.equal(wire.length,saved.wireCount,'Fresh launch does not replay a Send');
+      assert.equal(await invoke('plugin_store',{plugin:names[1],operation:{action:'getItem',key:'value'}}),'stored','Store value survives process restart');
+      assert.equal(await invoke('plugin_store',{plugin:names[1],operation:{action:'hasItem',key:'forbidden'}}),false,'Cancelled old guest never writes after its held read');
+      await installPluginWorkerProbe(page);
+      const reservations=[];
+      try{
+        for(let index=0;index<4;index++)reservations.push(await invoke('reserve_plugin_inspection'));
+        await assert.rejects(()=>invoke('reserve_plugin_inspection'),/Too many pending plugin inspections/);
+      }finally{for(const id of reservations)assert.equal(await invoke('cancel_plugin_inspection',{id}),true);}
+      await page.getByRole('button',{name:'Preferences',exact:true}).first().click();
+      await page.getByRole('tab',{name:'Plugins',exact:true}).click();
+      await page.waitForFunction(()=>document.querySelector('.plugins-panel')?.getAttribute('aria-busy')==='false');
+      for(const name of [names[1],names[0]]){
+        const card=page.locator('.plugin-card').filter({has:page.getByRole('heading',{name,exact:true})});
+        await card.getByRole('button',{name:'Load plugin',exact:true}).click();
+        await card.getByText(readyText,{exact:true}).waitFor();
+      }
+      await page.getByRole('tab',{name:'General',exact:true}).click();
+      await page.waitForFunction(()=>document.body.getAttribute('theme')==='ocean');
+      assert.equal(await page.getByRole('combobox',{name:'Theme',exact:true}).inputValue(),saved.themeId);
+      await page.getByRole('button',{name:'Close Preferences',exact:true}).click();
+      assert.equal(wire.length,saved.wireCount,'Explicit Load does not replay the pending tag');
+      await page.getByRole('tab',{name:'Body',exact:true}).click();
+      await page.locator('.request-editor .CodeMirror').first().evaluate(el=>/** @type {any} */(el).CodeMirror.setValue('{% dup %}'));
+      await poll(async()=>(await invoke('load_workspace')).resources.find((/** @type {any} */r)=>r._id===saved.requestId).body.text==='{% dup %}','Restart body repair saved');
+      await page.getByRole('button',{name:'Send',exact:true}).click();
+      await poll(()=>Promise.resolve(wire.length===saved.wireCount+1),'Explicit Send after restart');
+      await poll(async()=>(await page.getByRole('button',{name:'Cancel',exact:true}).count())===0,'Restart Send settles');
+      assert.equal(wire.at(-1).body,'B');
+      assert.equal((await pluginWorkerRecords(page)).length,0,'Restart still uses Bun');
+      assert.equal(await invoke('plugin_store',{plugin:names[1],operation:{action:'hasItem',key:'forbidden'}}),false);
+      const close=await requestNativeClose();
+      await Bun.write(join(output,'restart-acceptance.json'),JSON.stringify({passed:true,parentOutput:saved.parentOutput,close,checks:['new process restores workspace/history/store/theme','four fresh reservation slots available with no automatic plugin session','old pending tag and Send are not replayed','explicit Load and new native Send succeed','idle loaded sessions close through WM_CLOSE'],runtime:'bun',quickJSWorkers:0,wireCount:wire.length,limits:'Windows user-close and fresh process launch; not OS shutdown, crash or other platforms'},null,2));
+    },{allowNativeClose:true});
+  }
 } finally {
   if(uriOwned){await unlink(uriFixturePath);assert.equal(await Bun.file(uriFixturePath).exists(),false);}
   heldRoots.forEach(release=>release());
@@ -903,6 +1080,15 @@ try {
   server.stop(true);
   oauthFixture?.stop();
   grpcFixture?.stop();
+  for(const path of ownedCookieFiles)if(await Bun.file(path).exists()){
+    const stat=await lstat(path);assert.ok(stat.isFile()&&!stat.isSymbolicLink());
+    assert.equal((await realpath(path)).toLowerCase(),path.toLowerCase());
+    await unlink(path);assert.equal(await Bun.file(path).exists(),false);
+  }
+  if(ownsCookieDirectory){
+    try{const stat=await lstat(cookieRoot);assert.ok(stat.isDirectory()&&!stat.isSymbolicLink());assert.equal((await realpath(cookieRoot)).toLowerCase(),cookieRoot.toLowerCase());assert.deepEqual(await readdir(cookieRoot),[]);await rmdir(cookieRoot);}
+    catch(error){if(/** @type {any} */(error).code!=='ENOENT')throw error;}
+  }
   if (originalStore) {
     await writeFile(storePath, originalStore);
     assert.deepEqual(await readFile(storePath), originalStore);

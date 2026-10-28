@@ -5,9 +5,81 @@ import { withDialogSelection } from "./dialog-selection.js";
 import { pluginTreeSnapshot } from "./plugin-packages.js";
 import { poll } from "./native-app.js";
 import {createPluginValueCodec} from '../../../src/lib/plugin-values.js';
-import {exerciseFileReaderSync,exerciseBlobFiles,exerciseBlobBodies} from './plugin-dom-event-subclass-cases.js';
+import {exerciseFileReaders,exerciseFileReaderSync,exerciseBlobFiles,exerciseBlobBodies,exerciseObjectUrls} from './plugin-dom-event-subclass-cases.js';
+import {compareObjectURLs,checkObjectURLRows,objectURLFetchFails} from './plugin-dom-event-subclass-scenario.js';
 import {installEventCheckpoint} from './plugin-dom-event-checkpoint-cases.js';
 import {createSvelteUiFixturePlugin} from './component-fixture.js';
+
+/** @param {any} realm @param {any} owned */
+function exerciseNativeSignalListeners(realm,owned){
+ const {AbortController,AbortSignal,Event,EventTarget,FileReader,Request}=realm;
+ return [new EventTarget(),new FileReader(),owned].map(target=>{
+  let count=0;const fn=()=>count++,emit=()=>target.dispatchEvent(new Event('owned:signal')),done=AbortSignal.abort();
+  target.addEventListener('owned:signal',fn,{signal:done});emit();const already=count;
+  const first=new AbortController(),second=new AbortController();target.addEventListener('owned:signal',fn,{signal:first.signal});target.addEventListener('owned:signal',fn,{signal:second.signal});second.abort();emit();first.abort();emit();const duplicate=count;
+  const old=new AbortController(),fresh=new AbortController();target.addEventListener('owned:signal',fn,{signal:old.signal});target.removeEventListener('owned:signal',fn);target.addEventListener('owned:signal',fn,{signal:fresh.signal});old.abort();emit();fresh.abort();emit();const manual=count;
+  const once=new AbortController();target.addEventListener('owned:signal',fn,{signal:once.signal,once:true});emit();target.addEventListener('owned:signal',fn);once.abort();emit();target.removeEventListener('owned:signal',fn);const onceCount=count;
+  const hidden=new AbortController();Object.defineProperty(hidden.signal,'aborted',{get(){throw Error('public getter');}});target.addEventListener('owned:signal',fn,{signal:hidden.signal});hidden.abort();emit();const privateState=count;
+  const request=new AbortController(),signal=new Request('http://example.invalid',{signal:request.signal}).signal;target.addEventListener('owned:signal',fn,{signal});request.abort();emit();const requestSignal=count;
+  let NativeEvent=/** @type {any} */(undefined);const probe=new AbortController();probe.signal.addEventListener('abort',(/** @type {any} */event)=>{NativeEvent=event.constructor;});probe.abort();
+  const stopped=new AbortController();stopped.signal.addEventListener('abort',(/** @type {any} */event)=>event.stopImmediatePropagation());target.addEventListener('owned:signal',fn,{signal:stopped.signal});stopped.signal.dispatchEvent(new NativeEvent('abort'));emit();const manualAbortEvent=count;stopped.abort();emit();const stoppedPropagation=count;
+  const reentrant=new AbortController(),order=/** @type {string[]} */([]),again=()=>order.push('called'),send=()=>target.dispatchEvent(new Event('owned:reentrant'));reentrant.signal.addEventListener('abort',()=>{send();target.addEventListener('owned:reentrant',again);send();});target.addEventListener('owned:reentrant',again,{signal:reentrant.signal});reentrant.abort();send();target.removeEventListener('owned:reentrant',again);
+  let invalid;try{target.addEventListener('owned:signal',fn,{signal:{}});invalid='accepted';}catch(error){invalid=/** @type {any} */(error).name;}
+  return {already,duplicate,manual,once:onceCount,privateState,requestSignal,manualAbortEvent,stoppedPropagation,reentrant:order,invalid};
+ });
+}
+
+/** @param {any} realm */
+function exerciseNativeSignalComposition(realm){
+ const {AbortController,AbortSignal,Request}=realm,controller=new AbortController(),request=new Request('http://example.invalid',{signal:controller.signal}),derived=AbortSignal.any([request.signal]),reason={value:'reason'},order=/** @type {any[]} */([]);
+ Object.defineProperty(request.signal,'aborted',{get(){throw Error('public aborted getter');}});
+ controller.signal.addEventListener('abort',()=>order.push(['source',derived.aborted,derived.reason===reason]));
+ derived.addEventListener('abort',()=>order.push(['derived',derived.reason===reason]));
+ controller.abort(reason);
+ const already=AbortSignal.any([request.signal]);
+ return {order,aborted:derived.aborted,reason:derived.reason===reason,already:already.aborted&&already.reason===reason};
+}
+
+/** @param {any} realm */
+function exerciseNativeSignalBrands(realm){
+ const {AbortController,AbortSignal,EventTarget,Event,MouseEvent,Request}=realm,controller=new AbortController(),signal=controller.signal,request=new Request('http://example.invalid',{signal});let event=/** @type {any} */(undefined);
+ signal.addEventListener('abort',(/** @type {any} */value)=>{event=value;});controller.abort();
+ return {signal:signal instanceof EventTarget,prototype:AbortSignal.prototype instanceof EventTarget,request:request.signal instanceof EventTarget,event:event instanceof Event,mouse:event instanceof MouseEvent,plainEvent:{} instanceof Event,plainTarget:{} instanceof EventTarget,local:new EventTarget() instanceof EventTarget,localEvent:new Event('local') instanceof Event,mouseEvent:new MouseEvent('click') instanceof Event};
+}
+
+/** @param {any} realm */
+function exerciseBorrowedSignalTargets(realm){
+ const {AbortController,EventTarget,Event,Request}=realm,probe=new AbortController();let NativeEvent=/** @type {any} */(undefined);probe.signal.addEventListener('abort',(/** @type {any} */event)=>{NativeEvent=event.constructor;});probe.abort();
+ return [new AbortController().signal,new Request('http://example.invalid').signal].map(target=>{
+  const seen=/** @type {any[]} */([]),listener=/** @this {any} */function(/** @type {any} */event){seen.push([this===target,event instanceof Event,event.target===target,event.type]);event.preventDefault();};
+  EventTarget.prototype.addEventListener.call(target,'owned:borrowed',listener);EventTarget.prototype.addEventListener.call(target,'owned:borrowed',listener);
+  const event=new NativeEvent('owned:borrowed',{cancelable:true}),accepted=EventTarget.prototype.dispatchEvent.call(target,event);
+  EventTarget.prototype.removeEventListener.call(target,'owned:borrowed',listener);EventTarget.prototype.dispatchEvent.call(target,new NativeEvent('owned:borrowed'));
+  return {seen,accepted,prevented:event.defaultPrevented,aborted:target.aborted};
+ });
+}
+
+/** @param {any} realm */
+function exerciseGuestSignalDispatch(realm){
+ const {AbortController,EventTarget,Event,MouseEvent,MessageEvent,Request}=realm;
+ return [new AbortController().signal,new Request('http://example.invalid').signal].map(target=>{
+  const seen=/** @type {any[]} */([]),event=new Event('owned:guest',{cancelable:true,composed:true});let nested='';
+  const listener=(/** @type {any} */value)=>{seen.push([value===event,value.target===target,value.currentTarget===target,value.eventPhase,value.isTrusted,value.composedPath()[0]===target]);try{target.dispatchEvent(value);}catch(error){nested=/** @type {any} */(error).name;}value.preventDefault();};
+  target.addEventListener('owned:guest',listener);const accepted=target.dispatchEvent(event);target.removeEventListener('owned:guest',listener);
+  const after=[event.target===target,event.currentTarget===null,event.eventPhase,event.defaultPrevented,event.composedPath().length];
+  event.initEvent('owned:again',false,true);let borrowedSame=false;const again=(/** @type {any} */value)=>{borrowedSame=value===event;};target.addEventListener('owned:again',again);const borrowed=EventTarget.prototype.dispatchEvent.call(target,event);target.removeEventListener('owned:again',again);
+  const order=/** @type {string[]} */([]);target.addEventListener('owned:stop',(/** @type {any} */value)=>{order.push('first');value.stopImmediatePropagation();},{once:true});target.addEventListener('owned:stop',()=>order.push('second'),{once:true});target.dispatchEvent(new Event('owned:stop'));
+  const beforeStop=new Event('owned:prestop');let preStopped=0;target.addEventListener('owned:prestop',()=>preStopped++);beforeStop.stopImmediatePropagation();target.dispatchEvent(beforeStop);
+  let abortSame=false;const fake=new Event('abort');target.onabort=(/** @type {any} */value)=>{abortSame=value===fake;};target.dispatchEvent(fake);target.onabort=null;
+  let invalid='';try{target.dispatchEvent({});}catch(error){invalid=/** @type {any} */(error).name;}
+  const message=new MessageEvent('owned:message',{cancelable:true,userActivation:null});let messageSame=false;target.addEventListener('owned:message',(/** @type {any} */value)=>{messageSame=value===message;value.preventDefault();},{once:true});const messageAccepted=target.dispatchEvent(message);let invalidActivation='';try{new MessageEvent('x',{userActivation:{}});}catch(error){invalidActivation=/** @type {any} */(error).name;}
+  const controller=new AbortController();let nativeEvent=/** @type {any} */(undefined);controller.signal.addEventListener('abort',(/** @type {any} */value)=>{nativeEvent=value;});controller.abort();const nativePath=Event.prototype.composedPath.call(nativeEvent).length;Event.prototype.preventDefault.call(nativeEvent);Event.prototype.stopPropagation.call(nativeEvent);Event.prototype.stopImmediatePropagation.call(nativeEvent);Event.prototype.initEvent.call(nativeEvent,'reset');let invalidMethod='';try{Event.prototype.preventDefault.call({});}catch(error){invalidMethod=/** @type {any} */(error).name;}
+  const properties=['type','target','srcElement','currentTarget','eventPhase','bubbles','cancelable','composed','timeStamp','defaultPrevented','cancelBubble','returnValue'].map(key=>{const descriptor=/** @type {any} */(Object.getOwnPropertyDescriptor(Event.prototype,key));let invalid='';try{descriptor.get.call({});}catch(error){invalid=/** @type {any} */(error).name;}return [key,Object.is(descriptor.get.call(nativeEvent),nativeEvent[key]),invalid];});const setters=['cancelBubble','returnValue'].map(key=>{const descriptor=/** @type {any} */(Object.getOwnPropertyDescriptor(Event.prototype,key));descriptor.set.call(nativeEvent,false);let invalid='';try{descriptor.set.call({},false);}catch(error){invalid=/** @type {any} */(error).name;}return [key,invalid];});
+  const overridden=new Event('override',{cancelable:true});let calls=0;overridden.preventDefault=()=>{calls++;};overridden.stopPropagation=()=>{calls++;};overridden.returnValue=false;overridden.cancelBubble=true;const setterOverride=[overridden.defaultPrevented,overridden.cancelBubble,calls];
+  const legacy=[new MouseEvent('old'),new MessageEvent('old')].map((/** @type {any} */value,index)=>{if(index===0)value.initMouseEvent('legacy',false,true,null,0,0,0,0,0,false,false,false,false,0,null);else value.initMessageEvent('legacy',false,true);let delivered=false;const fn=(/** @type {any} */received)=>{delivered=received===value;received.preventDefault();};target.addEventListener('legacy',fn);const accepted=target.dispatchEvent(value);target.removeEventListener('legacy',fn);return [value.type,delivered,accepted,value.defaultPrevented];});
+  return {seen,nested,accepted,after,borrowedSame,borrowed,order,preStopped,abortSame,aborted:target.aborted,invalid,messageSame,messageAccepted,activation:message.userActivation,invalidActivation,nativePath,nativeType:nativeEvent.type,invalidMethod,properties,setters,setterOverride,legacy};
+ });
+}
 
 /** @param {{page:import('playwright-core').Page,invoke:import('./native-app.js').NativeInvoke,output:string}} context */
 export async function bunSessionScenario({page,invoke,output}){
@@ -15,6 +87,12 @@ export async function bunSessionScenario({page,invoke,output}){
   const fileWorkerSHA256=new Bun.CryptoHasher('sha256').update(workerBytes).digest('hex');assert.equal(new Bun.CryptoHasher('sha256').update(Uint8Array.from(servedWorker)).digest('hex'),fileWorkerSHA256,'Actual native owned File worker must match the current build');
   const bundle=await Bun.build({entrypoints:['tests/ui/fixtures/plugin-inspection.js'],target:'browser',format:'iife',define:{'import.meta.url':JSON.stringify('http://tauri.localhost/event-probe/plugin-inspection.js')},conditions:['browser','svelte'],plugins:[createSvelteUiFixturePlugin()]});assert.equal(bundle.success,true);await page.evaluate(await bundle.outputs[0].text());
   const original=await invoke('load_workspace'),root=join(output,'packages'),results=[];
+  if(process.env.INSOMNIUM_BUN_PLUGIN_FILE_READER==='1'||process.env.INSOMNIUM_BUN_PLUGIN_OBJECT_URLS==='1'||process.env.INSOMNIUM_BUN_PLUGIN_NATIVE_SIGNAL==='1'){
+    const readers=await bunDomNodesScenario({page,root,readers:process.env.INSOMNIUM_BUN_PLUGIN_FILE_READER==='1',urls:process.env.INSOMNIUM_BUN_PLUGIN_OBJECT_URLS==='1',signals:process.env.INSOMNIUM_BUN_PLUGIN_NATIVE_SIGNAL==='1'});
+    assert.deepEqual(await invoke('load_workspace'),original);
+    await Bun.write(join(output,'acceptance.json'),JSON.stringify({passed:true,readers,fileWorkerSHA256,workspaceUnchanged:true,renderingMode:'native-hidden',defaultRuntimeChanged:false},null,2));
+    return;
+  }
   await assert.rejects(invoke('invoke_bun_plugin_callback',{id:'unreserved',input:{operation:'denied',kind:'templateTags',index:0,wire:createPluginValueCodec().encode([]),helpers:false,synchronous:true}}),/Invalid Bun plugin callback/);
   const body=`let count=0,late,saved,savedSync;async function run(context,mode){
    if(mode==='count')return ++count;
@@ -142,7 +220,7 @@ export async function bunSessionScenario({page,invoke,output}){
     assert.deepEqual(result.records,[{method:'util.render',args:['fresh']},{method:'util.render',args:['unawaited']}]);
     assert.equal(result.hook.request.url,'https://example.invalid/hook');assert.deepEqual(result.hook.request.headers,[{name:'x-bun',value:'yes'}]);assert.deepEqual(result.hook.environment,{value:'hook'});assert.equal(result.originalRequest.url,'https://example.invalid');
     assert.deepEqual(result.synchronous.info,{version:'0.1.0',platform:'win32'});assert.match(result.synchronous.desktop,/Desktop[\\/]?$/);assert.equal(result.synchronous.promise,false);assert.equal(result.synchronous.before,'initial');assert.equal(result.synchronous.written,'ไทย😀'.repeat(20000));assert.equal(result.synchronous.cleared,'');
-    assert.deepEqual(result.mixed,{info:result.synchronous.info,pending:'parallel-reply'.repeat(10000)});assert.equal(result.syncError,'Error: controlled-sync-error');assert.deepEqual(result.syncOverlap,{prior:'denied',info:result.synchronous.info});
+    assert.deepEqual(result.mixed,{info:result.synchronous.info,pending:'parallel-reply'.repeat(10000)});assert.equal(result.syncError,'controlled-sync-error');assert.deepEqual(result.syncOverlap,{prior:'denied',info:result.synchronous.info});
     assert.deepEqual(result.syncRecords.map(call=>call.method),['app.getInfo','app.getPath','app.clipboard.readText','app.clipboard.writeText','app.clipboard.readText','app.clipboard.clear','app.clipboard.readText','app.getInfo','app.getInfo']);
     assert.equal(await invoke('plugin_store',{plugin:name,operation:{action:'getItem',key:'count'}}),'3');
     assert.deepEqual(await pluginTreeSnapshot(directory),before);
@@ -188,17 +266,58 @@ export async function bunSessionScenario({page,invoke,output}){
   const opening=join(root,'opening');await mkdir(opening,{recursive:true});await Bun.write(join(opening,'package.json'),JSON.stringify({name:'insomnia-plugin-bun-opening',insomnia:{},main:'index.mjs',type:'module'}));await Bun.write(join(opening,'index.mjs'),'await new Promise(()=>{});export const templateTags=[];');
   const openingCancellation=await page.evaluate(async directory=>{const controller=new AbortController(),pending=/** @type {any} */(window).__bunPluginInspection.open(directory,{isCurrent:()=>true,signal:controller.signal}),timer=setTimeout(()=>controller.abort(),100);try{await pending;return false;}catch{return true;}finally{clearTimeout(timer);}},opening);assert.equal(openingCancellation,true);
   assert.deepEqual(await invoke('load_workspace'),original);
-  await Bun.write(join(output,'acceptance.json'),JSON.stringify({passed:true,results,domNodes,fileWorkerSHA256,readonly,synchronousGrantRefused:true,mixedAsyncReplyBytes:140000,interactionWaitMs:6000,interaction,cancellations,deadlines,syncTimeout,forgery,openingCancellation,workspaceUnchanged:true,renderingMode:'native-hidden',defaultRuntimeChanged:false},null,2));
+  const peaks=[...(await Bun.file(join(output,'app.log')).text()).matchAll(/bun_session_job_peak_bytes=(\d+)/g)].map(match=>Number(match[1]));
+  if(peaks.length){assert.equal(peaks.length,18,'Every debug native session must report its job peak');assert.ok(peaks.every(peak=>peak<=128*1024*1024),'Every native session must stay within the original 128 MiB budget: '+peaks.join(','));}
+  await Bun.write(join(output,'acceptance.json'),JSON.stringify({passed:true,results,domNodes,fileWorkerSHA256,readonly,memory:{peaks,limitBytes:128*1024*1024},synchronousGrantRefused:true,mixedAsyncReplyBytes:140000,interactionWaitMs:6000,interaction,cancellations,deadlines,syncTimeout,forgery,openingCancellation,workspaceUnchanged:true,renderingMode:'native-hidden',defaultRuntimeChanged:false},null,2));
 }
 
-/** @param {{page:import('playwright-core').Page,root:string}} context */
-async function bunDomNodesScenario({page,root}){
+/** @param {{page:import('playwright-core').Page,root:string,readers?:boolean,urls?:boolean,signals?:boolean}} context */
+async function bunDomNodesScenario({page,root,readers=false,urls=false,signals=false}){
  const results=[];
- const source=`let saved,fileSaved,fileEvent,stale,hideActive=false,syncClosed=[],syncDepth=0,asyncDepth=0,asyncDone=[],asyncInfo=[],asyncStale='pending',staleRelease,eventRows=[],eventBrands=true;const gates=new Map();
+ const source=`${urls?"const moduleURL=URL.createObjectURL(new Blob(['module-url']));if(require('url').URL!==URL||require('node:url').URL!==URL)throw Error('URL alias');":""}let saved,fileSaved,fileEvent,readerDone,stale,hideActive=false,syncClosed=[],syncDepth=0,asyncDepth=0,asyncDone=[],asyncInfo=[],asyncStale='pending',staleRelease,eventRows=[],eventBrands=true;const gates=new Map();
  const fileExercise=(${exerciseFileReaderSync.toString()});
+ const readerExercise=(${exerciseFileReaders.toString()});
+ const urlExercise=(${exerciseObjectUrls.toString()});
+ const signalExercise=(${exerciseNativeSignalListeners.toString()});let signalController,selfController,selfCount=0,selfTrusted=false;
+ const signalComposition=(${exerciseNativeSignalComposition.toString()});
+ const signalBrands=(${exerciseNativeSignalBrands.toString()});
+ const borrowedTargets=(${exerciseBorrowedSignalTargets.toString()});
+ const guestDispatch=(${exerciseGuestSignalDispatch.toString()});
  const eventExercise=(${installEventCheckpoint.toString()});
  const blobExercise=(${exerciseBlobFiles.toString()}),bodyExercise=(${exerciseBlobBodies.toString()});
  async function run(context,mode,title){
+  if(mode==='signal-exercise')return signalExercise(globalThis,saved.input);
+  if(mode==='signal-composition')return signalComposition(globalThis);
+  if(mode==='signal-brands')return signalBrands(globalThis);
+  if(mode==='signal-borrowed')return borrowedTargets(globalThis);
+  if(mode==='signal-guest-dispatch')return guestDispatch(globalThis);
+  if(mode==='signal-cross-setup'){signalController=new AbortController();saved.input.addEventListener('click',()=>{saved.status.textContent='LEAK';},{signal:signalController.signal});return true;}
+  if(mode==='signal-cross-abort'){signalController.abort('cross-owner');return signalController.signal.aborted;}
+  if(mode==='signal-self-setup'){selfController=new AbortController();saved.input.addEventListener('click',event=>{selfController.abort();selfCount++;selfTrusted=event.isTrusted;saved.status.textContent='continued';},{signal:selfController.signal});return true;}
+  if(mode==='signal-self-count')return selfCount;
+  if(mode==='signal-self-trusted')return selfTrusted;
+  if(mode==='url-memory')return urlExercise(globalThis);
+  if(mode==='url-selected')return urlExercise(globalThis,fileSaved);
+  if(mode==='url-module')return {url:moduleURL,alias:ModuleURL===URL,hidden:typeof __pluginCreateObjectURL==='undefined'&&typeof __pluginRevokeObjectURL==='undefined'};
+  if(mode==='url-revoke'){URL.revokeObjectURL(title);return;}
+  if(mode==='url-hold')return URL.createObjectURL(new Blob(['held']));
+  if(mode==='reader-memory')return readerExercise(globalThis);
+  if(mode==='reader-selected')return readerExercise(globalThis,fileSaved);
+  if(mode==='reader-owned')return readerExercise(globalThis,fileSaved,saved.input);
+  if(mode==='reader-foreign')return readerExercise(globalThis,fileSaved);
+  if(mode==='reader-unawaited'){readerDone='pending';const reader=new FileReader();reader.onloadend=()=>{readerDone=reader.result===null?'error':reader.result.byteLength;};reader.readAsArrayBuffer(fileSaved);return 'started';}
+  if(mode==='reader-result')return readerDone;
+  if(mode==='reader-cancel')return new Promise(resolve=>{const reader=new FileReader();reader.onload=()=>{void context.store.setItem('reader-late','forbidden');saved.status.textContent='forbidden late read';};reader.onloadend=resolve;reader.readAsArrayBuffer(fileSaved);});
+  if(mode==='native-file'){
+   const fs=require('node:fs'),path='package/'+fs.readdirSync('package').find(name=>/^index\\.(cjs|mjs)$/.test(name)),expected=fs.readFileSync(path),file=Bun.file(path),reader=new FileReaderSync();
+   const equal=(value,bytes)=>Buffer.from(reader.readAsArrayBuffer(value)).equals(bytes);
+   const fd=fs.openSync(path,'r');let descriptorRead,descriptorBlob;
+   try{const value=Bun.file(fd).slice(1,9);descriptorRead=equal(value,expected.subarray(1,9));descriptorBlob=equal(new Blob([value,'tail']),Buffer.concat([expected.subarray(1,9),Buffer.from('tail')]));}finally{fs.closeSync(fd);}
+   let missing=false;try{reader.readAsArrayBuffer(Bun.file(path+'.missing'));}catch(error){missing=/ENOENT|not found|No such file/i.test(String(error));}
+   return {whole:equal(file,expected),slice:equal(file.slice(1,9),expected.subarray(1,9)),tail:equal(file.slice(-7),expected.subarray(-7)),
+    blob:equal(new Blob([file.slice(1,9),'tail']),Buffer.concat([expected.subarray(1,9),Buffer.from('tail')])),
+    file:equal(new File([file.slice(1,9)],'copy'),expected.subarray(1,9)),descriptorRead,descriptorBlob,memoryName:reader.readAsText(new File(['memory'],path)),missing};
+  }
   if(mode==='file-memory')return fileExercise(globalThis);
   if(mode==='native-memory'){const esm=await import('node:buffer'),cjs=require('buffer');return {surface:await blobExercise(globalThis),bodies:await bodyExercise(globalThis),aliases:[esm.Blob===Blob,esm.File===File,cjs.Blob===Blob,cjs.File===File,ModuleBlob===Blob,ModuleFile===File]};}
   if(mode==='native-selected')return bodyExercise(globalThis,fileSaved);
@@ -231,7 +350,7 @@ async function bunDomNodesScenario({page,root}){
     input.addEventListener('click',()=>note('once'),{once:true});const removed=()=>note('REMOVED');input.addEventListener('click',removed);input.removeEventListener('click',removed);
     input.onclick=()=>note('REPLACED');saved.handler=()=>{note('handler');return false;};input.onclick=saved.handler;
    }
-   if(mode==='open-files'){const fileInput=document.createElement('input');fileInput.type='file';fileInput.multiple=true;fileInput.setAttribute('aria-label','Bun selected files');body.appendChild(fileInput);saved.fileInput=fileInput;}
+   if(mode==='open-files'){const fileInput=document.createElement('input');fileInput.type='file';fileInput.multiple=true;fileInput.setAttribute('aria-label','Bun selected files');body.appendChild(fileInput);saved.fileInput=fileInput;${urls?"input.onclick=()=>{status.textContent=URL.createObjectURL(new Blob(['event']));};":""}}
    const onHide=mode==='open-callback'?async()=>{hideActive=true;status.textContent='closed prefix';await Promise.resolve();status.textContent='closed checkpoint';const info=context.app.getInfo();const helper=(await Promise.all([context.util.render('onHide'),context.util.render('onHide')])).join('|');status.textContent='closed async';await context.store.setItem('closed',JSON.stringify({stale:await stale,text:status.textContent,helper,info}));hideActive=false;}:mode==='open-sync-callback'?()=>{const depth=++syncDepth;status.textContent='sync prefix';Promise.resolve().then(()=>{status.textContent='sync checkpoint '+depth;const info=context.app.getInfo();syncClosed.push({...info,depth});});}:mode==='open-async-nested'?async()=>{
     const depth=++asyncDepth;status.textContent='nested async prefix '+depth;
     if(depth===1){new Promise(resolve=>{staleRelease=resolve;}).then(()=>{try{context.app.getInfo();asyncStale='LEAK';}catch{asyncStale='denied';}});status.textContent='nested async done 1';asyncDone.push(1);gates.get(2)();gates.get(3)();return;}
@@ -240,7 +359,7 @@ async function bunDomNodesScenario({page,root}){
     if(depth===2){staleRelease();await Promise.resolve();}
     await context.store.setItem('async-child-'+depth,'done');status.textContent='nested async done '+depth;asyncDone.push(depth);
    }:undefined;
-   const fileHide=mode==='open-files'?()=>{try{fileEvent=fileExercise(globalThis,saved.fileInput.files[0]);}catch(error){fileEvent={error:String(error)};}}:undefined;
+   const fileHide=mode==='open-files'?()=>{try{fileEvent=${urls?"{url:URL.createObjectURL(new Blob(['cleanup']))}":"fileExercise(globalThis,saved.fileInput.files[0])"};}catch(error){fileEvent={error:String(error)};}}:undefined;
    context.app.dialog(title,body,{wide:true,...(onHide?{onHide}:fileHide?{onHide:fileHide}:{})});
    if(mode==='open-callback')stale=new Promise(resolve=>setTimeout(()=>{try{status.textContent='LEAK';resolve({denied:false,active:hideActive});}catch{resolve({denied:true,active:hideActive});}},800));
    return {element:body instanceof HTMLElement,document:body.ownerDocument===document,identity:body.querySelector('#bun-node-status')===status,elements:body.children.length,nodes:body.childNodes.length,owner:body.dataset.owner,clone:copy.textContent,className:body.className};
@@ -257,20 +376,102 @@ async function bunDomNodesScenario({page,root}){
  for(const format of ['commonjs','module']){
   const directory=join(root,'dom-'+format),entry=format==='module'?'index.mjs':'index.cjs',title='Bun owned nodes '+format;
   await mkdir(directory,{recursive:true});await Bun.write(join(directory,'package.json'),JSON.stringify({name:'insomnia-plugin-bun-dom-'+format,insomnia:{},main:entry,type:format}));
-  await Bun.write(join(directory,entry),(format==='module'?"import {Blob as ModuleBlob,File as ModuleFile} from 'node:buffer';":"const {Blob:ModuleBlob,File:ModuleFile}=require('buffer');")+source+(format==='module'?"export const templateTags=[{name:'dom',run}];":"exports.templateTags=[{name:'dom',run}];"));
+  await Bun.write(join(directory,entry),(format==='module'?"import {Blob as ModuleBlob,File as ModuleFile} from 'node:buffer';import {URL as ModuleURL} from 'node:url';":"const {Blob:ModuleBlob,File:ModuleFile}=require('buffer');const {URL:ModuleURL}=require('url');")+source+(format==='module'?"export const templateTags=[{name:'dom',run"+(urls?",displayName:moduleURL":"")+"}];":"exports.templateTags=[{name:'dom',run"+(urls?",displayName:moduleURL":"")+"}];"));
   const before=await pluginTreeSnapshot(directory);
   try{
-   const created=await page.evaluate(async({directory,title})=>{
+   if(urls){const inspected=await page.evaluate(async directory=>await /** @type {any} */(window).__bunPluginInspection.inspect(directory),directory),url=inspected.metadata.contributions.find((/** @type {any} */row)=>row.kind==='templateTags').items[0].label;assert.equal(await objectURLFetchFails(page,url),true);await Bun.write(join(root,format+'-url-inspection.json'),JSON.stringify({url,revoked:true},null,2));}
+   const created=await page.evaluate(async({directory,title,readers,urls})=>{
     const api=/** @type {any} */(window).__bunPluginInspection,errors=/** @type {string[]} */([]),session=await api.open(directory,{isCurrent:()=>true});
-    const makeOwner=(synchronousEvents=/** @type {boolean|'nested'|'async-nested'} */(false))=>{const controller=new AbortController(),owner=api.domOwner({purpose:'send',signal:controller.signal,current:()=>true,helpers:()=>async(/** @type {any} */call)=>{if(call.method!=='util.render')throw Error('Unexpected DOM helper');if(call.args[0]==='async-sibling-4')return 'four';if(call.args[0]==='async-child-2')return new Promise(resolve=>{/** @type {any} */(window).__bunDomNodes.releaseAsyncSecond=()=>resolve('two');});if(call.args[0]==='async-child-3')return new Promise(resolve=>{const state=/** @type {any} */(window).__bunDomNodes;state.releaseAsyncThird=()=>resolve('three');queueMicrotask(()=>{state.nestedCallback.invokeEvent([]).then(()=>state.releaseAsyncSecond()).catch((/** @type {any} */error)=>errors.push(String(error)));});});if(call.args[0]!=='onHide')throw Error('Unexpected DOM helper');await new Promise(resolve=>setTimeout(resolve,1200));return 'onHide-helper';},synchronous:(/** @type {AbortSignal} */signal,/** @type {()=>boolean} */current)=>api.nativeApp({signal,current}),onError:(/** @type {any} */error)=>errors.push(String(error))});return synchronousEvents?{...owner,domCall:(/** @type {any} */call)=>{const result=owner.domCall(call);const state=/** @type {any} */(window).__bunDomNodes;if(call.method==='dom.set'&&call.args[2]==='nested async done 2'){if(typeof state.releaseAsyncThird!=='function')throw Error('Third callback is not waiting');state.releaseAsyncThird();state.releaseAsyncThird=undefined;}if(synchronousEvents==='async-nested'&&call.method==='dom.set'&&String(call.args[2]).startsWith('nested async ready'))state.multiplexed.push({text:call.args[2],rootReturned:state.rootReturned});if(((synchronousEvents==='nested'&&String(call.args[2]).startsWith('sync checkpoint'))||(synchronousEvents==='async-nested'&&/^nested async prefix [12]$/.test(String(call.args[2]))))&&call.method==='dom.set'&&state.nestedDepth<2){state.nestedDepth++;try{state.nestedCallback.invokeEvent([]);}finally{state.nestedDepth--;}}return result;},domCallbacks:{retain:(/** @type {any} */callback,/** @type {number} */id)=>{if(synchronousEvents==='nested'||synchronousEvents==='async-nested')/** @type {any} */(window).__bunDomNodes.nestedCallback=callback;owner.domCallbacks.retain({...callback,invokeOnHide:()=>{
+    const makeOwner=(synchronousEvents=/** @type {boolean|'nested'|'async-nested'} */(false))=>{const controller=new AbortController(),owner=api.domOwner({purpose:'send',signal:controller.signal,current:()=>true,helpers:()=>async(/** @type {any} */call)=>{if(call.method!=='util.render')throw Error('Unexpected DOM helper');if(call.args[0]==='async-sibling-4')return 'four';if(call.args[0]==='async-child-2')return new Promise(resolve=>{/** @type {any} */(window).__bunDomNodes.releaseAsyncSecond=()=>resolve('two');});if(call.args[0]==='async-child-3')return new Promise(resolve=>{const state=/** @type {any} */(window).__bunDomNodes;state.releaseAsyncThird=()=>resolve('three');queueMicrotask(()=>{state.nestedCallback.invokeEvent([]).then(()=>state.releaseAsyncSecond()).catch((/** @type {any} */error)=>errors.push(String(error)));});});if(call.args[0]!=='onHide')throw Error('Unexpected DOM helper');await new Promise(resolve=>setTimeout(resolve,1200));return 'onHide-helper';},synchronous:(/** @type {AbortSignal} */signal,/** @type {()=>boolean} */current)=>api.nativeApp({signal,current}),onError:(/** @type {any} */error)=>errors.push(String(error))});owner.bindSession(()=>!session.isClosed());return synchronousEvents?{...owner,domCall:(/** @type {any} */call)=>{const result=owner.domCall(call);const state=/** @type {any} */(window).__bunDomNodes;if(call.method==='dom.set'&&call.args[2]==='nested async done 2'){if(typeof state.releaseAsyncThird!=='function')throw Error('Third callback is not waiting');state.releaseAsyncThird();state.releaseAsyncThird=undefined;}if(synchronousEvents==='async-nested'&&call.method==='dom.set'&&String(call.args[2]).startsWith('nested async ready'))state.multiplexed.push({text:call.args[2],rootReturned:state.rootReturned});if(((synchronousEvents==='nested'&&String(call.args[2]).startsWith('sync checkpoint'))||(synchronousEvents==='async-nested'&&/^nested async prefix [12]$/.test(String(call.args[2]))))&&call.method==='dom.set'&&state.nestedDepth<2){state.nestedDepth++;try{state.nestedCallback.invokeEvent([]);}finally{state.nestedDepth--;}}return result;},domCallbacks:{retain:(/** @type {any} */callback,/** @type {number} */id)=>{if(synchronousEvents==='nested'||synchronousEvents==='async-nested')/** @type {any} */(window).__bunDomNodes.nestedCallback=callback;owner.domCallbacks.retain({...callback,invokeOnHide:()=>{
      if(session.isClosed())return Promise.resolve();const state=/** @type {any} */(window).__bunDomNodes;state.windowCheckpoint=false;queueMicrotask(()=>{state.windowCheckpoint=true;});state.rootReturned=false;const completion=callback.invokeEvent([]);state.rootReturned=true;state.eventStages.push({text:state.prefixNode.textContent,windowCheckpoint:state.windowCheckpoint});return completion;
     }},id);}}}:owner;};
     const one=makeOwner(),two=makeOwner(),options=(/** @type {any} */owner)=>({isCurrent:owner.current,helperCall:owner.helperCall,syncCall:owner.syncCall,domOwner:owner});
     Object.assign(window,{__bunDomNodes:{session,one,two,makeOwner,options,errors,eventStages:[],nestedDepth:0,multiplexed:[],rootReturned:false}});
-    return session.invoke('templateTags',0,['open',title],options(one));
-   },{directory,title});
-   assert.deepEqual(created,{element:true,document:true,identity:true,elements:3,nodes:4,owner:'one',clone:'initial ไทย',className:'bun-owned'});
+    return session.invoke('templateTags',0,[readers||urls?'open-files':'open',title],options(one));
+   },{directory,title,readers,urls});
+   assert.deepEqual(created,{element:true,document:true,identity:true,elements:readers||urls?4:3,nodes:readers||urls?5:4,owner:'one',clone:'initial ไทย',className:'bun-owned'});
    const dialog=page.getByRole('dialog',{name:title,exact:true});await dialog.waitFor();assert.equal(await dialog.locator('#bun-node-status').innerText(),'initial ไทย');
+   if(signals){
+    const compositionOracle=await page.evaluate(source=>new Function('return ('+source+')')()(globalThis),exerciseNativeSignalComposition.toString());
+    const composition=await page.evaluate(async()=>await /** @type {any} */(window).__bunDomNodes.session.invoke('templateTags',0,['signal-composition']));assert.deepEqual(composition,compositionOracle);
+    const brandOracle=await page.evaluate(source=>new Function('return ('+source+')')()(globalThis),exerciseNativeSignalBrands.toString());
+    const brands=await page.evaluate(async()=>await /** @type {any} */(window).__bunDomNodes.session.invoke('templateTags',0,['signal-brands']));assert.deepEqual(brands,brandOracle);
+    const borrowedOracle=await page.evaluate(source=>new Function('return ('+source+')')()(globalThis),exerciseBorrowedSignalTargets.toString());
+    const borrowed=await page.evaluate(async()=>await /** @type {any} */(window).__bunDomNodes.session.invoke('templateTags',0,['signal-borrowed']));assert.deepEqual(borrowed,borrowedOracle);
+    const guestOracle=await page.evaluate(source=>new Function('return ('+source+')')()(globalThis),exerciseGuestSignalDispatch.toString());
+    const guest=await page.evaluate(async()=>await /** @type {any} */(window).__bunDomNodes.session.invoke('templateTags',0,['signal-guest-dispatch']));assert.deepEqual(guest,guestOracle);
+    const oracle=await page.evaluate(source=>new Function('return ('+source+')')()(globalThis,document.createElement('input')),exerciseNativeSignalListeners.toString());
+    const actual=await page.evaluate(async()=>{const state=/** @type {any} */(window).__bunDomNodes;return state.session.invoke('templateTags',0,['signal-exercise'],state.options(state.one));});assert.deepEqual(actual,oracle);
+    await page.evaluate(async()=>{const state=/** @type {any} */(window).__bunDomNodes;await state.session.invoke('templateTags',0,['signal-cross-setup'],state.options(state.one));});
+    assert.equal(await page.evaluate(async()=>await /** @type {any} */(window).__bunDomNodes.session.invoke('templateTags',0,['signal-cross-abort'])),true);await dialog.getByRole('checkbox',{name:'Bun owned checkbox',exact:true}).click();assert.equal(await dialog.locator('#bun-node-status').innerText(),'initial ไทย');
+    await page.evaluate(async()=>{const state=/** @type {any} */(window).__bunDomNodes;await state.session.invoke('templateTags',0,['signal-self-setup'],state.options(state.one));});await dialog.getByRole('checkbox',{name:'Bun owned checkbox',exact:true}).click();assert.equal(await dialog.locator('#bun-node-status').innerText(),'continued');await dialog.getByRole('checkbox',{name:'Bun owned checkbox',exact:true}).click();assert.equal(await page.evaluate(async()=>await /** @type {any} */(window).__bunDomNodes.session.invoke('templateTags',0,['signal-self-count'])),1);assert.equal(await page.evaluate(async()=>await /** @type {any} */(window).__bunDomNodes.session.invoke('templateTags',0,['signal-self-trusted'])),true);
+    await page.evaluate(async()=>await /** @type {any} */(window).__bunDomNodes.session.dispose());assert.deepEqual(await pluginTreeSnapshot(directory),before);results.push({format,brands,borrowed,guest,composition,oracle:actual,crossOwner:true,selfAbortContinues:true,sourceUnchanged:true});continue;
+   }
+   if(urls){
+    const module=await page.evaluate(async()=>{const state=/** @type {any} */(window).__bunDomNodes;return state.session.invoke('templateTags',0,['url-module']);});assert.ok(module.alias&&module.hidden);assert.equal(await page.evaluate(async url=>await(await fetch(url)).text(),module.url),'module-url');
+    const reference=await page.evaluate(source=>new Function('return ('+source+')')()(globalThis),exerciseObjectUrls.toString());
+    const memory=await page.evaluate(async()=>{const state=/** @type {any} */(window).__bunDomNodes;return state.session.invoke('templateTags',0,['url-memory']);});await compareObjectURLs(page,root,format+'-urls-memory',reference,memory);
+    const started=memory.rows.find((/** @type {any} */row)=>row.label==='binary').url;
+    await page.evaluate(async url=>{/** @type {any} */(window).__urlStartedResponse=await fetch(url);},started);
+    await page.evaluate(async url=>{const state=/** @type {any} */(window).__bunDomNodes;await state.session.invoke('templateTags',0,['url-revoke',url]);},started);assert.equal(await objectURLFetchFails(page,started),true);
+    assert.deepEqual(await page.evaluate(async()=>{const response=/** @type {any} */(window).__urlStartedResponse,bytes=new Uint8Array(await response.arrayBuffer());delete /** @type {any} */(window).__urlStartedResponse;return {length:bytes.length,exact:bytes.every((byte,index)=>byte===index%251)};}),{length:131080,exact:true});
+    const path=join(root,format+'-url-file.bin');await Bun.write(path,Uint8Array.from({length:131080},(_,index)=>index%251));await dialog.getByLabel('Bun selected files',{exact:true}).setInputFiles(path);
+    await page.evaluate(async()=>{const state=/** @type {any} */(window).__bunDomNodes;await state.session.invoke('templateTags',0,['file-meta'],state.options(state.one));});
+    const selectedReference=await page.evaluate(source=>new Function('return ('+source+')')()(globalThis,/** @type {HTMLInputElement} */(document.querySelector('input[aria-label="Bun selected files"]')).files?.[0]),exerciseObjectUrls.toString());
+    const selected=await page.evaluate(async()=>{const state=/** @type {any} */(window).__bunDomNodes;return state.session.invoke('templateTags',0,['url-selected'],state.options(state.one));});await compareObjectURLs(page,root,format+'-urls-selected',selectedReference,selected);
+    await dialog.getByRole('checkbox',{name:'Bun owned checkbox',exact:true}).click();const eventURL=await dialog.locator('#bun-node-status').innerText();assert.equal(await page.evaluate(async url=>await(await fetch(url)).text(),eventURL),'event');
+    await page.evaluate(()=>{
+     const state=/** @type {any} */(window).__bunDomNodes,original=window.fetch;state.restoreUrlInvoke=()=>{window.fetch=original;};let held=false;
+     // Tauri's invoke is immutable; hold one real IPC fetch before native delivery.
+     /** @type {any} */(window).fetch=(/** @type {any} */input,/** @type {any} */init)=>{
+      if(new URL(String(input)).pathname==='/reply_bun_plugin_helper'&&!held){held=true;return new Promise((resolve,reject)=>{state.releaseUrlReply=()=>original(input,init).then(resolve,reject);});}
+      return original(input,init);
+     };
+     state.urlPending=state.session.invoke('templateTags',0,['url-hold'],state.options(state.one));state.urlPending.catch((/** @type {any} */error)=>{state.urlPendingError=String(error);});
+    });
+    try{
+     await page.waitForFunction(()=>{const state=/** @type {any} */(window).__bunDomNodes;return typeof state.releaseUrlReply==='function'||state.urlPendingError;});assert.equal(await page.evaluate(()=>/** @type {any} */(window).__bunDomNodes.urlPendingError),undefined);await dialog.getByRole('checkbox',{name:'Bun owned checkbox',exact:true}).click();
+     const held=await page.evaluate(async()=>{const state=/** @type {any} */(window).__bunDomNodes;await state.releaseUrlReply();return state.urlPending;});assert.equal(await page.evaluate(async url=>await(await fetch(url)).text(),held),'held');
+     assert.equal(await page.evaluate(async url=>await(await fetch(url)).text(),await dialog.locator('#bun-node-status').innerText()),'event');
+    }finally{await page.evaluate(()=>/** @type {any} */(window).__bunDomNodes.restoreUrlInvoke());}
+    const foreign=await page.evaluate(()=>URL.createObjectURL(new Blob(['foreign'])));await page.evaluate(async url=>{const state=/** @type {any} */(window).__bunDomNodes;await state.session.invoke('templateTags',0,['url-revoke',url]);},foreign);assert.equal(await page.evaluate(async url=>await(await fetch(url)).text(),foreign),'foreign');
+    await dialog.getByRole('button',{name:'Close plugin dialog',exact:true}).click();await dialog.waitFor({state:'hidden'});
+    const cleanup=await page.evaluate(async()=>{const state=/** @type {any} */(window).__bunDomNodes;return state.session.invoke('templateTags',0,['file-event-result']);});assert.equal(await page.evaluate(async url=>await(await fetch(url)).text(),cleanup.url),'cleanup');
+    for(const row of selected.rows.filter((/** @type {any} */row)=>['selected','selected-owner-close','lazy-parts'].includes(row.label)))assert.equal(await objectURLFetchFails(page,row.url),true);
+    const live=selected.rows.find((/** @type {any} */row)=>row.label==='binary').url;assert.equal(await objectURLFetchFails(page,live),false);await page.evaluate(async()=>await /** @type {any} */(window).__bunDomNodes.one.dispose());assert.equal(await objectURLFetchFails(page,live),false);
+    await page.evaluate(async()=>await /** @type {any} */(window).__bunDomNodes.session.dispose());for(const row of [...memory.rows,...selected.rows])assert.equal(await objectURLFetchFails(page,row.url),true);assert.equal(await objectURLFetchFails(page,module.url),true);assert.equal(await objectURLFetchFails(page,cleanup.url),true);assert.equal(await page.evaluate(async url=>await(await fetch(url)).text(),foreign),'foreign');
+    await page.evaluate(({foreign,rows})=>{URL.revokeObjectURL(foreign);for(const row of rows)URL.revokeObjectURL(row.url);},{foreign,rows:[...reference.rows,...selectedReference.rows]});
+    assert.deepEqual(await pluginTreeSnapshot(directory),before);results.push({format,moduleInitialization:true,inspectionRevoked:true,memoryRows:memory.rows.length,selectedRows:selected.rows.length,startedFetchPreserved:true,nativeEvent:true,sdkReplayExactlyOnce:true,foreignPreserved:true,lazyOwnerLifetime:true,memoryVmLifetime:true,detachedCleanup:true,sourceUnchanged:true});continue;
+   }
+   if(readers){
+    const source=exerciseFileReaders.toString();
+    const memoryOracle=await page.evaluate(source=>new Function('return ('+source+')')()(globalThis),source);
+    const memory=await page.evaluate(async()=>{const state=/** @type {any} */(window).__bunDomNodes;return state.session.invoke('templateTags',0,['reader-memory'],state.options(state.one));});
+    await Bun.write(join(root,format+'-readers-memory.json'),JSON.stringify({oracle:memoryOracle,guest:memory},null,2));assert.deepEqual(memory,memoryOracle);
+    const path=join(root,format+'-reader.bin');await Bun.write(path,Uint8Array.from({length:131080},(_,index)=>index%251));
+    await dialog.getByLabel('Bun selected files',{exact:true}).setInputFiles(path);
+    await page.evaluate(async()=>{const state=/** @type {any} */(window).__bunDomNodes;await state.session.invoke('templateTags',0,['file-meta'],state.options(state.one));});
+    const selectedOracle=await page.evaluate(source=>new Function('return ('+source+')')()(globalThis,/** @type {HTMLInputElement} */(document.querySelector('input[aria-label="Bun selected files"]')).files?.[0]),source);
+    const selected=await page.evaluate(async()=>{const state=/** @type {any} */(window).__bunDomNodes;return state.session.invoke('templateTags',0,['reader-selected'],state.options(state.one));});
+    await Bun.write(join(root,format+'-readers-selected.json'),JSON.stringify({oracle:selectedOracle,guest:selected},null,2));assert.deepEqual(selected,selectedOracle);
+    const ownedOracle=await page.evaluate(source=>new Function('return ('+source+')')()(globalThis,/** @type {HTMLInputElement} */(document.querySelector('input[aria-label="Bun selected files"]')).files?.[0],document.querySelector('input[aria-label="Bun owned checkbox"]')),source);
+    const owned=await page.evaluate(async()=>{const state=/** @type {any} */(window).__bunDomNodes;return state.session.invoke('templateTags',0,['reader-owned'],state.options(state.one));});
+    await Bun.write(join(root,format+'-readers-owned.json'),JSON.stringify({oracle:ownedOracle,guest:owned},null,2));assert.deepEqual(owned,ownedOracle);
+    const foreign=await page.evaluate(async()=>{const state=/** @type {any} */(window).__bunDomNodes;return state.session.invoke('templateTags',0,['reader-foreign'],state.options(state.two));});
+    await Bun.write(join(root,format+'-readers-foreign.json'),JSON.stringify(foreign,null,2));
+    for(const row of [foreign.selected,foreign.slice]){assert.equal(row.value,null);assert.ok(row.error);assert.deepEqual(row.events.map((/** @type {any} */event)=>event.type),['loadstart','error','loadend']);}
+    const unawaited=await page.evaluate(async()=>{const state=/** @type {any} */(window).__bunDomNodes;const started=await state.session.invoke('templateTags',0,['reader-unawaited'],state.options(state.one));return {started,result:await state.session.invoke('templateTags',0,['reader-result'])};});assert.deepEqual(unawaited,{started:'started',result:131080});
+    const cancelled=await page.evaluate(async()=>{
+      const state=/** @type {any} */(window).__bunDomNodes,owner=state.one;let reads=0;
+      const cancelling={...owner,domCall:(/** @type {any} */call)=>{const value=owner.domCall(call);if(call.method.startsWith('dom.file.read')){reads++;queueMicrotask(()=>owner.dispose());}return value;}};
+      try{await state.session.invoke('templateTags',0,['reader-cancel'],state.options(cancelling));return {reads,refused:false};}catch{return {reads,refused:true};}finally{await state.session.dispose();}
+    });assert.ok(cancelled.reads>0);assert.equal(cancelled.refused,true);await dialog.waitFor({state:'hidden'});
+    const late=await page.evaluate(async plugin=>await /** @type {any} */(window).__TAURI_INTERNALS__.invoke('plugin_store',{plugin,operation:{action:'getItem',key:'reader-late'}}),'insomnia-plugin-bun-dom-'+format);assert.equal(late,null);
+    await Bun.write(join(root,format+'-readers-lifecycle.json'),JSON.stringify({unawaited,cancelled,late},null,2));
+    assert.deepEqual(await pluginTreeSnapshot(directory),before);
+    results.push({format,memoryOracleGroups:Object.keys(memoryOracle).length,selectedOracleGroups:Object.keys(selectedOracle).length,ownedOracleGroups:Object.keys(ownedOracle).length,selectedBytes:131080,foreignReadDenied:true,unawaitedDrained:true,ownerLossCancelled:true,noLateWrite:true,sourceUnchanged:true});
+    continue;
+   }
    const checked=await page.evaluate(async()=>{const state=/** @type {any} */(window).__bunDomNodes;return state.session.invoke('templateTags',0,['update'],state.options(state.one));});assert.equal(checked,true);assert.equal(await dialog.getByRole('checkbox',{name:'Bun owned checkbox'}).isChecked(),true);
    const isolation=await page.evaluate(async()=>{const state=/** @type {any} */(window).__bunDomNodes;const foreign=await state.session.invoke('templateTags',0,['foreign'],state.options(state.two)),unsafe=await state.session.invoke('templateTags',0,['unsafe'],state.options(state.one));await state.two.dispose();return {foreign,unsafe};});
    assert.match(isolation.foreign,/Unknown owned DOM node/);assert.equal(isolation.unsafe.length,4);assert.ok(isolation.unsafe.every((/** @type {string} */error)=>error!=='LEAK'));assert.equal(await dialog.locator('#bun-node-status').innerText(),'updated ไทย');
@@ -293,7 +494,13 @@ async function bunDomNodesScenario({page,root}){
    const memoryOracle=await page.evaluate(()=>new Promise((resolve,reject)=>{const worker=new Worker('/event-probe/event-probe-worker.js',{type:'module'});worker.onmessage=event=>{worker.terminate();if(event.data.error)reject(Error(event.data.error));else resolve(event.data.value);};worker.onerror=event=>{worker.terminate();reject(Error(event.message));};worker.postMessage({type:'file-reader-sync-oracle'});}));
    const memory=await page.evaluate(async()=>await /** @type {any} */(window).__bunDomNodes.session.invoke('templateTags',0,['file-memory']));assert.deepEqual(memory,memoryOracle);
    const nativeOracle=await page.evaluate('(async()=>{const blob=('+exerciseBlobFiles.toString()+'),bodies=('+exerciseBlobBodies.toString()+');return {surface:await blob(globalThis),bodies:await bodies(globalThis)};})()');
-   const nativeMemory=await page.evaluate(async()=>await /** @type {any} */(window).__bunDomNodes.session.invoke('templateTags',0,['native-memory']));
+    const nativeFiles=[];
+    for(let round=0;round<3;round++){
+     const nativeFile=await page.evaluate(async()=>await /** @type {any} */(window).__bunDomNodes.session.invoke('templateTags',0,['native-file']));
+     nativeFiles.push(nativeFile);assert.deepEqual(nativeFile,{whole:true,slice:true,tail:true,blob:true,file:true,descriptorRead:true,descriptorBlob:true,memoryName:'memory',missing:true});
+    }
+    await Bun.write(join(root,format+'-native-file.json'),JSON.stringify(nativeFiles,null,2));
+    const nativeMemory=await page.evaluate(async()=>await /** @type {any} */(window).__bunDomNodes.session.invoke('templateTags',0,['native-memory']));
    await Bun.write(join(root,format+'-native-memory.json'),JSON.stringify({expected:nativeOracle,observed:nativeMemory},null,2));assert.deepEqual(nativeMemory,{...nativeOracle,aliases:Array(6).fill(true)});
    await page.evaluate(async title=>{
     const state=/** @type {any} */(window).__bunDomNodes,owner=state.makeOwner();state.fileCalls=[];
@@ -347,9 +554,20 @@ async function bunDomNodesScenario({page,root}){
    }
    await Bun.write(join(root,format+'-event-lifecycle.json'),JSON.stringify(lifecycle,null,2));await lifecycleDialog.getByRole('button',{name:'Close plugin dialog',exact:true}).click();await lifecycleDialog.waitFor({state:'hidden'});
    await page.evaluate(async title=>{const state=/** @type {any} */(window).__bunDomNodes;state.three=state.makeOwner();await state.session.invoke('templateTags',0,['open',title],state.options(state.three));},title+' cleanup');await page.getByRole('dialog',{name:title+' cleanup',exact:true}).waitFor();
-   const cleanup=await page.evaluate(async()=>{const state=/** @type {any} */(window).__bunDomNodes;await state.session.dispose();return {closed:state.session.isClosed(),owner:state.three.current(),errors:state.errors};});assert.deepEqual(cleanup,{closed:true,owner:false,errors:[]});await page.getByRole('dialog',{name:title+' cleanup',exact:true}).waitFor({state:'hidden'});
+   const cleanup=await page.evaluate(async()=>{const state=/** @type {any} */(window).__bunDomNodes;const pending=state.session.dispose(),logicalClosed=state.session.isClosed();await pending;return {logicalClosed,closed:state.session.isClosed(),owner:state.three.current(),errors:state.errors};});assert.deepEqual(cleanup,{logicalClosed:true,closed:true,owner:false,errors:[]});await page.getByRole('dialog',{name:title+' cleanup',exact:true}).waitFor({state:'hidden'});
    assert.deepEqual(await pluginTreeSnapshot(directory),before);results.push({format,files:{memoryOracle:true,selectedOracle:true,lazyMetadataReads:0,selectedBytes:131080,asyncRead:true,synchronousWindowCallback:true,bomAndAllByteVectors:true,foreignOwnerRefused:true},ownedGraph:true,dialog:true,cloneQueryIdentity:true,programmaticAndNativeInput:true,foreignNodeRefused:true,events,lifecycle:{fifo:9,once:true,removed:true,replacedHandler:true,cancellation:true,brands:true},unsafeAndUnsupportedRefusals:4,retiredOwnerRefused:true,retainedOnHide:true,retainedAsyncHelpers:true,synchronousEventTransport:true,nestedReadyFrames:3,nestedAsyncFrames:3,waitingSiblingFrames:1,multiplexedLiveFrames:2,retiredParentContinuationRefused:true,ordinaryInvocationReentry:true,readyMicrotasksBeforeHostReturn:true,twoAsyncHelpersBeforePrefix:true,staleTimerDuringCallbackRefused:true,sessionCleanup:true,sourceUnchanged:true});
   }finally{await Bun.write(join(root,format+'-file-calls.json'),JSON.stringify(await page.evaluate(()=>/** @type {any} */(window).__bunDomNodes?.fileCalls??[]),null,2));await page.evaluate(async()=>{const state=/** @type {any} */(window).__bunDomNodes;if(state){await state.session.dispose();await Promise.allSettled([state.one.dispose(),state.two.dispose(),state.callbackOwner?.dispose(),state.syncOwner?.dispose(),state.asyncOwner?.dispose(),state.three?.dispose(),state.fileOwner?.dispose(),state.foreignFileOwner?.dispose(),state.eventOwner?.dispose()]);delete /** @type {any} */(window).__bunDomNodes;}});}
+ }
+ if(urls){
+  const guards=await page.evaluate(async()=>{
+   const store=/** @type {any} */(window).__bunPluginInspection.objectURLs(),denied=(/** @type {()=>any} */call)=>{try{call();return false;}catch{return true;}};
+   try{
+    const all=store.call('begin',[128*1024*1024,'']);const bytes=denied(()=>store.call('begin',[1,'']));store.call('abort',[all]);
+    const malformed=[()=>store.call('begin',[-1,'']),()=>store.call('begin',[1,null]),()=>store.call('chunk',[0,new ArrayBuffer(1)]),()=>store.call('revoke',[null]),()=>store.call('store.clear',[])].map(denied);
+    const upload=store.call('begin',[2,'text/plain']);const chunks=[()=>store.call('chunk',[upload,new ArrayBuffer(0)]),()=>store.call('chunk',[upload,new ArrayBuffer(262145)]),()=>store.call('chunk',[upload,new ArrayBuffer(3)]),()=>store.call('commit',[upload])].map(denied);store.call('chunk',[upload,new Uint8Array([0,1]).buffer]);const url=store.call('commit',[upload]),exact=Array.from(new Uint8Array(await(await fetch(url)).arrayBuffer()));store.call('revoke',[url]);let revoked=false;try{await fetch(url);}catch{revoked=true;}
+    for(let index=0;index<2048;index++)store.call('begin',[0,'']);const handles=denied(()=>store.call('begin',[0,'']));return {bytes,malformed,chunks,exact,revoked,handles};
+   }finally{store.dispose();}
+  });assert.equal(guards.bytes,true);assert.ok(guards.malformed.every(Boolean)&&guards.chunks.every(Boolean));assert.deepEqual(guards.exact,[0,1]);assert.ok(guards.revoked&&guards.handles);await Bun.write(join(root,'url-guards.json'),JSON.stringify(guards,null,2));
  }
  return results;
 }
