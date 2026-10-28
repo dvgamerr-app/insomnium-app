@@ -4,7 +4,7 @@ Read this once per worker invocation. This is a navigation guide; source and cur
 
 ## Required context and constraints
 
-- Read root `CLAUDE.md`, `AGENTS.md`, and applicable ancestor/nested `CLAUDE.md` / `CLAUDE.*.md` before scoped inspection or edits. For migration read `docs/migration/STATUS.md`, `PLAN.md`, `PARITY.md`; derive the next gap from them, not this guide.
+- Read root `CLAUDE.md` and applicable ancestor/nested `CLAUDE.md` / `CLAUDE.*.md` before scoped inspection or edits. For migration read `docs/migration/STATUS.md`, `PLAN.md`, `PARITY.md`; derive the next gap from them, not this guide.
 - Tauri 2 + Rust backend; Svelte 5/plain JavaScript frontend. Bun only for JS tooling, including `bun x --bun`; no Node/npm/npx/pnpm/yarn/Python/pip. Cargo is allowed.
 - Preserve current Insomnium UI. Redesign/input-component rollout is deferred until migration completion; see `docs/migration/POST-MIGRATION-UX.md`.
 - Preserve unrelated dirty files. Legacy `_backup/legacy-electron/` and reference `E:/.dvgamerr-app/jirasync-hub-app` are read-only; do not copy identity, credentials or updater endpoints. No `git clean -dfX`.

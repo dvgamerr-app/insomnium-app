@@ -123,7 +123,7 @@ bun x --bun tauri build --no-bundle --config '{"identifier":"app.insomnium.probe
 
 Launch Bun directly through node_repl child_process, with shell:false/windowsHide:true. The null hook prevents the CLI from invoking a shell build hook; run the documented Bun frontend build separately when frontend changes. This overlay does not edit production tauri.conf.json. Do not launch the production identifier against user data for fixture acceptance.
 
-The probe overwrites the usual release executable output. Until a production-config build is made again, do not distribute that output or describe it as a production build. BUILD.json still refers to the older production package.
+The probe overwrites the usual release executable output. Until a production-config build is made again, do not distribute that output or describe it as a production build. [snapshot BUILD.json](https://github.com/dvgamerr-app/insomnium-app/blob/fd3a1f6540d7a5530a3a830fb7ee97539c6eeb87/docs/migration/BUILD.json) still refers to the older production package.
 
 The existing local native environment needs all of:
 
@@ -206,7 +206,7 @@ Actual Tests UI in the native WebView, production CSP unchanged:
 - Inspected callback-reload.png. It shows the edited cancellation script alongside the prior passing result, not a new result for that edited script.
 - Idle probe destroy completed exit 0 at 09:17:55 UTC; fixture process confirmed gone. This is not normal OS-close-during-work acceptance.
 
-Evidence in ignored artifacts/native-callback-probe: build/app logs and state, before-stop.json (includes the passing callback script), callback-result.json, fixture-count.json (4 total), stop-evidence.json, reload-evidence.json and callback-reload.png. The new collection has one saved result; no cancellation result was added. No saved development test script or installer was created. Production BUILD.json remains older.
+Evidence in ignored artifacts/native-callback-probe: build/app logs and state, before-stop.json (includes the passing callback script), callback-result.json, fixture-count.json (4 total), stop-evidence.json, reload-evidence.json and callback-reload.png. The new collection has one saved result; no cancellation result was added. No saved development test script or installer was created. Production [snapshot BUILD.json](https://github.com/dvgamerr-app/insomnium-app/blob/fd3a1f6540d7a5530a3a830fb7ee97539c6eeb87/docs/migration/BUILD.json) remains older.
 
 This closes native acceptance for the latest sendRequest fix only. Broader Runner script/import/result/lifecycle parity, real OS picker/legacy imports, Git/plugin and other PARITY items remain incomplete.
 

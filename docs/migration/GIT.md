@@ -878,7 +878,7 @@ workspace.svelte.js revision increments inside persist() and controls save flags
 - Fixture launcher initially assumed APPDATA was present; both direct and case-insensitive lookup failed before writes. Used app-data location returned by native error and verified .git/HEAD before creating objects. No app source fix required.
 - Evidence: artifacts/native-git-probe/{build-state.json,build.log,app-state.json,app.log,init-info-evidence.json,fixtures.json,read-evidence.json,unchanged-evidence.json}. No saved development test script. Fixtures remain in isolated app data for diagnosis.
 - Probe destroyed after checks; app exit 0 at 09:56:07 UTC, process confirmed absent. No server or compiler remains from this milestone.
-- This verifies bounded init/info/read IPC, not all file/count/tree/total-byte boundaries, OS reparse containment, branch changes, credentials/remotes or Git UI/transactions. No installer; production BUILD.json is still older. The release target executable now carries the probe identity and must not be distributed as production.
+- This verifies bounded init/info/read IPC, not all file/count/tree/total-byte boundaries, OS reparse containment, branch changes, credentials/remotes or Git UI/transactions. No installer; production [snapshot BUILD.json](https://github.com/dvgamerr-app/insomnium-app/blob/fd3a1f6540d7a5530a3a830fb7ee97539c6eeb87/docs/migration/BUILD.json) is still older. The release target executable now carries the probe identity and must not be distributed as production.
 - Next: native status/diff/staging/commit/history and resource-state transaction integration; then branches/remotes and legacy Git UI workflow acceptance. Full migration remains incomplete.
 
 ## Native Git history command — 2026-09-29

@@ -1,173 +1,758 @@
-# Feature parity tracker
+# Feature parity — checklist รายละเอียด
 
-Execution order and runtime decision follow [PLAN](PLAN.md). Preserve every acceptance row and retained topic contract below. VERIFIED2/23 is a count of closed rows, not a total-project completion percentage: rows differ in scope, and PARTIAL contains both implemented behavior and missing verification. Report progress by evidence-backed acceptance units; do not infer completion from commit/test counts.
+อัปเดต 2026-10-27 · HEAD `fd3a1f65` + งานที่ยังไม่ commit · Goal **active**
 
-## Latest bounded byte-array-like receipt — 2026-10-16
+- **โค้ดทำแล้ว** = มี implementation; ไม่ได้แปลว่าตรวจใช้งานจริงครบแล้ว
+- **ตรวจผ่านแล้ว** = ผ่านเฉพาะเวอร์ชัน/แพลตฟอร์ม/กรณีในหลักฐาน ไม่อ้างว่าเป็นผลของ build ล่าสุดทุกข้อ
+- **ยังค้าง** = ต้องทำหรือยืนยันเพิ่ม; ถ้ายังแยก missing code กับ missing verification ไม่ได้ จะระบุว่าไม่ยืนยัน ไม่เดาว่าเสร็จ
+- หมวดที่ปิดครบคือ **P17 QUERY/custom operations** และ **P18 mixed query order**; เลข 2 คือจำนวนหมวดที่ปิด ไม่ใช่หมายเลขหมวดที่กำลังทำ
+- เจ้าของให้เลื่อน **P21 Plugin/template/Bun** ไปทำเป็นหัวข้อสุดท้าย; งานถัดไปคือ P03/P10/P11 ข้อมูลและ recovery โดย QuickJS ยังเป็น default
+- เกณฑ์รายกรณีเดิมยังอยู่ใน [ACCEPTANCE](ACCEPTANCE.md) และ topic contracts; เปลี่ยนรูปแบบรายงาน ไม่ได้ลด scope
 
-Legacy bytes zero-wrapped lengths and sparse repeated tails have bounded Windows acceptance:30new actual editor/Format/mode-switch/wire/JSON/history/reload/Save cases (15saved-file/15reflection) plus4zero-additional-IO refusal/durable-error/typed-repair cases retain all245prior groups. Full73Rust tests match124pinned byte-array-like rows (110success/14refusals), preserve original descriptor pools and retain strict ProtoJSON rejection/canonical Base64 controls. Fresh24native-hidden scenarios/279groups/502actual successful gRPC Save exports/exact24profiles and original0override source/profile/export closure pass. Broader JSON/object-coercion/map/template/editor/stream/provider/platform and every retained PLAN/PARITY gate remain open. See [scope/evidence](GRPC.md#current-native-grpc-bytes-arraylike).
+## ภาพรวม23หมวด
 
-## Latest bounded dependency/cache arrival receipt — 2026-10-16
+จำนวนในตารางคือรายการย่อยใต้หัวข้อของแต่ละหมวด กดชื่อเพื่ออ่านcheckboxและหลักฐาน โค้ดแล้วกับตรวจผ่านอาจอ้างงานเดียวกัน จึงไม่บวกรวมเป็นเปอร์เซ็นต์โครงการ
 
-Reflection dependency batching and shared-cache arrival have bounded Windows acceptance:19new actual editor/wire/JSON/history/reload/Save cases (16declaration/arrival/cache combinations and3transitive controls) retain all226prior groups. Full71Rust tests include real HTTP2 partial-reply peers, wrong/foreign/missing/duplicate reply refusals, a1000file cached chain and shared4096query budget. Fresh22native-hidden scenarios/245groups/434actual successful gRPC Save exports/exact22profiles and original manifest plus explicit1test/1STATUSdoc supplemented source/profile/export closure pass. Broader Any/JSON/template/editor/stream/provider/platform and every retained PLAN/PARITY gate remain open. See [scope/evidence](GRPC.md#current-native-grpc-reflection-arrival).
+| กลุ่ม | หมวด/รายละเอียด | โค้ดแล้ว | ตรวจผ่าน | ค้าง | สถานะ |
+| --- | --- | ---: | ---: | ---: | --- |
+| Desktop/UI | [P01 Desktop shell / build](#p01) | 2 | 1 | 2 | มีส่วนผ่านแล้ว |
+| Desktop/UI | [P02 UI layout / themes](#p02) | 2 | 1 | 2 | มีส่วนผ่านแล้ว |
+| ข้อมูล/Environment | [P03 Collections / folders / request CRUD](#p03) | 2 | 8 | 3 | มีส่วนผ่านแล้ว |
+| HTTP/Auth/Network | [P04 HTTP / response / history](#p04) | 2 | 4 | 3 | มีส่วนผ่านแล้ว |
+| HTTP/Auth/Network | [P05 Request bodies](#p05) | 2 | 3 | 2 | มีส่วนผ่านแล้ว |
+| HTTP/Auth/Network | [P06 Authentication](#p06) | 11 | 7 | 5 | มีส่วนผ่านแล้ว |
+| ข้อมูล/Environment | [P07 Environment / templating](#p07) | 2 | 5 | 3 | มีส่วนผ่านแล้ว |
+| HTTP/Auth/Network | [P08 Cookies / redirects / proxy](#p08) | 2 | 2 | 3 | มีส่วนผ่านแล้ว |
+| HTTP/Auth/Network | [P09 TLS / certificates](#p09) | 2 | 2 | 2 | มีส่วนผ่านแล้ว |
+| ข้อมูล/Environment | [P10 Local data / legacy migration](#p10) | 12 | 19 | 3 | มีส่วนผ่านแล้ว |
+| ข้อมูล/Environment | [P11 Import / export](#p11) | 3 | 12 | 3 | มีส่วนผ่านแล้ว |
+| Protocols | [P12 GraphQL](#p12) | 3 | 2 | 2 | มีส่วนผ่านแล้ว |
+| Protocols | [P13 WebSocket](#p13) | 2 | 2 | 2 | มีส่วนผ่านแล้ว |
+| Protocols | [P14 SSE](#p14) | 2 | 3 | 3 | มีส่วนผ่านแล้ว |
+| Protocols | [P15 gRPC](#p15) | 5 | 6 | 4 | มีส่วนผ่านแล้ว |
+| API design | [P16 API design / OpenAPI lint](#p16) | 3 | 2 | 3 | มีส่วนผ่านแล้ว |
+| API design | [P17 OpenAPI 3.2 QUERY/custom operations](#p17) | 2 | 2 | 0 | ปิดครบ |
+| API design | [P18 Mixed manual/generated query order](#p18) | 2 | 3 | 0 | ปิดครบ |
+| Runner/Git/Plugin | [P19 Collection runner / assertions](#p19) | 2 | 2 | 2 | มีส่วนผ่านแล้ว |
+| Runner/Git/Plugin | [P20 Git sync](#p20) | 4 | 2 | 3 | มีส่วนผ่านแล้ว |
+| Runner/Git/Plugin | [P21 Plugin / template tag compatibility](#p21) | 25 | 31 | 5 | เลื่อนไปท้าย |
+| Desktop/UI | [P22 Desktop integrations](#p22) | 2 | 2 | 3 | มีส่วนผ่านแล้ว |
+| ส่งมอบ | [P23 CI / distribution / docs](#p23) | 4 | 2 | 4 | มีส่วนผ่านแล้ว |
 
-## Latest bounded per-service reflection-root receipt — 2026-10-16
+<a id="p01"></a>
 
-Per-service gRPC reflection descriptor roots have bounded Windows acceptance:22new actual editor/wire/history/reload/Save cases (16pinned isolated/returned-extra roots,4reversed-service-list controls and2multi-service v1alpha controls) retain all204prior groups. Full63Rust tests include serialized schema-index/native method selection round trips and invalid-file-index guards. Fresh21native-hidden scenarios/226groups/396actual successful gRPC Save exports/exact21profiles and original0override source/profile/export closure pass. Concurrent dependency/shared-cache arrival semantics and broader Any/JSON/template/editor/stream/provider/platform plus every retained PLAN/PARITY gate remain open. See [scope/evidence](GRPC.md#current-native-grpc-reflection-service).
+## P01 Desktop shell / build — ยังไม่ปิด
 
-## Latest bounded source-specific reflection receipt — 2026-10-16
+เกณฑ์เดิม: Native Tauri executable และ installer ด้วย Bun/Cargo · Legacy: `main, electron-builder.config.js`
 
-Source-specific legacy gRPC file/reflection profiles have bounded Windows acceptance:33new actual editor/mode-switch/wire/history/reload/Save cases (including2real Use example actions) plus2zero-additional-peer-IO refusal/typed-repair cases retain all169prior groups. Full58Rust tests include88pinned profile/Any/WKT rows (14refusals) and authored example/ProtoJSON contracts. Fresh20native-hidden scenarios/204groups/352actual successful gRPC Save exports/exact20profiles and original manifest plus explicit1test/1STATUSdoc discovery-retirement supplement closure pass. Per-service dependency-closure/arrival-order aliases, concurrent sibling import timing and broader JSON/template/editor/stream/provider/platform plus every retained PLAN/PARITY gate remain open. See [scope/evidence](GRPC.md#current-native-grpc-reflection-profile).
+**โค้ดทำแล้ว**
 
-## Latest bounded Any declaration-order receipt — 2026-10-16
+- [x] Tauri desktop shell และคำสั่ง build ด้วย Bun/Cargo
+- [x] กำหนด executable/installer/resources ของแอป
 
-Legacy Any source-declaration/main-before-import ordering has bounded Windows acceptance:10new actual editor/wire/history/reload/Save cases plus2service-shadow refusal/typed-repair cases retain all157prior groups. Full50Rust tests include12new pinned protobuf.js7.2.4 order vectors and descriptor describe/decode round trips. Fresh18native-hidden scenarios/169groups/282actual successful gRPC Save exports/exact18profiles and original manifest plus explicit1test/1STATUSdoc fixture-supplement closure pass. Concurrent sibling import timing, source-info-free reflection and broader Any/WKT/JSON/template/editor/stream/provider/platform plus every retained PLAN/PARITY gate remain open. See [scope/evidence](GRPC.md#current-native-grpc-any-order).
+**ตรวจผ่านแล้ว**
 
-## Latest bounded Any reflection lookup receipt — 2026-10-16
+- [x] สร้าง Windows release executable และ NSIS installer แล้วตามเวอร์ชันใน CI
 
-Legacy Any reflection lookup/WKT has bounded Windows acceptance:20new actual editor/wire/history/reload/Save cases plus8new non-message/WKT-alias refusal/typed-repair cases retain all129prior groups. Full47Rust library tests include100lookup and40WKT pinned protobuf.js7.2.4 vectors. Fresh17native-hidden scenarios/157groups/258actual successful gRPC Save exports/exact17profiles and original0override source closure pass. Ambiguous multi-file/declaration/load-order aliases, broader Any/WKT/JSON/template/editor/stream/provider/platform and every retained PLAN/PARITY gate remain open. See [scope/evidence](GRPC.md#current-native-grpc-any-target).
+**ยังค้าง**
 
-Updated 2026-10-15. Full migration is incomplete. Every acceptance column below remains required. Detailed contracts, checkpoint-specific extra gates, failures and evidence are retained in the topic documents and [original parity records](https://github.com/dvgamerr-app/insomnium-app/blob/c10061abcc38ac1d1e01d5f6459b1704e2c35217/docs/migration/MIGRATION-REVIEW.md#record-parity-history-20261014). Moving those records does not waive any requirement. A bounded receipt closes only its named cases/platform/version; historical pending statements must be interpreted alongside newer evidence in STATUS.md.
+- [ ] ตรวจ launch/runtime ของแพ็กเกจที่ตรง source ปัจจุบัน
+- [ ] ตรวจ build/runtime ของ target OS ที่ยังไม่มีหลักฐานตรงเวอร์ชัน; ดูรายละเอียดแยกในหมวด23
 
-Current receipts: Windows environment6349100/follow-up eae4ac2 (29checks/Name6/JSON12/inheritance5/foreign4+held1,12 retired sockets and exact fixed-profile restoration), current HTTP/CRUD regressions on the same candidate, Windows ResourceManager original6 +24 field refusals/6 corrections +collection lifecycle6 with14 private exclusions/15 references and complete original profile restoration (2870f40), namespace original native20+88 and current Windows original operator source/package/kernel-process audit (787cce7; full protected/Git/history/layout restoration and separate release), cURL mixed/file and GET/file6+6, plugin ESM26/events10/metadata9+restart/guarded clipboard pass. Original Windows XML18, gRPC, Proto36 and Open4/TLS59 receipts are accepted within their stated scope. Broader workflow/provider/platform/legal/distribution requirements, including universal loader/linkage/all-birth/OS-close/physical-width/AT claims, remain open.
+หลักฐาน/ขอบเขต: [CI](CI.md)
 
-## Latest stream history and decoded limits
+<a id="p02"></a>
 
-Legacy Any URL UTF16/normalization has bounded Windows acceptance:14actual editor/wire/history/reload/Save groups plus4wrong-type refusal/typed-repair groups, retaining all111prior groups. Full39Rust tests/38pinned Any vectors,16native-hidden scenarios/129groups/202actual successful gRPC Save exports/exact16profiles and original manifest plus explicit1test/1STATUSdoc supplemental closure pass. See GRPC.md#current-native-grpc-any-url. Broader Any/WKT/JSON/template/editor/stream/provider/platform and every PLAN/PARITY gate remain open.
+## P02 UI layout / themes — ยังไม่ปิด
 
-Legacy lone-surrogate string compatibility has bounded Windows acceptance:13 actual editor/wire/history/reload/Save cases and strict ProtoJSON refusal/reload/typed repair, with all97prior groups retained. Full38 Rust tests/43pinned vectors/7defaults-Any controls,15native-hidden scenarios/111groups/166actual successful gRPC Save exports/exact15profiles and original0override closure pass. See GRPC.md#current-native-grpc-surrogate. Broader JSON/WKT/template/editor/stream/provider/platform and every retained PLAN/PARITY gate remain open.
+เกณฑ์เดิม: รักษา Insomnium layout, light/dark, keyboard และ resize · Legacy: `ui/css, ui/components, plugins/themes, screenshots/v0.1.png`
 
-Legacy gRPC map-entry order/key presence has bounded Windows acceptance:9 native groups including malformed incoming message-value refusal/reload/explicit repair/retry, exact wire/JSON/editor/body/history/Save/deletion. Full33 Rust tests/70 pinned vectors/3 explicit unsafe-writer refusals,14 native-hidden scenarios/97 groups/138 actual successful gRPC Save exports/exact14 profiles and original manifest plus explicit1test/1STATUSdoc supplemental closure pass. See GRPC.md#current-native-grpc-map. Broader JSON/WKT/lone-surrogate/template/editor/stream/provider/platform and every retained PLAN/PARITY gate remain open.
+**โค้ดทำแล้ว**
 
-Legacy message-field JSON order now has bounded Windows acceptance:8new native default/full/normal/child/oneof/nested/cross-category cases plus original80groups pass with exact ordered JSON. Full28Rust tests,13native-hidden scenarios/88groups/120gRPCexports/exact13profiles and original0override closure pass. See GRPC.md#current-native-grpc-message-order. Broader JSON/WKT/oneof/map-entry-key/lone-surrogate/editor/template/stream/provider/platform and every retained gate remain open.
+- [x] Layout/themes และ shared UI controls ที่ใช้อยู่ในแอป
+- [x] การปรับสี/ขนาด/keyboard ตาม source และ topic ที่ตรวจแล้ว
 
-Legacy oneof member preservation now has bounded Windows acceptance:6native editor/wire/history/reload/export cases, including explicit defaults, nested list/map, reversed response wire and colliding enum names. Full27Rust tests and12native-hidden scenarios/80groups/104gRPCexports/exact12profiles pass with fresh0override closure. See GRPC.md#current-native-grpc-oneof. Broader JSON/WKT/oneof/map/key-order/surrogate/editor/stream/provider/platform and every retained gate remain open.
+**ตรวจผ่านแล้ว**
 
-Legacy JSON numeric overflow corrected in isolated parser:8actual parser vectors/boundaries and23Rust tests pass; eight native editor/double/int32/int64/string/history/export cases pass. Full regression74groups/11profiles/92gRPCexports and fresh0override closure pass. See GRPC.md#current-native-grpc-overflow. Broader JSON/WKT/oneof/map/key-order/editor/stream/provider/platform and every retained gate remain open.
+- [x] Static และ Windows native dark/light/keyboard/width scenarios ตาม DESIGN
 
-Legacy Long whitespace correction passes34reference vectors/21Rust tests and six native signed/unsigned64 editor/chunk/sign/history/export cases. Full regression66groups/10profiles/76gRPCexports and fresh0override closure pass. See GRPC.md#current-native-grpc-long. Broader64bit coercion/JSON/WKT/oneof/map/key-order/editor/stream/provider/platform and every retained gate remain open.
+**ยังค้าง**
 
-Legacy numeric whitespace coercion corrected against pinned reference29vectors;20Rust tests and four native editor/int32/double/history/export cases pass. Full regression60groups/9profiles/64gRPCexports and fresh0override closure pass. See GRPC.md#current-native-grpc-numeric. Broader coercion/JSON/WKT/oneof/map/key-order/editor/stream/provider/platform and every retained gate remain open.
+- [ ] ตรวจ visual/keyboard/resize ให้ครบ workflow ที่ยังค้าง
+- [ ] ตรวจแพลตฟอร์มและ accessibility ที่ยังไม่มีหลักฐาน; ไม่ถือว่า redesign ปิดแล้ว
 
-Native malformed/excess-padding Base64 refusal/keyboard repair now passes in legacy/protoJson with durable error/no payload, zero added observed peer IO and exact reload/export/deletion. Full regression56groups/8profiles/56gRPCexports and explicit1test/5doc closure pass; application6b0805f unchanged. See GRPC.md#current-native-base64-refusal. Broader JSON/WKT/oneof/map/editor/stream/provider/platform and every retained gate remain open.
+หลักฐาน/ขอบเขต: [DESIGN](DESIGN.md) · [UX scope](POST-MIGRATION-UX.md)
 
-Legacy Base64 deterministic compatibility corrected:37actual-parser vectors and18Rust tests pass; six new native byte/history/reload/export cases plus original regressions give52groups/8profiles/48gRPCexports with fresh0override closure. See GRPC.md#current-native-grpc-base64. Native Base64 refusal/recovery and broader JSON/WKT/oneof/map/editor/stream/provider/platform and every retained gate remain open.
+<a id="p03"></a>
 
-Native4case JSON refusal/repair verifies renderer malformed-JSON refusal without fabricated history, legacy unknown-field acceptance, native ProtoJSON unknown-field durable error, zero added observed peer IO on3refusals and typed repair/reload. Seven scenarios/46groups/36gRPCexports/exact7profiles and declared source-addition closure pass; application38417fe unchanged. See GRPC.md#current-native-grpc-json-refusal. Continue other JSON/Base64/WKT/oneof/map/editor-lifecycle/stream-shape/provider/platform and every retained gate.
+## P03 Collections / folders / request CRUD — ยังไม่ปิด
 
-Four native int64/bytes cases now verify real shared-editor typing/Format/mode toggles, authored numeric precision, explicit legacy/ProtoJSON wire/response differences, full reload and8newexports. Original10cases and regressions pass:42groups/28gRPCexports, exact6profiles, unchanged38417fe application with declared2test/5doc closure. See GRPC.md#current-native-grpc-json-editor. Continue remaining JSON/coercion/Base64/WKT/unknown-field/editor-lifecycle/stream-shape/provider/platform and every retained gate.
+เกณฑ์เดิม: Persist/switch/rename/duplicate/delete/reorder/search · Legacy: `models/workspace, request-group, request`
 
-Ten native gRPC cases now verify9MiB bidi/unary, compact formatted preview and surrogate-cut preview, full history/reload and20full JSON exports in legacy/protoJson. Unary request EOF is corrected. Six-suite acceptance/0override closure and exact six-profile restoration pass; see GRPC.md#current-native-large-grpc-preview-export. Continue broader JSON/shared-editor/stream-shape/provider/platform and all retained PARITY gates.
+**โค้ดทำแล้ว**
 
-gRPC9MiB bidi sent data now has bounded native acceptance in legacy/protoJson: independent exact protobuf frame, status0/no received payload, complete sent history/body after reload, Stream1tab restoration and actual Manage/Delete. Six native profiles restore exactly, original1410source closure with1declared deletion-route test supplement passes. See GRPC.md#current-native-large-sent-history. Large sent-content rendering/response/shared-editor/JSON edges/provider/platform and all retained gates remain open.
+- [x] Collection/folder/request CRUD, remembered selection, Pinned/Recent และ ownership
+- [x] Index ID/ancestry ลดการค้นซ้ำใน selection, Git tab repair และ plugin export
 
+**ตรวจผ่านแล้ว**
 
+- [x] Native create/rename/switch/duplicate/root reorder/cancel-delete/delete-fallback/reload ตาม commit2870f40
+- [x] ลบ runner suite ไล่ result และ descendants ใน collection เดียวกันจนหมด รวม test ใต้ result อีกชั้น; result ข้าม collection หรือมี reference ชี้ resource ผิดชนิดและลูกยังคงอยู่. แก้ shared deletion ให้ตรวจชนิด suite/test ก่อนตาม reference; model regression และ Windows native-hidden delete/reload ผ่านตาม [ผล](../../artifacts/playwright/runner-lifecycle-1793128565003/acceptance.json), [build](../../artifacts/native-runner-reference-types-20261028/build-state.json); host exit0/profile คืนครบ
+- [x] ตรวจ destination และ request ที่กำลังทำงานก่อนสั่งหยุด runner เมื่อย้าย resource: Windows native-held runner และ manual request แสดง refusal โดย runner เดิมทำงานจบ; ย้ายสำเร็จภายหลังยังยกเลิก runner ที่เกี่ยวข้อง ตาม [ผล](../../artifacts/playwright/runner-lifecycle-1793125952344/acceptance.json), [ก่อนแก้](../../artifacts/playwright/runner-lifecycle-1793125781497/result.json); delete-running-request regression ผ่าน [ผล](../../artifacts/playwright/runner-lifecycle-1793125931428/acceptance.json), hosts exit0/profile คืนครบ
+- [x] Imported private models14แบบถูกกันออก; references15จุด remap โดยไม่แก้ literal/foreign payload
+- [x] Windows navigation/reopen กับ collection10,000requests และคืน profile เดิม
+- [x] ค้นหา request ที่ไม่มี field จะไม่จับคู่ข้อความ `undefined` จาก field ที่หายไป; [headless source ปัจจุบัน](../../artifacts/playwright/collection-actions/depth.json) ตรวจ folder ลึก 64 ชั้น, search/collapse/reload, sort, selection และข้อมูล/history คงเดิม; [Windows native-hidden รุ่นก่อน](../../artifacts/playwright/collection-actions-native-1793127657895/depth.json), [build](../../artifacts/native-collection-search-20261028/build-state.json) ผ่าน, host exit0 และ [profile คืนครบ](../../artifacts/playwright/resource-manager-restoration-1793127657867/result.json). Native source ปัจจุบันและ platform อื่นยังไม่ตรวจ
+- [x] Windows native ลบ collection ขณะ HTTP request ค้าง: ยกเลิก request, ปฏิเสธ deleted-owner cookie access และ snapshot เก่าเมื่อสร้าง ID เดิมใหม่ โดยรักษา jar ของ collection อื่น ตาม [หลักฐาน](../../artifacts/cookie-retirement-native-20261026/verification.json)
+- [x] Windows native-hidden ลบ SSE request ขณะ stream ทำงานและ write เก่ารอ filesystem replacement: stream ถูกยกเลิก, request/history ที่ลบไม่กลับมาหลัง write และ reload, request อื่นคงอยู่และไม่ reconnect ตาม [ผล](../../artifacts/playwright/workspace-recovery-live-sse-1793128640947/live-sse-delete-acceptance.json), [build](../../artifacts/native-runner-reference-types-20261028/build-state.json); host exit0/profile คืนครบ. ไม่ครอบคลุม cookie owner หรือ protocol อื่น
 
-Shared retention now recognizes gRPC kind:sent as payload, fixing9MiB outgoing JSON loss after status. Eight utility cases and prior-source RED/current GREEN pass with compiler/build/headless raw-history regression. See GRPC.md#current-large-sent-event-retention-correction. Native gRPC large sent/history/reload remains unverified; no full gRPC acceptance or updated native binary is claimed.
+**ยังค้าง**
 
+- [ ] ปิด resource-model/search/workflow variants ที่ยังค้างใน COLLECTIONS
+- [ ] ตรวจ deleted-owner cookie variants และ callback drain หลังเปลี่ยน/ลบ resource นอกกรณี HTTP ที่ผ่านข้างต้น
+- [ ] ตรวจ AT และแพลตฟอร์มที่ยังไม่มีหลักฐาน
 
+หลักฐาน/ขอบเขต: [COLLECTIONS](COLLECTIONS.md) · [selection receipt](../../artifacts/collection-selection-index-20261027/verification.json)
 
-Aggregate fragmented20MiB UTF8/binary pass with exact hashes/one complete payload;20MiB+1refuses without data delivery despite every frame<=32767bytes. Prefix ping/pong barrier,12frame groups and original regressions/exact5profiles/source closure pass. See HTTP.md#current-aggregate-websocket-fragmentation-boundary. Broader control/close/fragmented UI-history/provider/platform, Clipboard/gRPC and all retained gates remain open.
+<a id="p04"></a>
 
+## P04 HTTP / response / history — ยังไม่ปิด
 
+เกณฑ์เดิม: Native Send ไม่ติด CORS; status/body/headers/timing/history/cancellation · Legacy: `network/network, models/response`
 
-Eight small raw WebSocket frame sequences now have bounded native acceptance: splitUTF8/binary reassembly,125byte interleaved ping/exact client pong and five invalid-framing/UTF8 refusals. All5profiles restore; source closure/regressions pass. See HTTP.md#current-explicit-websocket-frame-acceptance. Aggregate large fragmentation, broader controls/close/Clipboard/gRPC/provider/platform and all retained gates remain open.
+**โค้ดทำแล้ว**
 
+- [x] Native HTTP sender, response/history, Cancel และ persisted response selection
+- [x] Original response headers, decompression, multipart response และ native Save/export ที่มี implementation
 
+**ตรวจผ่านแล้ว**
 
-Full20MiB text/binary event Save before/after reload now has bounded Windows acceptance: four native files exact size/SHA, Cancel/owned-dialog retirement, original regressions/source closure and exact5profile restoration. See HTTP.md#current-full-large-websocket-export. Large Clipboard Copy, fragmentation/control/gRPC/provider/platform and all other retained gates stay open.
+- [x] Windows native-hidden current debug build ผ่าน seeded history6/body36/controls19, errors/Cancel,503/404/200 selection และ socket retirement54 ตาม [ผล](../../artifacts/playwright/response-history-native-1793122461819/manual-http-acceptance.json), [build](../../artifacts/native-git-opaque-refusal-20261028/build-state.json); host exit0/profile คืนครบ. Scenario รอ CodeMirror, ใช้ label timeout ปัจจุบันและไม่คลิกซ้ำหลัง reload; physical picker/OS-close/platform อื่นยังค้าง
+- [x] Windows native-hidden เลือก HTTP/2 prior knowledge ผ่าน Settings, ส่ง GET ไป loopback h2c และ HTTPS ที่เชื่อถือ fixture CA, บันทึก response และ reload setting ก่อนส่งซ้ำ; HTTPS เจรจา ALPN h2 และ decode gzip ตาม [h2c](../../artifacts/playwright/response-history-native-1793123897917/http2-acceptance.json), [TLS](../../artifacts/playwright/response-history-native-1793123863394/http2-acceptance.json). Settings Automatic เจรจา h2 กับ HTTPS และ fallback เป็น HTTP/1.1 กับ server ที่รองรับ HTTP/1.1 ตาม [ผล](../../artifacts/playwright/response-history-native-1793123988060/http2-acceptance.json); hosts exit0/profile คืนครบ. ไม่ยืนยัน HTTP cleartext Upgrade แบบ cURL --http2 หรือ provider อื่น
+- [x] Bounded native Save/Cancel, transfer decoding และ locked-target/retry ตาม RESPONSES; Windows native build ล่าสุดตรวจ automatic/explicit download, chooser Cancel/Save และ exact bytes ตาม [ผล](../../artifacts/playwright/response-download-native-1793122015812/download-acceptance.json), locked target รักษา bytes/response และ retry ตาม [ผล](../../artifacts/playwright/response-download-native-1793121883892/download-failure-acceptance.json). Root request actions ตรวจ scheduled run ถูกยกเลิกโดย manual run/history คงเดิมตาม [ผล](../../artifacts/playwright/request-action-ownership-native-1793121910427/action-acceptance.json); hosts exit0/profile คืนครบ
+- [x] ป้องกันชื่อ Windows device `CONIN$`/`CONOUT$` ใน response filename: UI เติม `_` และ native validator ปฏิเสธชื่อเดิมรวมรูปที่มี extension โดยชื่อปกติที่มีข้อความต่อท้ายยังใช้ได้; Rust regression และ [headless Save](../../artifacts/playwright/response-charset-preview/result.json) ผ่าน. [Windows native-hidden](../../artifacts/playwright/response-download-native-1793136201841/result.json) ตรวจ Save dialog เสนอ `_CONIN$.bin`/`_CONOUT$.bin` และบันทึก bytes ถูกต้อง, host exit0/[profile คืนครบ](../../artifacts/playwright/resource-manager-restoration-1793136201593/result.json). Scenario/helper เป็น test-only supplement หลัง [build](../../artifacts/native-resource-crud-audit-probe/postman-values-20261028/build-state.json); [Windows device-name reference](https://learn.microsoft.com/en-us/windows/win32/devnotes/rtlisdosdevicename_u)
+- [x] Windows native-hidden HTML response preview ตรวจ sandbox, script ไม่รัน, parent DOM เข้าถึงไม่ได้, image/frame/refresh ไม่ถึง loopback, Source ตรงและ Raw คงหลัง reload ตาม [ผล](../../artifacts/playwright/response-history-native-1793136271150/html-preview-acceptance.json); host exit0/[profile คืนครบ](../../artifacts/playwright/resource-manager-restoration-1793136270888/result.json). เป็น seeded response และ test-only supplement หลัง build; media/provider/platform/OS-close อื่นยังค้าง
+- [x] Windows native-hidden PNG response preview ตรวจ sandbox/opaque origin, decode 512×512, data URL ตรงและ Raw reload รักษา Base64 ตาม [ผลหลังแก้ CSP](../../artifacts/playwright/response-history-native-1793137421134/image-preview-acceptance.json); host exit0/[profile คืนครบ](../../artifacts/playwright/resource-manager-restoration-1793137420885/result.json). เป็น seeded PNG และ test-only supplement หลัง build; ภาพชนิดอื่น, decoder error และ platform ยังไม่ปิด
+- [x] Windows native-hidden CSV response preview ตรวจ worker/table 208 แถว, pagination, quoted CRLF/Unicode, เลขเป็นข้อความและ markup ถูก escape พร้อม Source/Raw reload และ body เดิม ตาม [ผล](../../artifacts/playwright/response-history-native-1793137540914/csv-preview-acceptance.json); host exit0/[profile คืนครบ](../../artifacts/playwright/resource-manager-restoration-1793137540666/result.json). เป็น seeded response และ test-only supplement หลัง build; malformed/large/platform อื่นยังค้าง
+- [x] Windows native-hidden PDF response preview ตรวจ PDF สองหน้า, canvas/text/navigation/zoom, document action ไม่รัน, native Save bytes ตรงและ Raw reload ตาม [ผล](../../artifacts/playwright/response-history-native-1793137607819/pdf-preview-acceptance.json); host exit0/[profile คืนครบ](../../artifacts/playwright/resource-manager-restoration-1793137607559/result.json), headless PDF regression ผ่าน. Fixture แยกใช้ร่วมกันหลัง build; password/decoder/platform อื่นยังค้าง
+- [x] Windows native-hidden response UTF-32LE จาก history ที่เก็บข้อความเดิมแบบ lossy และจาก HTTP loopback จริงแสดง `AB`, native Save ได้ bytes เดิม และ reload ไม่แก้ record ตาม [ผล](../../artifacts/playwright/response-history-native-1793137711032/charset-preview-acceptance.json); host exit0/[profile คืนครบ](../../artifacts/playwright/resource-manager-restoration-1793137710785/result.json). Test-only supplement หลัง build; charset/provider/platform อื่นยังค้าง
+- [x] แก้ desktop CSP `media-src` ให้รองรับ `data:` สำหรับ audio preview โดยคง `self` และ sandbox เดิม; ก่อนแก้ [WebView ปฏิเสธ URL](../../artifacts/playwright/response-history-native-1793136688486/result.json). [Windows native-hidden](../../artifacts/playwright/response-history-native-1793137489312/audio-preview-acceptance.json) ผ่าน WAV metadata, no autoplay, คลิก control เล่นจนจบ, sandbox และ Raw reload; [HTML sandbox regression](../../artifacts/playwright/response-history-native-1793137447918/html-preview-acceptance.json) ผ่านรวมปฏิเสธ remote audio ก่อนถึง loopback, hosts exit0/profile คืนครบ ([audio](../../artifacts/playwright/resource-manager-restoration-1793137489066/result.json), [HTML](../../artifacts/playwright/resource-manager-restoration-1793137447670/result.json)). Fixtures เพิ่มหลัง [build](../../artifacts/native-resource-crud-audit-probe/audio-csp-20261028/build-state.json) source closure ผ่าน; อ้างอิง [CSP media-src fallback](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/media-src). เสียงจริงผ่านอุปกรณ์และ platform อื่นยังไม่ตรวจ
+- [x] Multipart response จาก HTTP loopback รวม WAV part: [Windows native-hidden](../../artifacts/playwright/response-multipart-native-1793137866180/multipart-acceptance.json) และ headless ผ่าน preview metadata/no autoplay, กดเล่นและสลับ part แล้วกลับมาเริ่มใหม่แบบหยุดอยู่, Save part bytes ตรง, nested/transfer decoding และ Raw reload; host exit0/[profile คืนครบ](../../artifacts/playwright/resource-manager-restoration-1793137865924/result.json). Fixture เป็น test-only supplement หลัง build; platform อื่นและเสียงออกจากอุปกรณ์จริงยังไม่ได้ตรวจ
 
+**ยังค้าง**
 
+- [ ] ปิด Send→response/history→Copy/Save→reload สำหรับ variants ที่ยังค้าง
+- [ ] ตรวจ disk-full/permission/held cancellation/restart และ root request-action controls
+- [ ] ตรวจ lifecycle/provider/platform ที่ระบุค้างใน HTTP/RESPONSES
 
-Large stream UI now renders bounded summary/detail previews while preserving complete payload/history. Actual20MiB UTF8 text/binary terminal/reload,9MiB replacement and deletion3cases pass; SSEexact6/SSE8/WS6/mixed5, exact5profile restoration and fresh1403source closure/0overrides pass. Baseline forced diagnostic is retained as failure. See HTTP.md#current-large-stream-ui-correction. Full large-event Copy/Save, explicit fragmentation/control frames, gRPC/provider/platform and every retained requirement remain open.
+หลักฐาน/ขอบเขต: [HTTP](HTTP.md) · [RESPONSES](RESPONSES.md)
 
+<a id="p05"></a>
 
+## P05 Request bodies — ยังไม่ปิด
 
-Exact20MiB UTF8 text/binary native send+echo now pass with independently recomputed authored/peer/Channel hashes; incoming20MiB+1text/binary end with generic tungstenite error and no oversized Channel payload. Four profiles restore exactly;14ACK/SSE8/WS6/mixed5regressions and1401source closure pass. See HTTP.md#current-exact-websocket-transport-boundaries. Actual large WS UI/history, fragmentation/full control frames, gRPC, provider/platform and all retained gates remain open.
+เกณฑ์เดิม: JSON/text/XML/form-urlencoded/multipart/binary · Legacy: `models/request`
 
+**โค้ดทำแล้ว**
 
+- [x] รองรับ body6โหมดและ portable binary/multipart assets
+- [x] Per-part MIME/headers/transfer encoding และ file admission ตาม contract
 
-Outgoing WebSocket size/control guards now have bounded Windows acceptance: exact UTF8 ping125wire bytes/126refusal,20MiB+1ASCII/UTF8/binary refusal and malformed-format refusal with valid binary recovery. Existing10ACKgroups/SSE8/WS6/mixed5 and exact4profile/source closure pass. See HTTP.md#current-outgoing-websocket-size-and-control-guards. Exact-size success/incoming fragmentation/oversize, gRPC and broader provider/platform/all retained gates remain open.
+**ตรวจผ่านแล้ว**
 
+- [x] Windows wire payload ของทั้ง6โหมด ครอบคลุม6CSS profiles และ file refusal/limits ตาม [ผล current debug](../../artifacts/playwright/response-history-native-1793122461819/manual-http-acceptance.json); file selection ใช้ setInputFiles ไม่ใช่ physical picker
+- [x] Legacy assets8รายการ/native wire6กรณี/reader refusal5กรณี; chooser/export/reimport ตาม08ab0b3
+- [x] Windows native-hidden binary และ multipart body: Cancel, เลือกไฟล์ผ่าน physical WebView2 chooser, Cancel การเลือกแทนที่โดยรักษาไฟล์เดิม แล้วเลือกไฟล์ใหม่และส่ง bytes ใหม่ตรง ก่อน reload ผ่าน [binary](../../artifacts/playwright/response-history-native-1793126654190/picker-acceptance.json), [multipart](../../artifacts/playwright/response-history-native-1793126638462/picker-acceptance.json); helper หา chooser ก่อนตรวจ process ลูก/profile เฉพาะ scenario และ Tauri owner โดยไม่พึ่ง fixed delay, hosts exit0/profile คืนครบ
 
+**ยังค้าง**
 
-Queued missing-ACK timeout with open peer and peer-initiated Close now passes bounded Windows acceptance:16queued failures/4overflow refusals/0peer messages, single30second deadline, late ACK inert and subsequent send refused. Original regressions and exact4profile/source restoration pass; see HTTP.md#current-queued-websocket-timeout-acceptance. Other race/size/control/provider/platform and all retained requirements remain open.
+- [ ] ตรวจ physical picker ของ body/file variants อื่นและ AT ที่ยังไม่ยืนยัน
+- [ ] ตรวจ body/file workflows บนแพลตฟอร์มที่เหลือ; ไม่ต้องเขียน body modes ใหม่
 
+หลักฐาน/ขอบเขต: [HTTP](HTTP.md) · [IMPORT-EXPORT](IMPORT-EXPORT.md)
 
+<a id="p06"></a>
 
-Bounded Windows WebSocket queue saturation/release/cancel and peer-close Finished barrier now pass in existing7ACKgroups, with SSE8/WS6/mixed5regressions, exact4profile restoration and1401source closure. See HTTP.md#current-websocket-queued-send-and-close-edge-acceptance. Queued missing-ACK timeout, other close/send races, binary/control/size/provider/platform and every other retained gate remain open.
+## P06 Authentication — ยังไม่ปิด
 
+เกณฑ์เดิม: Basic/Bearer/API key/OAuth1/OAuth2/PKCE/Digest/AWS/Hawk/NTLM/netrc/ASAP ตาม inventory · Legacy: `network/*`
 
+**โค้ดทำแล้ว**
 
-Genuine Windows renderer/host suspension8cases now pass with actual thread-state/evaluation/peer-timeout/recovery/history evidence, exact4profile restoration and full1401source closure with declared6test/5doc supplement. See HTTP.md#current-genuine-renderer-host-suspension. Earlier pending suspension statements are superseded only for this scope. Queued-send/close-edge/backpressure, broader provider/platform/physicalTCP/OS-close and all other retained gates remain open.
+- [x] Basic UTF8/Latin1, Bearer prefix, API key header/query/Cookie และ manual Authorization precedence
+- [x] Digest สำหรับ HTTP/SSE/WebSocket รวม origin Authentication-Info/rspauth ก่อน content decoding
+- [x] OAuth2 Client Credentials/Password/Refresh, token lifecycle และ NO_PREFIX
+- [x] OAuth2 Authorization Code/PKCE และ Implicit token/ID-token/none callback; ID-token ใช้แบบ explicit ไม่ใช่ OpenID identity verification
+- [x] Optional login window พร้อม remote/custom callback interception และ session rotation
+- [x] OAuth1 signature4วิธี และ legacy/RFC body modes
+- [x] AWS IAM header signing/editor/import
+- [x] Hawk SHA1/SHA256 พร้อม signing3modes
+- [x] ASAP legacy/Postman JWT พร้อม RSA/PSS/EC รวม ES512/P-521
+- [x] NTLMv2 guarded HTTP/1/TLS-binding/editor และ proxy407
+- [x] netrc discovery/parser/per-destination Basic
 
+**ตรวจผ่านแล้ว**
 
-Separate real SDK Channel WebSocket4ACK groups pass for held/stale/future/foreign/duplicate/missing ACKs, timeout session retirement/send refusal, run-ID reuse and cancellation Finished drain. Default-SSE bounds8/WSUI6/mixedUI5regressions, exact4profile restorations and1398source closure with declared3test/4doc supplement pass on unchanged executable. Two actual receiver bundles rebuild exactly. See HTTP.md#current-websocket-acknowledgement-controls. Genuine renderer-host suspension, queued-send/close-edge/backpressure/provider/platform and all other retained gates remain open.
+- [x] Direct native/loopback/JS proofs ของ OAuth1/AWS/Hawk/ASAP และ NTLM ตาม AUTHENTICATION; ไม่ใช่ยืนยัน UI/provider ทุกกรณี
+- [x] Windows native-hidden Auth UI แบบ Client Credentials: Fetch token ผ่าน loopback ด้วย Basic client credentials, Send ใช้ Bearer token, response บันทึกและ token พร้อมใช้หลัง reload; แก้ client ID ระหว่าง exchange ค้างแล้วปฏิเสธ token ที่มาทีหลังโดยรักษา token เดิม; ลบ request ระหว่าง exchange อีกครั้งแล้ว native ยกเลิก connection และ request/token ไม่กลับมาหลัง reload ตาม [ผล](../../artifacts/playwright/response-history-native-1793123675526/oauth-acceptance.json); host exit0/profile คืนครบ ไม่ใช่ browser/callback หรือ external provider
+- [x] Windows NTLM proxy30groups: HTTP/HTTPS CONNECT, credential/certificate isolation, OAuth/SSE/WS และ cleanup
+- [x] netrc45native cases
+- [x] Origin Digest proof54Windows native groups รวม compression/trailers/redirect/stale และ HTTP/SSE/WS refusal
+- [x] Windows native-hidden build หลังแก้ data/ownership ผ่าน proxy Digest HTTP/CONNECT, stale, no Basic downgrade, Basic/NTLM controls และ origin response-proof regression ตาม [ผล](../../artifacts/playwright/proxy-ntlm-1793126730713/acceptance.json), [build](../../artifacts/native-refused-move-20261028/build-state.json); host exit0/profile คืนครบ. ไม่ยืนยัน Proxy-Authentication-Info
+- [x] ตรวจ Proxy-Authentication-Info แยกจาก origin Digest ตลอด encoded response body และ trailer ก่อนคืน connection; CONNECT ตรวจ proof ก่อนใช้ tunnel. Windows native-hidden ผ่าน SHA-256 auth-int ใน header/trailer, ปฏิเสธ proof ปลอมทั้ง HTTP และ CONNECT และตรวจ origin/proxy พร้อมกัน ตาม [ผล](../../artifacts/playwright/proxy-ntlm-1793127314254/proxy-proof-acceptance.json), [build](../../artifacts/native-proxy-proof-20261028-3/build-state.json); regression proxy Digest เดิมผ่านตาม [ผล](../../artifacts/playwright/proxy-ntlm-1793127341735/acceptance.json), profile คืนครบ. Rust unit test เพิ่มตรวจ body ถูกแก้, trailer ที่ประกาศแต่ไม่ส่ง และแยก origin header โดยยังไม่ได้ทดสอบกรณีเหล่านี้ผ่าน network จริง
 
-Bounded Windows exactSSE6cases now preserve9MiB newest parsed payload through terminal/reload with retained raw export, evict it on new small payload and verify ASCII/LF20MiB line/data-field-line-sum equal/+1 guards. Fresh SSE8/WS6/mixed5regressions and exact4profile restorations pass with original1396source closure/0overrides. Field syntax counts toward the event guard; further exact variants and oversized WS/gRPC remain open. See HTTP.md#current-exact-sse-boundaries-and-large-event-retention.
+**ยังค้าง**
 
-Bounded Windows5mixed history groups pass: real alternating HTTP/SSE histories/compatible nonlatest selection/reload and separate WebSocket peer delivery while HTTP is active, stable cross-request selection and no implicit sends. SSE8/WS6regressions, exact3profile restorations and1394source closure with explicit3test/5doc supplement pass on unchanged executable. Initial wrong authored/effective URL lookup failure is preserved; product behavior unchanged. HTTP.md#current-mixed-http-sse-and-websocket-histories retains evidence and remaining mixed environment/lifecycle/provider/platform scope.
+- [ ] ตรวจ Digest Unicode/NFC/UI/IPC variants ที่ยังไม่มีหลักฐานปิด; origin proof ผ่านแล้วเฉพาะกรณีใน receipt
+- [ ] ตรวจ proxy response proof variants นอกขอบเขตหลักฐานข้างต้น รวม nonce cache และ legacy encodings ที่ยังค้าง
+- [ ] ตรวจ OAuth Authorize→browser/login-window→callback→token→Send ผ่าน UI/provider จริง
+- [ ] ตรวจ callback/certificate/popup/cancel และ stale-owner publication ของ OAuth/login window
+- [ ] ปิด legacy proxy schemes, auth edge cases และ provider/platform ที่เหลือ
 
-Bounded Windows24compressed SSE/HTTP cases include prior gzip multi-member correction plus3codec real cancellation and6decoded20MiB line/event refusals. Exact decoded raw suffix/budget, no oversized parsed event, full durable reload, originalSSE8/WS6regressions and exact3profile restorations pass. Unchanged audited executable/original manifest with declared1scenario/5doc supplement closes1392source entries and all other scopes. Initial120second test wait failure is preserved; corrected300second wait/progress leaves assertions unchanged. See HTTP.md#current-compressed-cancellation-and-decoded-limits. Exact-size/large-valid-event/full mixed/provider/auth/platform and every other retained gate remain required.
+หลักฐาน/ขอบเขต: [AUTHENTICATION](AUTHENTICATION.md) · [origin Digest proof](../../artifacts/digest-response-proof-20261027/verification.json)
 
-## Latest open-compressor SSE milestone
+<a id="p07"></a>
 
-Bounded Windows12native valid/corrupt/real open-compressor flush/truncated-trailer cases pass for gzip/deflate/Brotli. Exact decoded raw/parsed prefixes, native export and durable reload are verified with SSE8/WS6regressions, exact3profile restoration and1256source closure with one declared filename-only scenario supplement. Two failed Save attempts are retained; unchanged ownership guards remain required. See HTTP.md#current-open-compressor-flush-and-truncated-trailers. Multi-member/cancel/limits/mixed/provider/platform and every other retained acceptance gate remain open.
+## P07 Environment / templating — ยังไม่ปิด
 
-## Latest compressed SSE milestone
+เกณฑ์เดิม: Base/sub/folder inheritance, variable rendering และ explicit legacy tag handling · Legacy: `models/environment, templating`
 
-Bounded Windows valid/corrupt gzip/deflate/Brotli6native UI cases pass with exact decoded raw Save/reload, event before HTTP EOF, originalSSE8/WS6regressions, exact3profile restoration and original1256entry closure. See HTTP.md#current-compressed-sse-native-acceptance. True incremental compressor flush/truncation/multi-member/cancellation/limits, mixed protocols and all retained provider/platform gates remain required. Full migration incomplete.
+**โค้ดทำแล้ว**
 
-## Latest native SSE bounds and ACK milestone
+- [x] Environment/folder inheritance, private/color/order/duplicate และ remembered selection
+- [x] Render variables/tags กับ request owner; resource switches ไม่ควร publish ผลเก่า
 
-Bounded Windows evidence verifies5UI bounds groups plus3real native Channel ACK groups: large bytes/64KiB fragmentation, raw/parsed retention and exact suffix export/reload,20MiB line/event refusal,25second ACK hold/release,30.004second missing-ACK invocation failure and run-id reuse. Normal SSE8groups/10durables and WS6groups pass with exact3profile restorations and original1254entry source/other-scope closure. See HTTP.md#current-native-sse-bounds-and-ack-deadline. Renderer/host suspension, exact size/large-valid-event and WS-negative variants, compressed/mixed/provider/platform/physicalTCP/OS-close and all other retained gates remain open; no full migration completion claim.
+**ตรวจผ่านแล้ว**
 
-## Latest standalone timeline milestone
+- [x] Windows authored property-order, subtree duplication, inherited variables/native Send ตาม6349100/eae4ac2
+- [x] ย้ายและ duplicate environment ที่ sort key ใหญ่มากหรือห่างกันน้อยกว่าความละเอียดเลขได้ โดยจัดเลขของ collection เดียวกันใหม่เฉพาะเมื่อจำเป็น; direct regression ตรวจ collection อื่นไม่เปลี่ยน, headless UI/save/reload และ Windows native-hidden UI/save/reload ผ่าน [ผล native](../../artifacts/playwright/environment-order-native-1793125476443/acceptance.json), [build](../../artifacts/native-environment-order-20261028/build-state.json); host exit0/profile คืนครบ
+- [x] สร้าง environment โดยวนหา sort key สูงสุดแทนการส่งรายการทั้งหมดเป็น arguments; regression กับ 1,000,000 รายการผ่านหลังเดิม stack overflow, headless scenario/compiler/build ผ่าน; ไม่ใช่ native หรือ performance acceptance สำหรับ workspace ขนาดดังกล่าว
+- [x] แก้ property-order path ชนกันเมื่อชื่อ key มี `~|`: editor และ template ใช้ path ที่ escape แยกตำแหน่ง โดยยังอ่าน metadata แบบเดิม; direct assertions, headless environment save/reload/export/reimport ตาม [ผล](../../artifacts/playwright/template-tag-environment-order-portability/order-portability.json) และ [folder editor save](../../artifacts/playwright/resource-manager/folder-order.json) ผ่าน รวม `bun run check`/build. ยังไม่ตรวจ native สำหรับการแก้นี้
+- [x] Held target-switch/edit capture, null/missing refusal, filtered deletion fallback และ unrelated deletion retaining response
 
-Supported missing-body/log timeline portability is bounded Windows verified:5standalone HTTP/SSE/WebSocket/malformed/empty cases,2actual partial component rereads,9chooser/14reader checks, unchanged9sourcefiles, nativeHTTP/WebSocket regressions and exact3profile restorations. Original1251entry source/other-scope closure passes with0overrides. See IMPORT-EXPORT.md#current-standalone-legacy-timeline-portability. No payload/history is invented. Invalid/absent-path/unsupported-plan variants, native stream bounds/backpressure/timeout/compressed/mixed/provider/platform and all other retained gates remain open. Full migration remains incomplete.
+**ยังค้าง**
 
-## Latest raw capture and timeline milestone
+- [ ] ตรวจ callers/protocols/imported-model variants ที่ยังค้าง
+- [ ] ตรวจ native Git privacy และ callback drain ของ template/plugin owners
+- [ ] ตรวจ provider/platform/AT ที่ยังไม่ยืนยัน; plugin runtime แยกในหมวด21
 
-Bounded Windows live raw SSE capture/export and raw timeline portability for loaded body/log assets are verified. See HTTP.md#current-live-raw-sse-capture and IMPORT-EXPORT.md#current-byte-exact-legacy-timelines. Native runtime8groups/10checkpoints, legacySSE7chooser/9reader, affected nativeHTTP/WebSocket regressions and exact profile restoration pass. An explicitly hashed two-file test-only .bin Save supplement accompanies the unchanged original build manifest. Supported readable timeline assets with missing body/log now have the separate bounded acceptance above; native large-fragment/overflow/backpressure/timeout, compressed/mixed/provider/platform and all other retained gates stay open. No full migration completion claim.
+หลักฐาน/ขอบเขต: [TEMPLATING](TEMPLATING.md) · [PLUGINS](PLUGINS.md)
 
-## Latest bounded stream milestone
+<a id="p08"></a>
 
-WebSocket NDJSON activation is implemented and bounded-verified at 869ad32: reviewed native event/timeline reads, exact portable bytes, history/selection/reload/export/reimport and shared activation budgets. See [canonical evidence](IMPORT-EXPORT.md#current-legacy-websocket-ndjson-activation). The WebSocket/Import rows remain PARTIAL for broader runtime, legacy variants, provider and platform acceptance; no requirement is removed.
+## P08 Cookies / redirects / proxy — ยังไม่ปิด
 
-## Required acceptance matrix
+เกณฑ์เดิม: Session isolation, persistence, cookie management และ redirect/proxy preferences · Legacy: `models/cookie-jar, network`
 
-| Area | Legacy evidence | Status | Acceptance |
-| --- | --- | --- | --- |
-| Desktop shell / build | main, electron-builder.config.js | PARTIAL — Windows release executable + NSIS built; launch/platform QA pending | Native Tauri executable and installer build with Bun/Cargo |
-| UI layout / themes | ui/css, ui/components, plugins/themes, screenshots/v0.1.png | PARTIAL — saved static and Windows native dark/light/keyboard/width checks pass; complete workflow/platform visual QA pending | Insomnium layout and usable light/dark, keyboard, resize |
-| Collections / folders / request CRUD | models/workspace, request-group, request | PARTIAL — Windows original native6/field24/correction6 plus6 actual collection UI create/rename/switch/duplicate/root reorder/cancel-delete/delete-fallback/reload groups pass at2870f40. All14 explicitly private legacy models/descendants excluded;15 top-level references remap with unchanged literal/foreign payloads and exact original profile restoration. Broader resource models/workflows, deleted-owner cookies, callback-drain/platform/AT gates remain required | Persist, switch, rename, duplicate, delete, reorder/search |
-| HTTP / response / history | network/network, models/response | PARTIAL — Windows7a0e9e3/currenteae4ac2 regression passes seededhistory6/body36/controls19, durable errors/Cancel,503/404/200 persisted selection, environment quotas, budget and54 socket retirement; exact profile restored. Full platform/provider/lifecycle compatibility remains required (HTTP.md) | CORS-free native requests, status/body/headers, timing, history, cancellation |
-| Request bodies | models/request | PARTIAL — Windowseae4ac2 regression body36 covers all6 modes across6 CSS profiles plus file refusals/limits; exact wire payloads verified. Reviewed legacy binary/multipart activation11e9b96/scenario08ab0b3 also verifies8 portable assets/6 native wire sends/5 reader refusals and native chooser/export/reimport with exact profile/source (IMPORT-EXPORT.md). Broader physical picker/AT/platform gates remain required (HTTP.md) | JSON/text/XML/form-urlencoded/multipart/binary |
-| Authentication | network/* | PARTIAL — Basic UTF-8/Latin-1, editable Bearer prefix, API key header/query/Cookie, manual Authorization precedence (also Digest/OAuth; explicit OAuth Fetch/Refresh retained) and native Digest for HTTP/SSE/WebSocket; Digest Unicode/NFC and executor loopback checks passed, UI/IPC pending; OAuth Client Credentials/Password/Refresh plus token lifecycle implemented and directly inspected; Authorization Code/PKCE browser/callback flow implemented and directly inspected, real browser/IPC pending; Implicit token/ID-token/none callback flow implemented and directly inspected (explicit ID-token use; no OpenID identity verification); optional legacy login-window remote/custom interception and session rotation implemented (WebView/provider/certificate/popup acceptance pending); OAuth1 four signature methods and explicit legacy/RFC body modes implemented with direct native/loopback/JS checks; OAuth2 NO_PREFIX implemented; AWS IAM header signing/editor/import implemented with independent native wire-signature verification (AUTHENTICATION.md#record-aws-compatibility); Hawk SHA1/SHA256 implemented with three explicit signing modes and native signature/redirect inspections (AUTHENTICATION.md#record-hawk-compatibility); ASAP legacy/Postman JWT signing/editor/import implemented with independent RSA/PSS/EC verification (AUTHENTICATION.md#record-asap-compatibility; ES512/P-521 now implemented and independently inspected); NTLMv2 guarded HTTP/1/TLS-binding/editor implemented with independent native proof/MIC/TLS checks (AUTHENTICATION.md#record-ntlm-compatibility); NTLMv2 proxy407 Windows30 groups verified on current release with HTTP/HTTPS CONNECT, distinct credential/certificate proofs, OAuth/SSE/WS and owned cleanup (AUTHENTICATION.md); complete legacy proxy schemes/provider/platform compatibility remains required; netrc discovery/parser/per-destination Basic implemented with45 native cases (AUTHENTICATION.md#record-netrc-compatibility); native UI/provider/platform and auth edge parity pending | Basic/bearer/API key, OAuth1/2/PKCE, digest/AWS/Hawk/NTLM/netrc/ASAP inventory |
-| Environment / templating | models/environment, templating | PARTIAL — Windows6349100/follow-up eae4ac2 verifies environment/folder authored property-order, private/color/reorder/subtree duplication, remembered selection, actual inherited variables/native Send, originalforeign4+held target-switch/edit capture, null/missing refusal, filtered deletion fallback, unrelated deletion retaining unsaved responses and exact profile restoration (TEMPLATING.md). Broader callers/protocols/imported-model variants, native Git privacy, callback-drain/provider/platform/AT acceptance remain required | Base/sub/folder inheritance; variable rendering; legacy tags handled explicitly |
-| Cookies / redirects / proxy | models/cookie-jar, network | PARTIAL — persistent cookie CRUD, collection isolation, separate send/store, redirect/proxy implemented; legacy-cookie preview/restore implemented; native QA and custom-cookie extensions pending | Session isolation, persistence, cookie management, redirect/proxy preferences |
-| TLS / certificates | models/ca-certificate, client-certificate | PARTIAL — original bounded Windows Open4/TLS59 receipts remain accepted for their recorded versions (TLS.md); reviewed portable CA/PEM/key/PFX activation ddea70f/scenario9180ac4 verifies HTTP/SSE/WSS/gRPC and source-unavailable export/reimport (IMPORT-EXPORT.md). Full older matrix replay, broader provider/redirect/identity/OS-close/platform gates remain required | Validation default, custom CA, client certificate scoped to host |
-| Local data / legacy migration | common/database, models | PARTIAL — atomic save/backup and read-only NeDB parser; Windows first-session backup→failed-commit cleanup/retry→reviewed recovery/relaunch verified in [bounded receipt](../../artifacts/atomic-cleanup-20261026/verification.json), with full durability/OS-close/other-platform gates retained; scoped legacy HTTP response body/timeline activation implemented at4bc799d, with Windows12→8 verified at4818d7a, extended to 16→10/default-compression/portable reimport with exact source/profile restoration in [current receipt](../../artifacts/legacy-response-compression-20261026/verification.json) (IMPORT-EXPORT.md); reviewed ordinary HTTP request-file assets are implemented at11e9b96 and headless/Windows verified at08ab0b3; reviewed certificate/key portability is implemented atddea70f/verified9180ac4 (IMPORT-EXPORT.md); remaining embedded proto/include compatibility, stream assets and broader certificate/legacy/platform acceptance remain required | Atomic durable state; import legacy without changing source or dropping resources |
-| Import / export | ../plugins and common/import | PARTIAL — Insomnia/Postman/HAR/NeDB, OpenAPI JSON/YAML design documents and explicit request generation; legacy response history/portable bytes/current selection implemented, headless7 round-trip +64MiB+1 pre-read refusal and Windows actual file/folder/cancel/reload/export verified at4818d7a (IMPORT-EXPORT.md); ordinary HTTP request-file activation11e9b96/scenario08ab0b3 verifies8 assets/6 wire/5 refusals and native export/UI reimport; portable certificate assets are implemented/verified atddea70f/9180ac4 (IMPORT-EXPORT.md); broader formats/recovery/other external assets/platform gates remain open; cURL import acceptance in CURL-IMPORT.md; request-snippet scope reduced by owner2026-10-27 to cURL Linux/Windows only (IMPORT-EXPORT.md), all other language/client implementation and runtime gates removed | Insomnia JSON, Postman, HAR, OpenAPI, curl; explicit unsupported handling |
-| GraphQL | ui/components, graphql deps | PARTIAL — query/variables/operation editor, POST/GET, manual introspection, JSON/SDL import, schema browser/export, format/validation and response errors implemented; Windows native15 editor checks +12 schema lifecycle/GET checks passed; remaining gates in GRAPHQL.md#record-graphql-rendering | Query/variables editor, schema introspection, error display; legacy completion/navigation |
-| WebSocket | models/websocket-*, network | PARTIAL — connect/send/receive/close, text/binary/ping, headers/subprotocols, saved payloads/history implemented; bounded Windows runtime6 and legacy NDJSON receipts pass (HTTP.md#current-websocket-runtime-lifecycle, IMPORT-EXPORT.md); broader variants/provider/platform acceptance remains required | Connect/send/receive/close, headers, history |
-| SSE | models/request isEventStreamRequest | PARTIAL — bounded Windows normal runtime8groups plus bounds/real-ACK8groups pass, including raw suffix export/retention,20MiB refusals and corrected30second invocation deadline (HTTP.md). Legacy raw/standalone timeline portability remains accepted (IMPORT-EXPORT.md). Exact-boundary/large-valid-event, renderer-host suspension, compressed/mixed/provider/platform variants remain required | Incremental events and cancellation |
-| gRPC | network/grpc, models/proto-*, grpc-request | PARTIAL — Tonic/reflection, legacy JSON, Svelte/proto management plus method package groups and sent-message tabs implemented;64 native cases,97 legacy differential,75 prior workspace checks and10 method-group cases passed; bounded reflection samples implemented with15 native cases plus5 archived comparisons/independent wire decodes; [original Windows gRPC UI/IPC/reload](GRPC.md#record-current-original-grpc-native-acceptance) and [Proto36](GRPC.md#record-current-proto36-native-acceptance) are bounded-verified; [NeDB nested proto import/Rust Echo/export/reimport](GRPC.md#current-embedded-proto-root-correction) is bounded Windows verified at5c02667; remaining JSON/shared-editor variants and broader platform compatibility remain required ([contract](GRPC.md#record-grpc-compatibility)) | Proto/reflection, unary and streaming, metadata/TLS |
-| API design / OpenAPI lint | models/api-spec, spectral deps | PARTIAL — persisted source editor/import/export, operations/schema preview, strict structural validation and attached local refs, request generation implemented; Windows API import save/drain3 verified at2e04de6/production9638705 with complete durable state and exact profile restoration; broader native UI, Spectral/custom rules and advanced serialization pending | Edit/import/spec preview and lint |
-| OpenAPI 3.2 QUERY/custom operations | src/lib/openapi.js; src/lib/components/ApiDesign.svelte; tests/ui/openapi-methods.js | VERIFIED — release1791530305299: native6exact methods/5JSON bodies plus fresh query3.2.1/44groups; terminal0/native-hidden/exit0/independent audits/owned cleanup. Direct12/Git12 across3.2.0/3.2.1 and11negative controls; exact custom case/metadata, distinct fixed GET vs custom get, inherited/overridden parameters, path validation/diagnostics and duplicate operationIds. Three actual760 images inspected. See API-DESIGN.md#record-openapi-methods; broader OpenAPI/Auth/provider/proxy/HTTP2/platform gates remain open. |
-| Mixed manual/generated query order | src/lib/transport.js; src/lib/template-url.js; tests/ui/url-encoding.js | VERIFIED — release1791522146028: URL85targets/78signatures/7checks/8explicit legacy refusal/RFC recovery controls; independent audit recomputes32mixed signatures and4API-key targets. Fresh generated-query3.2.1/44groups passes. Enabled row/array expansion order, duplicate names, empty/bare/blank-name values, nullable omission, encoding/cURL contexts and raw-query-preserving API-key append verified. Direct8/boundary8/legacy52/style132/preflight82 pass; terminal native-hidden/exit0 and owned cleanup. See HTTP.md#record-query-row-order for exact evidence and limits; broader Auth/OpenAPI/provider gates remain open. |
-| Collection runner / assertions | models/unit-test*, network/unit-test-feature | PARTIAL — runtime/worker/shared sender/Tests UI implemented; saved Windows native runner-lifecycle verifies direct/detached/delegated callbacks, assertions, single-test persistence, Stop and fresh run, dark/light 1440/900/760; remaining script/import/provider/platform compatibility pending (RUNNER.md#record-runner-inventory) | User-authored API tests (separate from new development test scripts restriction) |
-| Git sync | sync, models/git-repository | PARTIAL — local status/staging/commit/history/branches/selected restore and journaled full/scoped/shallow Fetch implemented; public Pull/local Merge now have pinned content/working-conflict review, complete side/custom choices, recursive bases/schema3 recovery and recorded native acceptance. Remaining Pull/network/process/I/O/provider/platform/path/history acceptance and clone/remote checkout/non-force push are required; see current STATUS/GIT-REMOTE rather than historical GIT-INVENTORY checkpoints. | Existing local Git workflows or documented approved replacement |
-| Plugin / template tag compatibility | plugins, templating | PARTIAL — isolated renderer/built-in tags and prompt dialog implemented; Send integration/custom plugin runtime and native acceptance pending | Inventory and explicit compatibility boundary; no silent loading of Node-only plugins |
-| Desktop integrations | main | PARTIAL — dialogs/window-state/single-instance/icons/shortcuts; native QA/menu pending | Menus, shortcuts, dialogs, clipboard, window state, icons |
-| CI / distribution / docs | .github, scripts, README | PARTIAL — migration docs and Windows installer complete; CI/platform matrix pending | Bun-only CI, platform builds, accurate run/migrate/recovery docs |
+**โค้ดทำแล้ว**
 
-## Completion rule
+- [x] Persistent cookie CRUD, collection isolation และแยก send/store policy
+- [x] Redirect/proxy configuration และ legacy-cookie preview/restore
 
-Each area requires implementation and direct evidence covering its complete acceptance scope. Keep source/code, current runtime, profile restoration, provider/platform, packaging/legal and recovery evidence distinct. Do not mark full migration complete until every requirement in the matrix and retained topic records is verified or explicitly removed by the owner. The owner removed only the request-body Template preview panel/Clear prompt values control; template engine/native tags/Send remain required. Deferred UX redesign follows POST-MIGRATION-UX.md after migration.
+**ตรวจผ่านแล้ว**
 
+- [x] มีผลตรวจ proxy407/redirect บางเส้นทางใน AUTHENTICATION; ไม่ถือว่าปิด cookie/native QA ทั้งหมวด
+- [x] Windows native-hidden เปิดใช้ template cookie sources ผ่าน UI, reload และส่งไป loopback โดย dependency/scope ตรง; native jar และ SameSite เดิมคงอยู่, dependency วนซ้ำปฏิเสธก่อนส่ง และ Clear all ไม่คืน cookie เก่า ตาม [ผล](../../artifacts/playwright/cookie-template-native-1793128747042/acceptance.json), [build](../../artifacts/native-runner-reference-types-20261028/build-state.json); host exit0/profile คืนครบ. เป็น HTTP loopback ไม่ครอบคลุม HTTPS หรือ platform อื่น
 
-## Current-source native gRPC checkpoint (2026-10-19)
+**ยังค้าง**
 
-Source9b5b85da fresh production-release product-only probe passed the unchanged saved95case Windows native-hidden scenario:43unary/TLS+7stream+45reflection. Host100636 exit0 without force; all3Cancel shapes status1/closed/exact terminal[1], original profile inventory/buffers and independent workspace hashes restored, scenario/helper hashes unchanged. Evidence artifacts/native-grpc-current-1792388562398/acceptance.json and artifacts/playwright/grpc-client-certificate-1792389140909; full source/binary/limits receipt in GRPC.md current-source acceptance section. No testcase edits or owned live handles; dev Cargo97076/110976 untouched.
+- [ ] ตรวจ cookie CRUD/isolation/persistence ผ่าน native UI ให้ครบตาม contract
+- [ ] ตรวจ cookie recovery/deleted-owner และ custom-cookie extensions ที่ยังค้าง
+- [ ] ตรวจ redirect/proxy variants, cancel และ provider/platform ที่ยังขาด
 
-This is fresh bounded UI/IPC evidence, not full gRPC/migration acceptance. Weighted/outlier/ORCA/global cache/alias/timer/race and retained parser/provider/platform/legal/release plus every other PLAN/PARITY gate remain. Product-only beforeBuild:null producer is not full release closure. /compact unavailable; explicit handoff follows.
+หลักฐาน/ขอบเขต: [AUTHENTICATION](AUTHENTICATION.md) · [HTTP](HTTP.md)
+
+<a id="p09"></a>
+
+## P09 TLS / certificates — ยังไม่ปิด
+
+เกณฑ์เดิม: Validation เป็นค่าเริ่มต้น, custom CA และ host-scoped client identity · Legacy: `models/ca-certificate, client-certificate`
+
+**โค้ดทำแล้ว**
+
+- [x] TLS validation/custom CA และ client identity ที่ผูกกับ host
+- [x] Portable CA/PEM/key/PFX และการเลือก identity ใน HTTP/SSE/WSS/gRPC ตาม TLS
+
+**ตรวจผ่านแล้ว**
+
+- [x] Bounded Windows Open4/TLS59 ตามเวอร์ชันที่บันทึก
+- [x] Portable activation/export/reimport เมื่อ source files เดิมใช้ไม่ได้ ตามddea70f/9180ac4
+
+**ยังค้าง**
+
+- [ ] ตรวจ current-source regression ของ matrix ที่การเปลี่ยน shared TLS/identity กระทบ
+- [ ] ปิด provider/redirect/identity/OS-close/platform variants ที่เหลือใน TLS
+
+หลักฐาน/ขอบเขต: [TLS](TLS.md) · [portable assets](IMPORT-EXPORT.md)
+
+<a id="p10"></a>
+
+## P10 Local data / legacy migration — ยังไม่ปิด
+
+เกณฑ์เดิม: Atomic durable state; import legacy โดยไม่แก้ source หรือทำ resource หาย · Legacy: `common/database, models`
+
+**โค้ดทำแล้ว**
+
+- [x] Atomic save/session backup/recovery และ read-only NeDB parser
+- [x] Legacy response body/timeline และ portable HTTP request/certificate assets
+- [x] Compressed legacy SSE history activation และ Unix atomic storage permissions
+- [x] Persistence queue จดจำ preparation/Svelte/JSON snapshot failure เพื่อปฏิเสธ transition จนมี save ใหม่สำเร็จ
+- [x] จองลำดับ save ก่อน capture เพื่อไม่ให้ transition/save ที่ถูกเรียกซ้อนแซง
+- [x] คำนวณ retained history และ response selections ให้สำเร็จก่อนเปลี่ยน state เพื่อป้องกัน partial trim เมื่อ preparation ล้ม
+- [x] เตรียม history/selection แยกและใช้กับ state หลัง Svelte snapshot/JSON serialization ผ่าน เพื่อไม่ตัด history เมื่อ capture ล้ม
+- [x] ใช้ history/selection ที่เตรียมไว้หลัง write สำเร็จและยังเป็น owner/revision เดิม เพื่อรักษาข้อมูลขณะ write ล้มหรือค้าง
+- [x] ตรวจ source history/selection/resources/settings ก่อนใช้ผล write เก่า เพื่อไม่ทับ state ที่ถูกแทนระหว่างรอ write แม้ยังไม่มี save ใหม่
+- [x] ตรวจสมาชิกและลำดับ history รวมค่า selection เพื่อไม่ทับการแก้ใน array/object เดิมระหว่าง write
+- [x] ตรวจเนื้อหาของ history ที่จะถูกตัดก่อนใช้ผล write เก่า: [controlled recovery UI](../../artifacts/playwright/workspace-recovery-1793123262196/result.json) ตรวจ mutation และ snapshot failure; [Windows native-hidden](../../artifacts/playwright/workspace-recovery-live-sse-1793142518920/live-sse-retention-acceptance.json) ตรวจ live SSE เพิ่ม event ระหว่าง atomic replacement ค้างและ write ตัด history ตามงบ จากนั้นคืนพื้นที่และบันทึก event ได้ก่อน stream จบ, host exit0/[profile คืนครบ](../../artifacts/playwright/resource-manager-restoration-1793142518676/result.json). เป็น test-only supplement หลัง build; OS shutdown และ platform อื่นยังค้าง
+- [x] เพิ่ม imported history ทีละรายการเพื่อป้องกัน argument limit ใน shared helper; import ปัจจุบันเปิดใช้งาน history สูงสุด 100 รายการต่อ review
+
+**ตรวจผ่านแล้ว**
+
+- [x] Windows backup→failed commit cleanup/retry→reviewed recovery/relaunch
+- [x] Windows native-hidden หยุด process ที่เป็นของ scenario ขณะ replacement ถูก oplock ค้าง: primary เดิมคงอยู่, staged write ยังอยู่, เปิด process ใหม่ได้และ save ใหม่สำเร็จโดยไม่ reconnect SSE ตาม [ก่อน restart](../../artifacts/playwright/workspace-recovery-live-sse-1793128605461/live-sse-crash-acceptance.json), [หลัง restart](../../artifacts/playwright/workspace-recovery-live-sse-crash-reopen-1793128606707/crash-reopen-acceptance.json), [build](../../artifacts/native-runner-reference-types-20261028/build-state.json); wrapper คืน profile ครบ. เป็นการ terminate process โดยตั้งใจ ไม่ใช่ power loss/OS shutdown และไม่ได้กู้การแก้ไขที่ยังเขียนไม่เสร็จ
+- [x] Windows native-hidden ตรวจ primary ที่เป็น JSON แต่มี response header เสีย: ปฏิเสธ load/save, ยกเลิก review โดยไฟล์ไม่เปลี่ยน, กู้ backup ที่ตรวจแล้ว เก็บสำเนา primary เสีย และ save/relaunch โดย backup เดิมไม่เปลี่ยน ตาม [recovery](../../artifacts/playwright/workspace-recovery-invalid-history-1793127775503/acceptance.json), [relaunch](../../artifacts/playwright/workspace-recovery-invalid-history-reload-1793127776820/acceptance.json), [build](../../artifacts/native-collection-search-20261028/build-state.json); ทั้งสอง host exit0 และ wrapper ตรวจคืน profile ครบ. เป็นกรณี header หนึ่งรูปแบบ ไม่ใช่ OS-close หรือทุก platform
+- [x] Legacy response compression/portable reimport พร้อม source/profile restoration; Windows native-hidden build หลังแก้ CRUD ตรวจ 16 response records, 10 active histories, 4 database files, gzip/default/refusal และ export/reimport/reload ตาม [ผล](../../artifacts/playwright/legacy-response-import-native-1793120322089/legacy-native-acceptance.json), [build](../../artifacts/native-runner-delete-20261027/build-state.json); host exit0/profile คืนครบ ไม่ได้ส่ง network
+- [x] Windows native-hidden ตรวจ legacy SSE และ WebSocket scoped asset reader, picker, export/reimport/reload ตาม [SSE](../../artifacts/playwright/legacy-sse-import-native-1793135208146/legacy-sse-acceptance.json), [WebSocket](../../artifacts/playwright/legacy-websocket-import-native-1793135285573/legacy-websocket-acceptance.json); ใช้ [build ล่าสุด](../../artifacts/native-resource-crud-audit-probe/postman-empty-20261028/build-state.json), hosts exit0/profile คืนครบ ([SSE](../../artifacts/playwright/resource-manager-restoration-1793135207897/result.json), [WebSocket](../../artifacts/playwright/resource-manager-restoration-1793135285323/result.json)), ไม่มี stream connection. เพิ่ม test-only save selection metadata ก่อน baseline หลังรอบแรกของแต่ละ scenario assertion ไม่ตรง metadata ที่ UI บันทึก; ทั้งสองรอบแรก profile คืนครบ
+- [x] Ordinary HTTP file assets และ certificate/key portability ตาม08ab0b3/9180ac4
+- [x] Bun self-check ตรวจ capture failure หลัง save ที่ค้าง, flush/transition refusal, snapshot ตามเวลาสั่งและ valid save retry; recovery UI ฉีด preparation failure ตรวจ feedback/ไม่มี write/transition refusal/retry ผ่าน [ผล](../../artifacts/playwright/workspace-recovery-1793109589488/result.json)
+- [x] Native Windows QuickJS debug build หลังแก้คิวผ่าน damaged/missing/fresh recovery, first-session backup และ reload; 7 hosts exit0/profile คืนครบ ตาม [ผล](../../artifacts/playwright/workspace-recovery-damaged-1793109820579/result.json), [build](../../artifacts/native-persistence-preparation-20261027/build-state.json); ไม่ใช่ native preparation-failure หรือ OS-close acceptance
+- [x] Bun self-check ตรวจ reentrant transition/save, capture failure และลำดับ write; recovery UI headless ฉีด Svelte snapshot failure และ transition ซ้อน ตรวจ refusal/retry และ save ก่อน transition ผ่าน [ผล](../../artifacts/playwright/workspace-recovery-1793110114163/result.json); native build ล่าสุดผ่าน missing-backup recovery และ stream reload ตาม [ผล](../../artifacts/playwright/workspace-recovery-missing-1793110347739/result.json)
+- [x] Native Windows UI save ขณะ primary ถูกล็อกปฏิเสธโดยรักษา primary/backup bytes; ปลดล็อกแล้ว retry/reload ผ่าน ตาม [ผล](../../artifacts/playwright/workspace-recovery-missing-1793110533566/locked-save.json); ไม่ใช่ disk-full หรือ OS-close
+- [x] Native Windows WM_CLOSE ขณะ primary ถูกล็อกปฏิเสธ close และรักษา primary/backup; ปลดล็อกแล้ว WM_CLOSE/reload ผ่าน ตาม [ผล](../../artifacts/playwright/workspace-recovery-missing-1793110735737/locked-close.json); ไม่ใช่ OS shutdown/crash หรือ disk-full
+- [x] Controlled recovery UI ตรวจ selection preparation failure รักษา history ทั้งสองรายการ/ไม่เขียน/retry และ normal retention/selection cleanup ผ่าน ตาม [ผล](../../artifacts/playwright/workspace-recovery-1793110983963/result.json)
+- [x] Controlled recovery UI ตรวจ Svelte snapshot และ JSON serialization failure รักษา history/ไม่เขียน/retry รวม normal retention/reentrant transition ผ่าน [ผล](../../artifacts/playwright/workspace-recovery-1793111157070/result.json)
+- [x] Controlled recovery UI ตรวจ failed/pending write รักษา history, retry และ save ซ้อนที่ข้อมูลใหม่ไม่ถูกทับ ผ่าน [ผล](../../artifacts/playwright/workspace-recovery-1793111417594/result.json); native build ล่าสุดผ่าน locked save/close/retry/reload ตาม [save](../../artifacts/playwright/workspace-recovery-missing-1793111716510/locked-save.json), [close](../../artifacts/playwright/workspace-recovery-missing-1793111727659/locked-close.json) โดยไม่ได้ฉีด history เกิน limit ใน native
+- [x] Controlled recovery UI ตรวจ history ถูกแทนขณะ write ค้างโดยยังไม่เรียก save ใหม่ แล้ว write เก่าไม่ทับและ retry บันทึก history ใหม่ ผ่าน [ผล](../../artifacts/playwright/workspace-recovery-1793111853034/result.json)
+- [x] Controlled recovery UI ตรวจเพิ่ม/สลับ history และแก้ selection ใน object เดิมระหว่าง write ค้าง พร้อม retry ผ่าน [ผล](../../artifacts/playwright/workspace-recovery-1793112143145/result.json)
+- [x] Preview และ Windows native UI ตรวจ unsupported resource ซ้อนสองชนิดใต้ request ผ่าน import → reload → export → additive reimport → reload: รักษา payload รวม literal IDs และ remap parent/ID ของทั้งคู่; native ใช้ Save dialog จริง ตาม [ผล](../../artifacts/playwright/legacy-export-import-native-1793133218285/result.json), [build](../../artifacts/native-resource-crud-audit-probe/postman-variables-20261028/build-state.json) และ [profile คืนครบ](../../artifacts/playwright/resource-manager-restoration-1793133218033/result.json). Scenario เป็น test-only supplement หลัง build; variants/platform อื่นยังค้าง
+- [x] Windows native-hidden ตรวจ embedded proto พร้อม transitive include สองชั้น ผ่าน import → export → additive reimport → reload ทั้งสองชุด compile และส่ง gRPC ไป loopback ได้ frame ตรงกัน ตาม [ผล](../../artifacts/playwright/legacy-export-import-native-1793140076727/import-acceptance.json); host exit0 และ [profile คืนครบ](../../artifacts/playwright/resource-manager-restoration-1793140076487/result.json). Fixture เพิ่มหลัง build; variants อื่นยังค้าง
+- [x] Controlled browser เรียก helper โดยตรงด้วย history 150,000 รายการ รักษาลำดับและ array เดิม ตาม [ผล](../../artifacts/playwright/workspace-recovery-1793118562332/result.json); เดิม helper เกิด RangeError หลังเพิ่ม resource แต่ fixture เกินเพดาน 100 ของ import ปัจจุบัน จึงไม่ใช่หลักฐานบั๊กใน UI import
+
+**ยังค้าง**
+
+- [ ] ปิด durability/OS-close/recovery บนแพลตฟอร์มที่เหลือ
+- [ ] ปิด embedded proto/include, stream assets และ certificate/legacy variants ที่ยังค้างตาม IMPORT-EXPORT
+- [ ] ตรวจ retained unsupported resources ชนิด/variants และ platform ที่เหลือ; ผลข้างต้นครอบคลุมโครงสร้างซ้อนหนึ่งกรณี
+
+หลักฐาน/ขอบเขต: [IMPORT-EXPORT](IMPORT-EXPORT.md) · [atomic recovery](../../artifacts/atomic-cleanup-20261026/verification.json) · [legacy response](../../artifacts/legacy-response-compression-20261026/verification.json)
+
+<a id="p11"></a>
+
+## P11 Import / export — ยังไม่ปิด
+
+เกณฑ์เดิม: Insomnia/Postman/HAR/OpenAPI/cURL และ explicit unsupported handling · Legacy: `plugins and common/import`
+
+**โค้ดทำแล้ว**
+
+- [x] Insomnia/Postman/HAR/NeDB และ OpenAPI JSON/YAML import/export/request generation
+- [x] Review import, source selection และ portable body/certificate/history assets
+- [x] cURL import และ Generate Code เฉพาะ cURL Linux/Windows
+
+**ตรวจผ่านแล้ว**
+
+- [x] Headless round-trip7กรณี และ64MiB+1 pre-read refusal; Windows file/folder/cancel/reload/export ตาม4818d7a
+- [x] หลังแก้ validation ของ Postman environment ตรวจ regression import หกรูปแบบผ่าน preview UI review/apply/reload/export/reimport รวม embedded proto/include ตาม [ผล](../../artifacts/playwright/legacy-export-import/import-acceptance.json); ไม่ได้ตรวจ native compiler หรือ wire ในรอบนี้
+- [x] Windows native-hidden ยกเลิก chooser และเลือก WSDL ที่ขาด XSD แล้วปฏิเสธโดย resources คงเดิม จากนั้นเลือก `.wsdl` และ `.xsd` พร้อมกัน, resolve include, ส่ง SOAP ไป loopback, export แล้ว reimport เฉพาะ collection ที่เลือกและส่งซ้ำด้วย body เดิม พร้อม reload/source ตาม [ผล](../../artifacts/playwright/wsdl-multifile-native-1793124677227/wsdl-acceptance.json); host exit0/profile คืนครบ เป็นกรณี include เดียว ไม่ปิด WSDL variants ทั้งหมด
+- [x] Windows native-hidden legacy request assets: HTTP 6 sends และ SSE raw/multipart 2 sends ตรวจ bytes/reload, reader refusals 5 และ native export/UI reimport ตาม [HTTP](../../artifacts/playwright/legacy-request-import-native-1793121786698/request-import-evidence.json), [SSE](../../artifacts/playwright/legacy-request-import-native-1793121807571/request-import-evidence.json), [build](../../artifacts/native-git-opaque-refusal-20261028/build-state.json); hosts exit0/profile คืนครบ
+- [x] Windows native-hidden import/export/reimport embedded proto กับ nested include และ compile/send ทั้ง original และ copy ผ่าน loopback ตาม [ผล](../../artifacts/playwright/legacy-export-import-native-1793127712132/import-acceptance.json); host exit0/profile คืนครบ เป็น bounded fixture
+- [x] Portable certificate activation/export/reimport: Windows native-hidden หลังแก้ shared export ตรวจ PEM/encrypted key/PFX, HTTP/SSE/WSS/gRPC loopback mTLS, pre-TCP refusal และ reimport ตาม [ผล](../../artifacts/playwright/legacy-certificate-import-native-1793121040511/legacy-certificate-acceptance.json), [build](../../artifacts/native-git-export-refusal-20261028/build-state.json); host exit0/profile คืนครบ. Scenario รอ selection metadata save และตรวจ environment metadata ที่เปลี่ยนเมื่อสลับ collection; ไม่ใช่ provider/platform ทั้งหมด
+- [x] cURL snippets text/binary/multipart สองแพลตฟอร์มรวม6กรณี
+- [x] cURL import รองรับ `-q`/`--disable` โดยไม่อ่าน default config; Windows native ทดสอบ `-q` ร่วมกับ `--next`, file selection/reload และ Send เทียบ `curl.exe` ตาม [ผล](../../artifacts/playwright/curl-import-get-file-1793128209424/acceptance.json); host exit0/profile คืนครบ. `--no-disable` ยังปฏิเสธและ default config discovery ยังไม่รองรับ
+- [x] Windows native-hidden cURL import `-G --data-urlencode` ไฟล์: ยกเลิกและเลือกไฟล์ผ่าน WebView chooser จริง, reload แล้วส่ง bytes 0–255 ตรงผล `curl.exe`; missing file และ raw-space refusal ไม่ส่ง network ตาม [ผล](../../artifacts/playwright/curl-import-get-file-1793127902030/acceptance.json), [build](../../artifacts/native-collection-search-20261028/build-state.json); host exit0/profile คืนครบ. รูปแบบไฟล์และ platform อื่นยังค้าง
+- [x] Windows native-hidden cURL multipart header file: ยกเลิกและเลือกหนึ่งไฟล์ผ่าน WebView chooser จริง รักษา body เดิมเมื่อยกเลิก; เลือก header ทั้งสี่แล้วส่ง MIME ตรง `curl.exe` ยกเว้น boundary สุ่ม และ reload โดยไม่ส่งซ้ำ ตาม [ผล](../../artifacts/playwright/curl-import-part-header-files-1793127978546/part-header-files-acceptance.json); host exit0/profile คืนครบ. อีกสามไฟล์เลือกผ่านตัวทดสอบ ไม่ใช่ chooser จริง
+- [x] Windows native-hidden HAR และ Hoppscotch multipart ที่ไม่มีไฟล์ปฏิเสธ Send ก่อน network; เลือกไฟล์ผ่าน chooser จริง แล้ว reload/Send/export/reimport/Send รักษา bytes และ filename ตาม [HAR](../../artifacts/playwright/legacy-export-import-native-1793128385828/har-missing-file-acceptance.json), [Hoppscotch](../../artifacts/playwright/legacy-export-import-native-1793128385828/hop-missing-file-acceptance.json) และ [ผล import/export](../../artifacts/playwright/legacy-export-import-native-1793128385828/import-acceptance.json); host exit0/profile คืนครบ. ยกเลิก chooser ตรวจใน HAR; formats/variants และ platform อื่นยังค้าง
+- [x] Windows native-hidden regression หลัง shared export เปลี่ยน: import Postman environment/collection, ทำเครื่องหมาย Secret, export ผ่าน Save dialog และ reimport/reload; ค่า Secret และ provenance ที่รองรับถูกลบจากไฟล์ ข้อมูล live และ public ของ collection อื่นคงเดิม ตาม [ผล](../../artifacts/playwright/postman-secret-export-1793128697325/acceptance.json), [build](../../artifacts/native-runner-reference-types-20261028/build-state.json); host exit0/profile คืนครบ. ไม่ใช่การตรวจหาความลับทุกชนิดในไฟล์
+- [x] Postman environment ปฏิเสธ `enabled` ที่มีค่าแต่ไม่ใช่ boolean ก่อน apply เพื่อไม่เปิดตัวแปรจากข้อความ `"false"`; direct controls และ UI preview ตรวจ rejection/ข้อมูลเดิม รวม import/export เดิมผ่านตาม [ผล](../../artifacts/playwright/postman-environment-import/result.json), `bun run check` และ build ผ่าน. ตรวจซ้ำบน [native-hidden](../../artifacts/playwright/postman-secret-export-1793132260975/acceptance.json) รวม Secret export/reimport แล้ว host exit0 และ [profile คืนครบ](../../artifacts/playwright/resource-manager-restoration-1793132260729/result.json)
+- [x] Postman collection/folder ปฏิเสธ variable list หรือ record ที่ผิดและรายการไม่มี key/id ก่อน apply แทนการข้ามตัวแปรเงียบ ๆ; [preview](../../artifacts/playwright/postman-environment-import/result.json) และ [Windows native-hidden](../../artifacts/playwright/postman-secret-export-1793133141281/acceptance.json) ตรวจ 8 กรณีและข้อมูลเดิม พร้อม regression Secret export/reimport; [build](../../artifacts/native-resource-crud-audit-probe/postman-variables-20261028/build-state.json) source closure ผ่าน, host exit0 และ [profile คืนครบ](../../artifacts/playwright/resource-manager-restoration-1793133141038/result.json). `bun run check` และ build ผ่าน; อ้างอิง [Postman variable schema](https://github.com/postmanlabs/schemas/blob/develop/schemas/draft-07/v2.1.0/collection/variable.json). ไม่ใช่ OS-close หรือ platform อื่น
+- [x] Postman collection/folder variable ปฏิเสธ key/id ที่เป็น object, array หรือ boolean ก่อน apply; numeric ID เดิมยังรองรับ. [Preview](../../artifacts/playwright/postman-environment-import/result.json) ตรวจ refusal และข้อมูลเดิม พร้อม import/export/reimport regression; check/build ผ่าน. [Windows native-hidden](../../artifacts/playwright/postman-secret-export-1793138646614/acceptance.json) ผ่าน, host exit0/[profile คืนครบ](../../artifacts/playwright/resource-manager-restoration-1793138646373/result.json), [build](../../artifacts/native-resource-crud-audit-probe/postman-variable-types-20261028-attempt2/build-state.json) source closure ผ่าน; platform อื่นยังค้าง
+- [x] Postman query ปฏิเสธ list/record/key/value ที่ผิดชนิดก่อน apply; [preview](../../artifacts/playwright/postman-environment-import/result.json) ตรวจ refusal และข้อมูลเดิม พร้อม regression, check/build และ direct null/disabled/fragment controls ผ่าน. อ้างอิง [Postman URL schema](https://github.com/postmanlabs/schemas/blob/develop/schemas/draft-07/v2.1.0/collection/url.json); [Windows native-hidden](../../artifacts/playwright/postman-secret-export-1793139371357/acceptance.json) ผ่าน, host exit0/[profile คืนครบ](../../artifacts/playwright/resource-manager-restoration-1793139371115/result.json), [build](../../artifacts/native-resource-crud-audit-probe/postman-query-types-20261028/build-state.json) source closure ผ่าน; platform อื่นยังค้าง
+- [x] Postman raw body ที่ไม่ใช่ข้อความปฏิเสธก่อน apply แทนการแปลงค่าบางชนิดเป็น body ว่าง; [preview](../../artifacts/playwright/legacy-export-import/import-acceptance.json) และ [native-hidden](../../artifacts/playwright/legacy-export-import-native-1793135105055/result.json) ตรวจ false, zero, object และข้อมูลเดิม พร้อม import regression; `bun run check` และ build ผ่าน, host exit0 และ [profile คืนครบ](../../artifacts/playwright/resource-manager-restoration-1793135104813/result.json)
+- [x] Postman form ปฏิเสธ field ที่ไม่มี key และ file ใน URL-encoded ก่อน apply; key ว่างถูกเก็บพร้อม flag และส่งต่อผ่าน composer สำหรับ URL-encoded/multipart แทนการข้าม. [Preview](../../artifacts/playwright/legacy-export-import/import-acceptance.json) และ [native-hidden](../../artifacts/playwright/legacy-export-import-native-1793135105055/result.json) ผ่าน import/reload/refusal/ข้อมูลเดิม และส่ง loopback ก่อนและหลัง export/reimport ทั้งสองโหมด; [build](../../artifacts/native-resource-crud-audit-probe/postman-empty-20261028/build-state.json) source closure ผ่าน, host exit0 และ [profile คืนครบ](../../artifacts/playwright/resource-manager-restoration-1793135104813/result.json). [Postman runtime source](https://github.com/postmanlabs/postman-runtime/blob/develop/lib/requester/core-body-builder.js) ไม่กรอง key ว่างใน reducer; ยังไม่ได้รันเทียบ Postman จริงหรือ platform อื่น
+- [x] Postman form แปลง scalar ที่ไม่ใช่ข้อความเป็นข้อความ และ multipart object เป็น JSON เพื่อไม่ให้ `false`/`0` กลายเป็นค่าว่าง; URL-encoded object ปฏิเสธก่อน apply. [Preview](../../artifacts/playwright/legacy-export-import/import-acceptance.json) และ [Windows native-hidden](../../artifacts/playwright/legacy-export-import-native-1793136010967/result.json) ผ่าน import/reload/refusal/ข้อมูลเดิม และส่ง loopback ก่อนและหลัง export/reimport; Bun ตรวจ composer เพิ่ม null, nested JSON, disabled และ source ไม่เปลี่ยน. [Build](../../artifacts/native-resource-crud-audit-probe/postman-values-20261028/build-state.json) source closure ผ่าน, host exit0 และ [profile คืนครบ](../../artifacts/playwright/resource-manager-restoration-1793136010720/result.json). `bun run check` และ build ผ่าน; แนวทาง multipart อ้างอิง [Postman runtime source](https://github.com/postmanlabs/postman-runtime/blob/develop/lib/requester/core-body-builder.js). Postman runtime execution และ platform อื่นยังไม่ตรวจ
+- [x] HAR import ปฏิเสธ header/query `disabled` ที่ไม่ใช่ boolean ก่อน apply เพื่อไม่ปิดข้อมูลจากข้อความ `"false"`; direct controls ตรวจ boolean ทั้งสองค่า และ scenario เดิมตรวจ refusal/ข้อมูลเดิมใน preview และ [Windows native-hidden](../../artifacts/playwright/legacy-export-import-native-1793132141143/import-acceptance.json); host exit0 และ [profile คืนครบ](../../artifacts/playwright/resource-manager-restoration-1793132140908/result.json). อ้างอิง [HAR draft](https://w3c.github.io/web-performance/specs/HAR/Overview.html); `disabled` เป็น field ที่แอปรองรับเพิ่มเติม
+- [x] HAR form parameter รักษา extension `disabled` แบบ boolean และปฏิเสธชนิดอื่นก่อน apply เพื่อไม่เปิดช่องที่ปิดไว้; [preview](../../artifacts/playwright/legacy-export-import/import-acceptance.json) และ [Windows native-hidden](../../artifacts/playwright/legacy-export-import-native-1793134122119/result.json) ผ่าน import/reload/refusal และ URL-encoded/multipart ส่ง loopback ก่อนและหลัง export/reimport โดยไม่มีค่าที่ปิด รวมไฟล์ที่ปิดและไม่ได้เลือกซึ่งไม่ขัดขวาง Send; [build](../../artifacts/native-resource-crud-audit-probe/har-disabled-20261028/build-state.json) source closure ผ่าน, host exit0 และ [profile คืนครบ](../../artifacts/playwright/resource-manager-restoration-1793134121877/result.json). Fixture ไฟล์เพิ่มหลัง build; `bun run check` และ build ผ่านก่อนเพิ่ม fixture. OS-close/platform อื่นยังค้าง
+- [x] Hoppscotch import ปฏิเสธ file field ใน URL-encoded body ก่อน apply แทนการส่งค่าไฟล์ว่าง; scenario เดิมตรวจข้อความ/ข้อมูลเดิมและ regression import ใน preview และ Windows native-hidden ตามผลเดียวกันข้างต้น, `bun run check` และ build ผ่าน. การแยก URL-encoded กับ multipart อ้างอิง [HTML form submission](https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#url-encoded-form-data)
+
+**ยังค้าง**
+
+- [ ] ตรวจ format/variant ที่ยังค้างใน IMPORT-EXPORT และ explicit unsupported diagnostics
+- [ ] ปิด recovery/cancel และ external assets ที่ยังไม่มีผลปิด โดยเฉพาะ proto/include/stream variants
+- [ ] ปิด cURL import options/file/native/provider/platform ที่ยังค้างใน CURL-IMPORT
+
+หลักฐาน/ขอบเขต: [IMPORT-EXPORT](IMPORT-EXPORT.md) · [CURL-IMPORT](CURL-IMPORT.md) · [cURL snippets](../../artifacts/curl-only-20261027/verification.json)
+
+<a id="p12"></a>
+
+## P12 GraphQL — ยังไม่ปิด
+
+เกณฑ์เดิม: Query/variables/schema/errors และ retained completion/navigation · Legacy: `ui/components, graphql deps`
+
+**โค้ดทำแล้ว**
+
+- [x] Query/variables/operation editor และ POST/GET
+- [x] Manual introspection, JSON/SDL import, schema browser/export, formatting/validation และ response errors
+- [x] Editor completion/navigation และ schema cache ownership ตาม contract
+
+**ตรวจผ่านแล้ว**
+
+- [x] Windows native editor15checks และ schema lifecycle/GET12checks
+- [x] Bounded Ctrl+click navigation และ owner/cache corrections ตาม GRAPHQL
+
+**ยังค้าง**
+
+- [ ] ปิด rendering/completion/navigation variants ใน record-graphql-rendering
+- [ ] ตรวจ stale schema fetch/queued editor callbacks/cancel/close และ provider/platform ที่ยังค้าง
+
+หลักฐาน/ขอบเขต: [GRAPHQL](GRAPHQL.md)
+
+<a id="p13"></a>
+
+## P13 WebSocket — ยังไม่ปิด
+
+เกณฑ์เดิม: Connect/send/receive/close, headers/subprotocols และ history · Legacy: `models/websocket-*, network`
+
+**โค้ดทำแล้ว**
+
+- [x] Text/binary/ping, headers/subprotocols, saved payloads และ durable history
+- [x] Payload byte metrics, raw/timeline export และ cancellation ตาม HTTP
+
+**ตรวจผ่านแล้ว**
+
+- [x] Bounded Windows runtime6groups และ legacy NDJSON portability
+- [x] Unicode/binary/cumulative payload metrics กับ history/reload ตาม stream metrics receipt
+
+**ยังค้าง**
+
+- [ ] ปิด control/fragmentation/compression/backpressure และ exact-byte variants ที่ยังค้าง
+- [ ] ตรวจ mixed protocols, cancellation/close/reopen และ provider/platform ที่เหลือ
+
+หลักฐาน/ขอบเขต: [HTTP](HTTP.md) · [legacy timeline](IMPORT-EXPORT.md)
+
+<a id="p14"></a>
+
+## P14 SSE — ยังไม่ปิด
+
+เกณฑ์เดิม: Incremental events/cancellation และ retained history/export · Legacy: `models/request isEventStreamRequest`
+
+**โค้ดทำแล้ว**
+
+- [x] Incremental event delivery, cancellation, ACK/bounds/deadline และ raw suffix export
+- [x] Standalone/legacy timeline portability และ compressed legacy history activation
+
+**ตรวจผ่านแล้ว**
+
+- [x] Windows runtime8groups + bounds/real-ACK8groups;20MiB refusals และ30second invocation deadline
+- [x] Legacy raw/standalone timelines และ compressed histories ตาม receipt
+- [x] Payload metrics/eviction/reload โดยไม่ทำ cumulative bytes ลดลง
+
+**ยังค้าง**
+
+- [ ] ตรวจ exact-boundary/large-valid events และ renderer-host suspension
+- [ ] ปิด live compressed flush/truncation/multi-member/cancellation/limits ที่ยังค้างใน HTTP
+- [ ] ตรวจ compressed/mixed/provider/platform variants ที่เหลือ
+
+หลักฐาน/ขอบเขต: [HTTP](HTTP.md) · [IMPORT-EXPORT](IMPORT-EXPORT.md) · [compressed legacy](../../artifacts/legacy-sse-compression-20261027/verification.json)
+
+<a id="p15"></a>
+
+## P15 gRPC — ยังไม่ปิด
+
+เกณฑ์เดิม: Proto/reflection, unary/streaming, metadata/TLS และ retained legacy compatibility · Legacy: `network/grpc, models/proto-*, grpc-request`
+
+**โค้ดทำแล้ว**
+
+- [x] Tonic transport, unary/client/server/bidi streaming, metadata/TLS และ cancellation
+- [x] Proto tree/import/edit/replace/refresh/delete, reflection และ examples
+- [x] Legacy protobuf.js-compatible JSON/object/map/Any/common-proto handling ตามรายการที่ลงโค้ดแล้ว
+- [x] Receive status/metadata/compression/size boundaries และ shared response reader
+- [x] Service config/retry/hedging/outlier/weighted/ORCA ตาม implementation inventory
+
+**ตรวจผ่านแล้ว**
+
+- [x] Original native64, legacy differential97, prior workspace75 และ method-group10ตามหลักฐานเดิม
+- [x] Bounded reflection samples15native +5archived comparisons/independent wire decodes
+- [x] Original Windows UI/IPC/reload, Proto36 และ nested NeDB proto→Rust Echo→export/reimport
+- [x] Large20MiB Copy/Save/reload, gzip members/exact boundaries และ Windows close/reopen ตาม GRPC
+- [x] ORCA subscription/report, initial UNAVAILABLE/UNIMPLEMENTED/CANCELLED และ backoff/live cancellation ตาม service config
+- [x] Bounded declaration/lookup/Any/map/bytes/Number-domain/error/truncation controls ตามแต่ละ receipt
+
+**ยังค้าง**
+
+- [ ] ปิด JSON/object/map/Any/shared-editor และ parser variants ที่ยังค้างใน GRPC
+- [ ] ปิด malformed/truncation/reset/drop ordering, rendering และ owner cancellation variants ที่เหลือ
+- [ ] ปิด DNS/cache/retry/hedging/outlier/weighted/ORCA interval/replacement/multi-endpoint variants ที่เหลือ
+- [ ] ตรวจ provider/platform/OS-close และ source/packaging identity ตาม acceptance เดิม
+
+หลักฐาน/ขอบเขต: [GRPC](GRPC.md) · [service config](GRPC-SERVICE-CONFIG.md)
+
+<a id="p16"></a>
+
+## P16 API design / OpenAPI lint — ยังไม่ปิด
+
+เกณฑ์เดิม: Edit/import/spec preview/lint และ request generation ตาม retained scope · Legacy: `models/api-spec, spectral deps`
+
+**โค้ดทำแล้ว**
+
+- [x] Persisted spec editor/import/export, operations/schema preview และ strict structural validation
+- [x] Attached local refs และ request generation จาก query/header/form/body/selected assets
+- [x] Exact example validation/sampler และ Spectral examples ตามcommit9b19379b
+
+**ตรวจผ่านแล้ว**
+
+- [x] Windows API import save/drain3กรณี ตาม2e04de6/production9638705 พร้อม durable state/profile restoration
+- [x] Specific serialization/schema/example receipts ใน API-DESIGN; QUERY/mixed-query gates แยกหมวด17/18
+
+**ยังค้าง**
+
+- [ ] ปิด advanced serialization/refs/schema/example variants ที่ยังค้าง
+- [ ] ตรวจ Spectral/custom rules และ cancellation/owner/native UI ที่ยังไม่ปิด
+- [ ] ตรวจ external-reference/provider/platform ตาม API-DESIGN
+
+หลักฐาน/ขอบเขต: [API-DESIGN](API-DESIGN.md)
+
+<a id="p17"></a>
+
+## P17 OpenAPI 3.2 QUERY/custom operations — ปิดแล้ว
+
+เกณฑ์เดิม: Named QUERY/custom method gate เท่านั้น · Legacy: `src/lib/openapi.js, ApiDesign.svelte, tests/ui/openapi-methods.js`
+
+**โค้ดทำแล้ว**
+
+- [x] รักษา custom method case/metadata และแยก fixed GET ออกจาก custom get
+- [x] Inherited/overridden parameters, path diagnostics และ duplicate operationIds
+
+**ตรวจผ่านแล้ว**
+
+- [x] Release1791530305299: native6exact methods/5JSON bodies และ query3.2.1/44groups
+- [x] Direct12/Git12 บน3.2.0/3.2.1 และ11negative controls; native-hidden/exit0/audit/cleanup
+
+**ยังค้าง**
+
+- ไม่มีงานค้างใน named gate นี้; ข้อกำหนดนอกขอบเขตอยู่ในหมวดที่เกี่ยวข้อง
+
+หลักฐาน/ขอบเขต: [record-openapi-methods](API-DESIGN.md#record-openapi-methods)
+
+<a id="p18"></a>
+
+## P18 Mixed manual/generated query order — ปิดแล้ว
+
+เกณฑ์เดิม: Named query order/signature gate เท่านั้น · Legacy: `transport.js, template-url.js, tests/ui/url-encoding.js`
+
+**โค้ดทำแล้ว**
+
+- [x] รักษา row/array expansion order, duplicate names, empty/bare/blank-name values และ nullable omission
+- [x] รักษา encoding/cURL context และ raw-query-preserving API-key append
+
+**ตรวจผ่านแล้ว**
+
+- [x] Release1791522146028: URL85targets/78signatures/7checks และ8legacy refusal/RFC recovery controls
+- [x] Independent audit32mixed signatures/4API-key targets และ generated-query3.2.1/44groups
+- [x] Direct8/boundary8/legacy52/style132/preflight82; native-hidden/exit0/cleanup
+
+**ยังค้าง**
+
+- ไม่มีงานค้างใน named gate นี้; ข้อกำหนดนอกขอบเขตอยู่ในหมวดที่เกี่ยวข้อง
+
+หลักฐาน/ขอบเขต: [record-query-row-order](HTTP.md#record-query-row-order)
+
+<a id="p19"></a>
+
+## P19 Collection runner / assertions — ยังไม่ปิด
+
+เกณฑ์เดิม: User-authored API tests/assertions ในแอป · Legacy: `models/unit-test*, network/unit-test-feature`
+
+**โค้ดทำแล้ว**
+
+- [x] Runtime/worker/shared sender/Tests UI และ suite/assertion execution
+- [x] Timer ID/resource ownership และ Stop/cancel/fresh-run handling ที่แก้แล้ว
+
+**ตรวจผ่านแล้ว**
+
+- [x] Saved Windows runner-lifecycle: direct/detached/delegated callbacks, assertions, single-test persistence และ Stop/fresh run
+- [x] Dark/light ที่1440/900/760 และ held-window close/reopen ตาม RUNNER
+- [x] Preview nested suite 3 ชั้น: [export/reimport](../../artifacts/playwright/nocturne-workspace-nested-roundtrip/result.json) remap request และ resolve script ID เดิมใน collection ที่นำเข้ากลับ, ส่ง loopback/เก็บผล/reload; [alias กำกวม](../../artifacts/playwright/nocturne-workspace-nested-ambiguous/result.json) รายงาน failure โดยไม่ส่ง request. คืน localStorage ครบ; ไม่ใช่ native/provider/platform acceptance
+
+**ยังค้าง**
+
+- [ ] ตรวจ real Worker/native held replacement และ retained script/import compatibility
+- [ ] ปิด runner lifecycle/provider/platform variants ที่ยังค้างใน inventory
+
+หลักฐาน/ขอบเขต: [RUNNER](RUNNER.md)
+
+<a id="p20"></a>
+
+## P20 Git sync — ยังไม่ปิด
+
+เกณฑ์เดิม: Existing local Git workflows หรือ approved replacement ตาม GIT · Legacy: `sync, models/git-repository`
+
+**โค้ดทำแล้ว**
+
+- [x] Local status/staging/commit/history/branches และ selected restore
+- [x] Journaled full/scoped/shallow Fetch
+- [x] Public Pull/local Merge พร้อม pinned content/conflict review, side/custom choices, recursive bases และ schema3recovery
+- [x] Staged Clone, remote branch checkout และ non-force Push มี native commands และ frontend callers
+
+**ตรวจผ่านแล้ว**
+
+- [x] Bounded native Pull/Merge/conflict/recovery receipts ตาม GIT
+- [x] Windows native Clone, remote checkout และ non-force Push ผ่านบาง workflow ตาม [GIT](GIT.md) เฉพาะ source/build และกรณีที่ระบุในหลักฐาน
+
+**ยังค้าง**
+
+- [ ] ปิด acceptance และ implementation variants ที่ยังขาดของ clone/remote checkout/non-force push ตาม GIT รวม fault/recovery/provider/platform; ผลเดิมไม่ยืนยัน current source ทั้งหมด
+- [ ] ปิด Pull/network/process/I/O/provider/platform/path/history variants ที่เหลือ
+- [ ] ตรวจ cancel/drain/recovery ไม่ทับ working changes และไม่เผย credentials ตาม GIT
+
+หลักฐาน/ขอบเขต: [GIT](GIT.md)
+
+<a id="p21"></a>
+
+## P21 Plugin / template tag compatibility — ยังไม่ปิด
+
+เกณฑ์เดิม: Explicit compatibility boundary; ไม่โหลด Node-only plugin แบบเงียบ ๆ · Legacy: `plugins, templating`
+
+**โค้ดทำแล้ว**
+
+- [x] Isolated renderer, built-in tags, prompt dialog และ Send-related host services
+- [x] Bun candidate CJS/ESM/process/sandbox/admitted snapshot/registry repair
+- [x] Owned DOM events, selected-file reads, native memory Blob/File และ Request/Response/FormData bridge
+- [x] Native path/FD-backed FileReaderSync และ Blob/File part snapshots พร้อม size/deadline checks; private I/O VM คืนหลังจบ batch
+- [x] Bounded reusable synchronous reply buffer และbudget error/Closed finalization ไม่panicค้างก่อนปิดsession
+- [x] Bun callback/helper error messagesตรงlegacy worker; sharedUTF-8 formatterไม่เกิน8192bytes และnative IPC string errorsคืนเป็นErrorก่อนregistry quarantine
+- [x] Retained Bun callbackใช้helper/sync providerของdialog owner แทนfield rendererที่หมดอายุหลังrequestจบ โดยคงcurrent/owner/callback guards
+- [x] Bun terminal cleanupแยกสิทธิ์local DOMจากstore/helperที่เพิกถอน; logical closeหยุดงานใหม่ทันที รอcallbackลูกและonHideก่อนphysical retirement ภายใต้5วินาทีเดิม
+- [x] Bunติดตั้งDOMExceptionตัวเดียวกับguest DOM factory ทำให้token/dataset exceptionsมีconstructor/brandตรงกันตามbootstrapเดิม
+- [x] Bunเผยแพร่shared async FileReaderและเดินowner-bound DOM tasksระหว่างcallbackรอผล; admitted event frameยังมีสิทธิ์ตามlive DOM ownerหลังถอดlistener โดยคงcallback admission/owner revocation
+- [x] Module initializationเดินlocal FileReader/DataTransfer tasksในcaptured no-owner context และรอก่อนCJS metadata โดยคงnative ESM/TLA
+- [x] นับFileReader I/Oที่ค้างแยกจากrunnable tasks; initialization/callback drainรอจริง, full native readคงbacking fileและคืนNotReadableErrorเมื่ออ่านไม่ได้; internal hookไม่เผยแพร่ในQuickJS facade
+- [x] ส่งinitialization errorเป็นnewline frame; nativeรับเฉพาะowned bounded errorหลังprocess exitภายในdeadlineเดิม และแยกprocess failureก่อนmetadataออกจากinvalid reply
+- [x] Bunสร้างmemory Blob URLในWebViewผ่านbounded data-only transportตั้งแต่module initialization; lazy selected URLsผูกDOM owner ส่วนmemory URLsผูกVM พร้อมcached replay/ACKกันทำซ้ำเมื่อnative eventแทรก
+- [x] Bun DOM listenerยอมรับnative AbortSignalโดยใช้captured native getters/listener methods; ถอดowned listenerผ่านresource transportโดยตรวจcallbackและownerเดิม แม้abortจากcallbackอื่นหรือไม่มีDOM grant
+- [x] Bun signal subscriptionทนstopImmediatePropagationและตรวจsynthetic abort; guest listenerตรวจaborted stateก่อนdispatch/เพิ่มlistenerซ้ำ พร้อมdispose subscriptionที่หมดอายุระหว่างreentrant abort
+- [x] Bun guest Event/EventTarget `instanceof` รู้จักnative Event/EventTarget โดยคงการตรวจsubclassเดิมและไม่เปลี่ยนnative AbortSignal/Request.signal
+- [x] Guest EventTarget prototypeส่ง add/remove/dispatch ไปยังnative EventTarget receiver ผ่านcaptured Bun methods; guest-owned targetsคงเส้นทางเดิม
+- [x] Guest-created Event มี native slot สำหรับ dispatch ผ่าน Bun signal พร้อม identity และ cancellation เดิม
+- [x] MessageEventInit.userActivation อ่านตามลำดับ Chromium และปฏิเสธค่าที่ไม่มี owned facade; ค่าเริ่มต้นเป็น null
+- [x] Guest Event prototype methods ส่ง native Event receiver ไป native intrinsic โดยตรวจ brand ก่อน
+- [x] Guest Event getters/setters ส่ง native Event receiver ไป native intrinsic โดยตรวจ brand ก่อน
+- [x] Event setters ใช้ captured methods ไม่เรียก method ที่ plugin override
+- [x] FileReader สร้าง internal ProgressEvent ที่รักษา trusted state ใน Bun โดยไม่แก้ guest-created Event
+- [x] Legacy Event initializer ปรับ native Event slot ให้ตรง type/cancelable ที่ guest เห็นก่อน native dispatch
+
+**ตรวจผ่านแล้ว**
+
+- [x] Bounded Windows native Bun registry/helper/store/event/File/Blob/cancel/deadline/sandbox flows ตาม receipts
+- [x] Selected-file allocator และ Blob/Body memory peaks อยู่ใต้128MiBในกรณีที่ตรวจ
+- [x] Native-hidden CJS/ESM path/FD/slice/composition54checks ผ่าน normal release และ debug18jobs peak133,419,008bytesใต้128MiB; source inputs1,587รายการคงเดิม
+- [x] Bun workspace candidate ใช้ native UI Load CJS/ESM → tag/hooks → Send/history → Cancel/Unload → page reload/explicit Load:6HTTP requests, native callbacks6/6และQuickJS plugin workers0; แก้ registry/session bind ownerซ้ำ
+- [x] แก้ combined DOM/File regression: debug18jobs + app workflow6jobs ผ่านบนbinaryเดียวกัน, peak130,494,464bytes<128MiB; errorจากbudget violationคืนprofile/ปิดเองได้
+- [x] Native UI action4ชนิดจากESM plugin ผ่านJSON/HAR/privacy/raw/HTTP/file import และarguments/selection; native callbacks4/4สำเร็จ
+- [x] Host helpers14checksผ่าน nested Send/Prompt/response/history/store/held cancellation/error quarantine/Load recovery รวมerrorไทยเกิน8KiB; CJS/ESM packages Loadผ่านและQuickJS plugin workers0
+- [x] Native Bun editor/actions5กลุ่มและtheme UI/session cleanupหลังpage reloadผ่านบนbinaryเดียวกัน; คืนช่องสำรอง2และคงเพดาน4sessions ตาม [A21](ACCEPTANCE.md#a21)/[receipt](../../artifacts/bun-navigation-20261027/verification.json)
+- [x] Windows Bun WM_CLOSEขณะheld store reply/idle→fresh process reopenรักษาworkspace/history/store/theme ไม่late write/replay พร้อม4ช่องว่างและexplicit Load→Send ตาม [restart receipt](../../artifacts/bun-restart-20261027/verification.json)
+- [x] Bun native WebSocket payload/Disconnect helper3ข้อ, gRPC11ข้อครบ4stream modes/reflection/metadata/cancel, OAuth7ข้อและapp-info3ข้อผ่าน; รวม38checks/15jobsตาม [optional helpers receipt](../../artifacts/bun-optional-helpers-20261027/verification.json)
+- [x] Bun dialogหลังHTTPจบ3ข้อ/nested response dependency4ข้อ/WebSocket-SSE completion-source-Cancel-error8ข้อผ่านบนnativeจริง รวม15checks/24HTTPrequests ตาม [dialog owner receipt](../../artifacts/bun-dom-owners-20261027/verification.json)
+- [x] Terminal onHideครบ12actions: source/Unload/active/Abort/queued/normal Close/throw/CPU/wait; exactly-once detached cleanup, denied store/reopen และbounded failureผ่าน พร้อมDOM15checksและCJS/ESM session18jobs regression รวม34jobs peak124.69MiB<128MiB ตาม [terminal receipt](../../artifacts/bun-terminal-cleanup-20261027/verification.json)
+- [x] NodeList/HTMLCollection: live/static/reflection28oracle groups, host mutation/retained callback/detached cleanupผ่าน3checks ตาม [collections receipt](../../artifacts/playwright/plugin-template-tags-1793093419171/dom-collections.json)
+- [x] DOMTokenList: mutation/reflection/errors23oracle groups และretained classList/detached cleanupผ่าน3checks; DOMException instanceofตรงWebView ตาม [tokens receipt](../../artifacts/playwright/plugin-template-tags-1793093419171/dom-tokens.json)
+- [x] DOMStringMap: dataset14+edge4oracle groups, host mutation/retained callback/detached cleanupผ่าน4checks ตาม [dataset receipt](../../artifacts/playwright/plugin-template-tags-1793093419171/dom-dataset.json); ทั้ง3กลุ่มและsession regressionรวม20jobsตาม [receipt](../../artifacts/bun-dom-state-20261027/verification.json)
+- [x] Bun cookie jar/model helper4checksและnative persistence/restartผ่าน: cold model3/request2→unrelated write4/3→fresh process4/3; provider11กลุ่ม/12wireรวมstale snapshot refusalโดยไม่wire และclear→fresh processว่าง รวม5hosts exit0/profileคืนครบ ตาม [cookie receipt](../../artifacts/bun-cookie-helpers-20261027/verification.json) เป็นWindows loopback bounded proof; HTTPS/domain/proxy/platformยังค้างP08
+- [x] CJS/ESM async FileReaderในcallback: WebView oracle34groups/formatผ่านmemory/selected131080bytes/owned listener admission/encoding/events/abort, foreign file denial/unawaited drain/owner lossไม่มีlate store write; reader2+existing session18jobsผ่านบนcurrent buildเดียว peak125.51MiB<128MiB/คืนprofileครบ ตาม [reader receipt](../../artifacts/bun-async-readers-final-20261027/verification.json)
+- [x] Module readiness15กรณีสำเร็จผ่านCJS/ESM TLA/dependency/JSON interop/cycle/FileReader/DataTransferและdeferred initialization context; nativeไฟล์131080bytesรอก่อนmetadata/unawaited callbackและmissing-file refusalผ่าน ตาม [module receipt/reuse audit](../../artifacts/bun-module-readiness-debug3-20261027/verification.json) โดยsuccessful paths/fixturesตรงเดิมหลังแก้เฉพาะerror paths
+- [x] Current native initialization refusals22กรณีผ่านauthored error/quota/CPU-wall/empty-process failure/import/syntax ภายใน4.975วินาที; current session18+reader2jobs peak124.07MiB<128MiB/3hosts exit0/full profiles restored และshared QuickJS55checksผ่าน ตาม [receipt](../../artifacts/bun-module-readiness-debug3-20261027/verification.json) กรณีจงใจใช้memoryเต็มถูกปฏิเสธและคืนงาน ไม่ใช่positive workload
+
+- [x] Bun object URLsบนWindows CJS/ESM: memory9/selected12รายการต่อformatตรงWebView, module/inspection/native event/SDK replay, started-fetch/foreign denial/VM-DOM-cleanup lifetimeและquota guardsผ่าน; รวม22jobs peak124.30MiB<128MiB/profileคืนครบ ตาม [receipt](../../artifacts/bun-object-urls-20261027/verification.json)
+- [x] Bun native signal listenerของEventTarget/FileReader/owned DOM และRequest.signalเทียบWebView CJS/ESM; abortข้ามowner/self-abortผ่าน พร้อมsession/object URL regression24jobs peak125.30MiB<128MiBและQuickJS regression ตาม [receipt](../../artifacts/bun-native-abort-listeners-20261027/verification.json)
+- [x] Bun native signal listenerผ่านstopImmediatePropagation, synthetic abortและreentrant dispatch/เพิ่มlistenerซ้ำเทียบWebView CJS/ESM บน3ชนิดtarget; feature2+session18jobs peak125.81MiB<128MiB และQuickJS regression ตาม [receipt](../../artifacts/bun-abort-reentrant-20261027/verification.json)
+- [x] Bun native signal/Request.signal/abort event `instanceof` ตรงWebView CJS/ESM รวมMouseEvent subclassและfalse positives; feature2+session18jobs peak125.42MiB<128MiB ตาม [receipt](../../artifacts/bun-signal-event-brands-20261027/verification.json)
+- [x] Borrowed EventTarget add/remove/dispatchบนnative AbortSignalและRequest.signal กับnative EventตรงWebView CJS/ESM; duplicate/preventDefault/removeผ่าน feature2+session18jobs peak126.08MiB<128MiBและQuickJS regression ตาม [receipt](../../artifacts/bun-native-target-methods-20261027/verification.json)
+- [x] Guest-created Event บน native signal/Request.signal เทียบ WebView CJS/ESM; feature2+session18jobs ผ่าน peak131,952,640bytes<128MiB และ QuickJS Abort/DOM เฉพาะส่วนผ่าน ตาม [ผล native](../../artifacts/playwright/plugin-bun-session-1793106502814/result.json)
+- [x] QuickJS Event รวมผ่าน CJS/ESM headless หลังแก้ MessageEventInit.userActivation รวม null และ invalid values ตาม [ผล](../../artifacts/playwright/plugin-dom-event-subclasses/result.json); native Bun CJS/ESM ผ่าน null/invalid และ signal dispatch ตาม [ผล](../../artifacts/playwright/plugin-bun-session-1793107121585/result.json)
+- [x] Borrowed preventDefault/stopPropagation/stopImmediatePropagation/composedPath/initEvent บน native abort Event และ invalid receiver ผ่าน native CJS/ESM เทียบ WebView; QuickJS Event รวมผ่าน ตาม [ผล](../../artifacts/playwright/plugin-bun-session-1793107330848/result.json)
+- [x] Borrowed Event getters 12 และ setters 2 บน native abort Event/invalid receiver ผ่าน native CJS/ESM เทียบ WebView; QuickJS Event รวมผ่าน ตาม [ผล](../../artifacts/playwright/plugin-bun-session-1793107608321/result.json)
+- [x] Event setters ทำงานแม้ plugin override methods; native CJS/ESM เทียบ WebView และ QuickJS Event รวมผ่าน ตาม [ผล](../../artifacts/playwright/plugin-bun-session-1793107856096/result.json)
+- [x] FileReader trusted event regression แก้แล้ว; native CJS/ESM เทียบ WebView และ QuickJS FileReader ผ่าน ตาม [ผล](../../artifacts/playwright/plugin-bun-session-1793108333668/result.json) เก็บ [ผลล้ม](../../artifacts/playwright/plugin-bun-session-1793108207017/result.json)
+- [x] Legacy MouseEvent/MessageEvent reinitialization แล้ว native signal dispatch ตรง WebView CJS/ESM; QuickJS Event รวมผ่าน ตาม [ผล](../../artifacts/playwright/plugin-bun-session-1793108903418/result.json)
+
+**ยังค้าง**
+
+- [ ] ปิด FileReader variants, host-derived Event dispatch บน native signal และ AbortSignal composition/timeout นอกหลักฐาน; owned UserActivation facade หากมี caller
+- [ ] ปิดmodule/importและasync owner/checkpoint variantsที่ยังค้างในretained inventory โดยคงsandbox
+- [ ] ปิดresource/hardware/platformและhost-close/repair/restart variantsที่ยังค้างนอกbounded receipts
+- [ ] ผ่านcurrent-source normal release/packaging/legal gatesก่อนdefault activation
+- [ ] ย้ายcallers/fixtures/config/dependenciesเป็นBun และถอดQuickJSเมื่อactivation gatesครบ
+
+หลักฐาน/ขอบเขต: [PLUGINS](PLUGINS.md) · [TEMPLATING](TEMPLATING.md) · [actions/helpers/diagnostics](../../artifacts/bun-actions-20261027/verification.json) · [reply-buffer/memory/teardown](../../artifacts/bun-worker-lifetime-20261027/verification.json) · [app workflow/previous failure](../../artifacts/bun-workflow-20261027/verification.json) · [Bun registry](../../artifacts/bun-registry-snapshot-20261027/verification.json) · [Bun files/body](../../artifacts/bun-native-blobs-20261027/verification.json) · [native file-backed read](../../artifacts/bun-native-file-sync-20261027/verification.json)
+
+<a id="p22"></a>
+
+## P22 Desktop integrations — ยังไม่ปิด
+
+เกณฑ์เดิม: Menus/shortcuts/dialogs/clipboard/window-state/single-instance/icons · Legacy: `main`
+
+**โค้ดทำแล้ว**
+
+- [x] Dialogs, window-state, single-instance, icons และ keyboard shortcuts
+- [x] Native clipboard/Save และ owned operation cancellation ตาม implementation
+
+**ตรวจผ่านแล้ว**
+
+- [x] Saved shortcut/focus/dialog/history scenarios และ native Copy/Save บางกรณี
+- [x] Bounded Windows close/reopen ของ gRPC/runner/GraphQL ตาม topic receipts
+
+**ยังค้าง**
+
+- [ ] ตรวจ menus/native actions และ focus/keyboard lifecycle ที่ยังค้าง
+- [ ] ตรวจ clipboard formats/chooser/provider/OS-close/cancel variants ที่ยังขาด
+- [ ] ปิด window-state/single-instance และ desktop platform QA ตาม contract
+
+หลักฐาน/ขอบเขต: [DESIGN](DESIGN.md) · [RESPONSES](RESPONSES.md) · [UI-TESTING](UI-TESTING.md)
+
+<a id="p23"></a>
+
+## P23 CI / distribution / docs — ยังไม่ปิด
+
+เกณฑ์เดิม: Bun-only CI, platform builds และ run/migrate/recovery docs ที่ตรงจริง · Legacy: `.github, scripts, README`
+
+**โค้ดทำแล้ว**
+
+- [x] Bun-only CI/workflows และ desktop packaging wrapper
+- [x] Spectral sidecar/notices preparation; Tauri hook ถูกถอดตามcommit9b3095c7 เตรียม inputs นอก hook
+- [x] Pinned vendor restore พร้อม checksum/project overrides และคำแนะนำ run/migrate/recovery
+- [x] เก็บ scope/evidence/remaining gates ใน STATUS/PARITY/topic documents
+
+**ตรวจผ่านแล้ว**
+
+- [x] Windows executable/installer และ bounded historical Linux/package receipts ตาม CI
+- [x] Vendor offline restore475files และ cleanup frontend builds ตาม STATUS
+
+**ยังค้าง**
+
+- [ ] ปิด current-source CI/build/runtime/install/update/uninstall matrix ของ Windows/Linux/macOS ตามscope
+- [ ] ปิด signing/package/runtime/source identity และ recovery ของ release ที่จะส่งมอบ
+- [ ] ปิด notice coverage/source offers/embedded runtime texts/target linkage/license obligations ที่ยังไม่ยืนยัน
+- [ ] ปรับ run/migrate/recovery docs ตามผลส่งมอบจริง; ไม่ใช้เอกสารแทน implementation/acceptance
+
+หลักฐาน/ขอบเขต: [CI](CI.md) · [LICENSES](LICENSES.md) · [STATUS](STATUS.md)
+
+## Scope ที่เจ้าของนำออกแล้ว
+
+- [x] Generate Code ทุกภาษา/client ยกเว้น **cURL Linux** และ **cURL Windows (PowerShell)** — รวมการลบ SDK targets, dependency, tests และ plan gates ของภาษาเก่า
+- [x] Request-body Template preview panel และ Clear prompt values control ตามคำสั่งเดิม; template engine/native tags/Send ยังอยู่ในscope
+- Shared UI/Git/resizable work ที่ได้รับอนุญาตแล้วคงอยู่; UX redesign ส่วนที่ยัง deferred ใช้ลำดับใน [POST-MIGRATION-UX](POST-MIGRATION-UX.md)
+
+## ลำดับปิดงานต่อไป
+
+1. [ ] P03/P10/P11: ปิดข้อมูล/save/recovery/import/export/reload โดยไม่ทำข้อมูลหาย
+2. [ ] P04–P09: ปิด HTTP/body/auth/environment/cookie/proxy/TLS workflow และ missing verification ที่ระบุ
+3. [ ] P12–P16/P19/P20/P22: ปิดแต่ละ workflow ตาม [PLAN](PLAN.md); ไม่ replay ทั้ง matrix โดยไม่มีผลกระทบ
+4. [ ] P23: ปิด platform/distribution/legal ที่ไม่ขึ้นกับ P21 และตรวจส่วนที่เปลี่ยนซ้ำหลัง P21
+5. [ ] P21: ปิด retained plugin compatibility, resource/lifecycle/platform และ Bun activation gates เป็นหัวข้อสุดท้าย ก่อน audit ทุกหมวดเพื่อปิด migration
+
+## วิธีอัปเดตและเกณฑ์ปิด
+
+- เมื่อแก้checkboxในหมวด ให้ปรับจำนวนโค้ดแล้ว/ตรวจผ่าน/ค้างในตารางด้านบนให้ตรงกัน
+- จบหนึ่งงานให้ติ๊กข้อที่ทำจริงและเพิ่มหลักฐานตรงขอบเขต; ถ้ายังไม่มีผลตรวจให้คงไว้ในยังค้าง
+- ปิดหมวดเมื่อ implementation และหลักฐานครบ acceptance ของหมวดกับ retained topic contracts หรือมีคำสั่งเจ้าของนำข้อกำหนดนั้นออกอย่างชัดเจน
+- ถ้าเกณฑ์รายกรณีอยู่ใน topic แต่ยังไม่แสดงเป็นข้อย่อยที่นี่ ให้แยกมาใต้งานค้างของหมวดเดิมก่อนลงมือ ไม่เติมคำว่า broader compatibility เพื่อค้างแถวโดยไม่บอกงาน
+- ปัญหาเฉพาะ platform/provider ต้องระบุสิ่งที่ขาด ไม่หักล้างผล Windows ที่ผ่านแล้ว และไม่เปลี่ยน unavailable เป็นผ่าน
+- งานปัจจุบันและหลักฐานล่าสุดดู [STATUS](STATUS.md); เอกสารนี้ไม่สั่ง resume Goal และไม่ให้เปอร์เซ็นต์รวมจากจำนวน checkbox

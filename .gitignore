@@ -23,3 +23,5 @@ vite.config.ts.timestamp-*
 
 # Restored from pinned upstream archives and project overrides before building.
 /src-tauri/vendor/
+
+nul

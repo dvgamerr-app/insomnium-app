@@ -1171,7 +1171,6 @@ representation remain compatible. No native backend or dependency changes.
 ```powershell
 bun run check
 bun tests/ui/design-system.js
-bun scripts/ui-inventory.js
 bun tests/ui/build-recovery-copy-probe.js
 $env:INSOMNIUM_UI_BUILD_STATE='artifacts/native-recovery-copy-probe/build-state.json'
 bun tests/ui/openapi-binary-body.js
@@ -1601,7 +1600,6 @@ Editing and disabling preserve metadata; no new styling owner or CSS override.
 ```powershell
 bun run check
 bun tests/ui/design-system.js
-bun scripts/ui-inventory.js
 bun tests/ui/build-recovery-copy-probe.js
 $env:INSOMNIUM_UI_BUILD_STATE='artifacts/native-recovery-copy-probe/build-state.json'
 bun tests/ui/openapi-form-body.js
@@ -1704,7 +1702,6 @@ behavior; this is an original version/style interoperability gate, not complete.
 ```powershell
 bun run check
 bun tests/ui/design-system.js
-bun scripts/ui-inventory.js
 bun tests/ui/build-recovery-copy-probe.js
 $env:INSOMNIUM_UI_BUILD_STATE='artifacts/native-recovery-copy-probe/build-state.json'
 bun tests/ui/openapi-form-body.js
@@ -1792,7 +1789,6 @@ remain required.
 ```powershell
 bun run check
 bun tests/ui/design-system.js
-bun scripts/ui-inventory.js
 bun tests/ui/build-recovery-copy-probe.js
 $env:INSOMNIUM_UI_BUILD_STATE='artifacts/native-recovery-copy-probe/build-state.json'
 $env:INSOMNIUM_OPENAPI_VERSIONS='3.0.3'
@@ -1948,7 +1944,6 @@ the new metadata; a complete saved-resource migration policy remains required.
 ```powershell
 bun run check
 bun tests/ui/design-system.js
-bun scripts/ui-inventory.js
 bun tests/ui/build-recovery-copy-probe.js
 $env:INSOMNIUM_UI_BUILD_STATE='artifacts/native-recovery-copy-probe/build-state.json'
 $env:INSOMNIUM_OPENAPI_VERSIONS='3.0.3,3.0.4'
@@ -2022,7 +2017,6 @@ an original migration gate.
 ```powershell
 bun run check
 bun tests/ui/design-system.js
-bun scripts/ui-inventory.js
 bun tests/ui/build-recovery-copy-probe.js
 $env:INSOMNIUM_UI_BUILD_STATE='artifacts/native-recovery-copy-probe/build-state.json'
 bun tests/ui/openapi-form-body.js
@@ -2204,7 +2198,7 @@ preserved rather than normalized destructively.
   six headless profiles, ten help rows each, including complete original quoted
   parameterized media text. This does not prove native execution.
 - Final `bun run check`:0errors0warnings. Selected Prettier checks passed.
-- `bun scripts/ui-inventory.js`: sourceSHA256
+- Historical UI source inventory: sourceSHA256
   `60fc3f5aafef64a726858f23bb25925c269248d72a9d600f17a9de7bf5a39b19`,
   663 shared markup sites/118 tokens/1719 CSS declarations; no CSS change.
 
@@ -3279,7 +3273,6 @@ controls. Both planned counts must be checked against actual artifacts.
 ```powershell
 bun run check
 bun tests/ui/design-system.js
-bun scripts/ui-inventory.js
 bun tests/ui/build-recovery-copy-probe.js
 $env:INSOMNIUM_UI_BUILD_STATE='artifacts/native-recovery-copy-probe/build-state.json'
 $env:INSOMNIUM_OPENAPI_CASE_PREFIX='text-media-'

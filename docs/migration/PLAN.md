@@ -2,10 +2,15 @@
 
 ปรับแผน 2026-10-25 ตาม C:/Users/dvgamerr/.codex/AGENTS.md และคำสั่งให้ศึกษา Bun แทน QuickJS เป้าหมายยังเป็น migration ครบ scope ที่คงไว้หลัง owner ลด Generate Code เหลือ cURL Linux/Windows (2026-10-27)ใน [PARITY](PARITY.md), [ACCEPTANCE](ACCEPTANCE.md) และ topic contracts ไม่ตัด requirement หรือใช้ผลทดสอบเฉพาะส่วนปิดทั้งระบบ
 
-เจ้าของเริ่ม goal ใหม่และให้พัฒนาต่อแล้ว เริ่มที่ R0 และยืนยันให้คง sandbox เดิมที่จำกัดไฟล์/เครือข่าย Bun จึงยังไม่เป็น default จนผ่าน integration/authorization/containment gates ไม่ต่อเติม QuickJS polyfill ตามรายการ API โดยอัตโนมัติ
+เจ้าของให้เลื่อน P21 plugin/Bun ไปทำเป็นหัวข้อสุดท้ายหลังงาน migration หมวดอื่น โดยเริ่มงานข้อมูลและ recovery ต่อก่อน; R0/R8 ในตารางยังเป็นเกณฑ์ที่คงไว้ ไม่ใช่ลำดับทำก่อน R1 อีกต่อไป. QuickJS คงเป็น default และต้องรักษา sandbox จน Bun ผ่านทุก gate; ไม่ลด scope ของ P21
 
 ## หลักการทำงาน
 
+- ตามคำสั่งแก้วิธีทำงาน: หนึ่งงานต้องส่งมอบ workflow ที่ผู้ใช้ทำได้ครบ ระบุผลก่อน/หลังและเกณฑ์รับให้ชัด; test ย่อยผ่านเพิ่มไม่ใช่การปิดงานใหม่
+- คงหัวข้อที่เลือกจนแก้และตรวจรับครบ ห้ามหนีปัญหาที่รู้แล้วไปไล่ scenario ที่ผ่านง่าย; เปลี่ยนเรื่องได้เมื่อมี external blocker ที่ระบุได้หรือเจ้าของสั่ง
+- อ่าน instructions/แผนครั้งเดียวต่อ scope ที่ไม่เปลี่ยน แล้วอ่านเฉพาะ source/evidence ที่เกี่ยวข้อง; ทุกการตรวจต้องตอบคำถามที่ใช้ตัดสิน implementation ไม่วนเก็บหลักฐานโดยไม่แก้
+- รวม implementation ที่เกี่ยวข้องก่อนรัน checks/build ที่จำเป็น ใช้ผลเดิมที่ยังตรง source ได้; อัปเดตสรุปครั้งเดียวต่อ workflow ห้ามรายงานจำนวน test หรือสัดส่วนหมวดเป็นเปอร์เซ็นต์งานรวม
+- งาน migration อยู่ในสถานะพักตามคำสั่งเจ้าของ; การแก้วิธีทำงานครั้งนี้ไม่ใช่การ resume และ P21 ยังอยู่ท้ายแผน
 - ทำ workflow ให้ครบทีละเรื่อง มีงานพัฒนาเปิดพร้อมกันหนึ่งเรื่อง ใช้หลักฐานจาก source/caller/legacy ที่เกี่ยวข้องเลือกงาน ไม่เลือกเพราะเขียน test ง่ายหรือทำให้ receipt เขียว
 - ก่อนแก้ ระบุปัญหาที่เห็นจริง, callers/tests/fixtures/config/exports ที่ต้องเปลี่ยน, ผลต่อข้อมูล/ผู้ใช้ และเงื่อนไขปิดงาน ใช้ implementation/helper/dependency เดิมก่อนเพิ่มของใหม่
 - ตรวจความจำเป็นของ compatibility API จาก requirement และผู้เรียกจริง ไม่สร้าง browser/Node runtime ใหม่เพื่อไล่มาตรฐานครบทุก API รายการเดิมที่ยังหาที่มาไม่ได้ยังคงอยู่ใน backlog เพื่อทวน scope ไม่ลบเอง
@@ -16,7 +21,7 @@
 
 ## ลำดับส่งมอบและเกณฑ์ปิด
 
-ลำดับข้างล่างคือลำดับความสำคัญ ไม่ใช่การบังคับรอ blocker ที่ไม่เกี่ยวข้อง ถ้าติดภายนอกให้ระบุหลักฐาน/สิ่งที่ต้องใช้ แล้วเลือกงานอิสระถัดไปโดยคงงานเดิมไว้
+เริ่ม R1 แล้วทำหมวดอื่นที่ไม่ใช่ P21 ตามลำดับและ dependency ที่เกี่ยวข้อง; งาน runner/template ที่ไม่ใช่ P21 ทำต่อได้. ทำ R0 และส่วน plugin ของ R8 เป็นหัวข้อสุดท้ายก่อน audit ปิด migration; ตรวจ distribution ที่ Bun เปลี่ยนซ้ำหลัง P21. ถ้าติดภายนอกให้เลือกงานอิสระถัดไปโดยคงเกณฑ์เดิมไว้
 
 | ลำดับ | ชุดงาน | สิ่งที่ต้องส่งมอบและเกณฑ์ปิด | ขอบเขตที่อ้างอิง |
 | --- | --- | --- | --- |
@@ -31,14 +36,14 @@
 | R8 | Plugin, template และ runner | ใช้ runtime ที่ R0 เลือก รัน plugin/tag/hook/action/store/dialog และ suite/assertion จริงครบตาม inventory; Node modules/DOM bridge/async owner/limits/cancel/unload/repair/restart ไม่ข้ามสิทธิ์หรือเปลี่ยนข้อมูล; ปิด compatibility ที่ค้างตามสัญญาเดิม | [Plugins](PLUGINS.md), [Templating](TEMPLATING.md), [Runner](RUNNER.md) |
 | R9 | Git ครบวงจร | clone/status/stage/commit/branches/fetch/pull/merge/conflict/remote checkout/non-force push รวม recovery/process drain/provider/path/history/privacy; ตรวจของที่มีแล้วก่อนเพิ่ม implementation | [Git](GIT.md), [Import/export](IMPORT-EXPORT.md) |
 | R10 | Desktop และ accessibility | menus/shortcuts/dialogs/clipboard/window state/single-instance/OS-close, keyboard/focus/screen-reader/theme/resize และ actual picker/drag/provider ผ่าน workflow ที่เกี่ยวข้อง; รักษา Insomnium layout ระหว่าง migration | [Design](DESIGN.md), [UI tests](UI-TESTING.md), [Acceptance](ACCEPTANCE.md) |
-| R11 | Distribution, legal และ platform | current-source Windows/Linux/macOS build/runtime/install/update/uninstall/CI/signing ตาม scope, notices/source offers/linkage/license ครบ; exact package/source/runtime identity และ recovery ผ่านก่อนประกาศ release | [CI](CI.md), [Licenses](LICENSES.md), [BUILD.json](BUILD.json), [archive manifest](archive-manifest.json) |
+| R11 | Distribution, legal และ platform | current-source Windows/Linux/macOS build/runtime/install/update/uninstall/CI/signing ตาม scope, notices/source offers/linkage/license ครบ; exact package/source/runtime identity และ recovery ผ่านก่อนประกาศ release | [CI](CI.md), [Licenses](LICENSES.md), [BUILD.json](https://github.com/dvgamerr-app/insomnium-app/blob/fd3a1f6540d7a5530a3a830fb7ee97539c6eeb87/docs/migration/BUILD.json), [archive manifest](https://github.com/dvgamerr-app/insomnium-app/blob/fd3a1f6540d7a5530a3a830fb7ee97539c6eeb87/docs/migration/archive-manifest.json) |
 | R12 | ตรวจปิด migration และ UX | audit ทุก requirement/acceptance ในเอกสารกับ source และหลักฐานตรง scope; ไม่มี missing/partial/unverified หรือ owner removal ที่ยังไม่ชัด จึงปิด migration; ทำ shared inputs/UX ที่ยังค้างตามคำสั่งเจ้าของหลัง gate ที่เกี่ยวข้อง | [PARITY](PARITY.md), [ACCEPTANCE](ACCEPTANCE.md), [UX](POST-MIGRATION-UX.md) |
 
 R1–R3 เป็นฐานข้อมูล/ownership/network ร่วมของ R4–R9 ส่วน R6/R7/R9 ที่ไม่กระทบ blocker สามารถหยิบมาปิดก่อน R4 ได้ R10/R11 ตรวจล่วงหน้าทันทีเมื่อเปลี่ยน lifecycle/native/dependency/packaging ไม่สะสมปัญหาไปท้ายโครงการ งาน shared UI/Git/resize ที่เจ้าของอนุญาตไว้ยังอยู่ใน scope; ไม่เริ่ม redesign เพิ่มจากแผนนี้เอง
 
 ## R0: ใช้ Bun โดยตรงแทน QuickJS
 
-ให้ Bun sidecar เป็นตัวเลือกแรกที่ต้องพิสูจน์ก่อนลงทุนเพิ่มกับ QuickJS ใช้ Bun version ที่ project pin อยู่ ไม่ติดตั้ง runtime/dependency ใหม่เพื่อการศึกษาครั้งนี้
+เมื่อกลับมาทำ P21 ให้พิสูจน์ Bun sidecar ตาม gate นี้ ใช้ Bun version ที่ project pin อยู่ ไม่ติดตั้ง runtime/dependency ใหม่เพื่อการศึกษาครั้งนี้; ระหว่างนี้ใช้ QuickJS เดิม
 
 | เรื่อง | หลักฐานปัจจุบัน / งานที่ต้องพิสูจน์ |
 | --- | --- |
@@ -77,9 +82,9 @@ R1–R3 เป็นฐานข้อมูล/ownership/network ร่วม�
 
 | รายการ | การกระทำถัดไป |
 | --- | --- |
-| FileReaderSync baseline | QuickJS Windows NUL-safe/sync baseline ผ่านแล้ว; Bun lazy File adapter ลงโค้ดแล้วแต่ยัง unfinished: selected131,080byte native exercise ติด allocation ภายใต้128MiB, --smol/chunk-GC ไม่เสถียรและถอดออกแล้ว ดู artifacts/bun-selected-files-20261027/verification.json; isolate allocation ด้วย existing native session check ก่อน build/UI replay ใหม่ คง File API/provider/platform gates |
-| Bun migration | ทำ vertical proof หนึ่ง plugin จริงผ่าน Tauri → Bun → existing host helpers/DOM ก่อนขยาย API; ไม่ถอด QuickJS หรือเพิ่ม automatic trust จากผล CLI probe |
+| FileReaderSync/resource baseline | [Reply-buffer/memory/teardown](../../artifacts/bun-worker-lifetime-20261027/verification.json) ปิดnamed Windows regressionแล้ว: reused bounded buffer, budget error/Closedไม่panicค้าง, debug18DOM/File+6workflow jobs peak124.45MiB<128MiB. ถัดไปปิดremaining workload/hardware/native restart/OS-close/platform gates; ไม่ใช้ผลนี้ปิดทุกresource case |
+| Bun migration | Actions/helpers/editor/themes/reload/Windows user-close→reopenและprotocol/OAuth/gRPC/app helpersผ่านตาม [A21](ACCEPTANCE.md#a21); ถัดไปnative dialog owner/nested/stream/terminal callbacksและcookie/provider helpers รวมclose/resource/platform/activation gatesที่เหลือ คง4sessionsเดิม; FileReader/object URLยังไม่มีcallerในarchived coreที่ตรวจ จึงคงbacklogและไม่เพิ่มAPIจากรายชื่ออย่างเดียว |
 | Cross-owner QuickJS waits | installed FFI ไม่มี Promise-job owner hook; temporary global capability swap ไม่เพียงพอต่อ async/await ต้องใช้ runtime ที่มี provenance/authorization ที่พิสูจน์ได้ ไม่ปิด guard เพื่อให้ test ผ่าน |
 | Platform/provider/legal | ใช้เครื่อง/provider/credentials/toolchain ที่ตรง gate และมีสิทธิ์ก่อน verify; อย่าเปลี่ยน unavailable เป็น done การรอภายนอกไม่ขวางงานอิสระอื่น |
 
-[STATUS](STATUS.md) เป็นสถานะปัจจุบัน, [state.md](../../state.md) เป็น handoff สี่ส่วน, [README](README.md) เป็นดัชนี topic, BUILD.json/archive-manifest.json เป็นหลักฐาน version เดิม ไม่แก้ให้ดูเหมือนเป็น release ใหม่ Interface นี้เรียก /compact ไม่ได้ จึงรายงานข้อจำกัดตรง ๆ ไม่มีการ commit/publish โดยอัตโนมัติ
+[STATUS](STATUS.md) เป็นสถานะปัจจุบัน, [state.md](../../state.md) เป็น handoff สี่ส่วน, [README](README.md) เป็นดัชนี topic, [snapshot BUILD.json](https://github.com/dvgamerr-app/insomnium-app/blob/fd3a1f6540d7a5530a3a830fb7ee97539c6eeb87/docs/migration/BUILD.json)/[snapshot archive-manifest.json](https://github.com/dvgamerr-app/insomnium-app/blob/fd3a1f6540d7a5530a3a830fb7ee97539c6eeb87/docs/migration/archive-manifest.json) เป็นหลักฐาน version เดิม ไม่แก้ให้ดูเหมือนเป็น release ใหม่ Interface นี้เรียก /compact ไม่ได้ จึงรายงานข้อจำกัดตรง ๆ ไม่มีการ commit/publish โดยอัตโนมัติ

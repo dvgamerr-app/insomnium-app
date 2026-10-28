@@ -1,3 +1,36 @@
+<!-- requirement:readme:start -->
+# Insomnium
+
+| ภาพรวม | รายละเอียด |
+|---|---|
+| ระบบ | Desktop API client แบบ local-first สำหรับผู้พัฒนา API และผู้ทดสอบ |
+| งานหลัก | จัด collection/environment ส่ง requests ตรวจ responses และรัน assertions |
+| สถานะ | กำลัง migration จาก Electron/React เป็น Tauri/Svelte; ยังตรวจรับไม่ครบ |
+| MVP | Migration |
+| Open Questions | 1 เรื่อง |
+| อัปเดต | 2026-10-27 |
+
+```mermaid
+flowchart LR
+  request_editor[เลือกและแก้ request] --> render_context[Render environment และ template]
+  render_context --> validate_request[ตรวจข้อมูลและ owner]
+  validate_request --> native_transport[ส่งผ่าน native transport]
+  native_transport --> configured_api[API ที่ผู้ใช้กำหนด]
+  configured_api --> response_history[ตรวจ response และ history]
+```
+
+| ส่วนระบบ | หน้าที่ | เทคโนโลยี |
+|---|---|---|
+| Desktop UI | Collection, request editor และ response viewer | Svelte / JavaScript |
+| Native backend | Protocols, auth, local files และ Git | Tauri / Rust |
+| Plugins | Isolated tags/hooks/actions; Bun ยังเป็น candidate | QuickJS / Bun |
+| ข้อมูล | JSON workspace พร้อม backup/recovery; preview แยก storage | Local files / localStorage |
+
+- รองรับ HTTP, GraphQL, WebSocket, SSE, gRPC, OpenAPI, runner และ Git ตาม retained scope
+- คง UI เดิมระหว่าง migration; Generate Code เฉพาะ cURL Linux และ cURL Windows
+- [Requirements](docs/0-index.md) · [สถานะและหลักฐาน](docs/migration/STATUS.md) · [Parity](docs/migration/PARITY.md)
+<!-- requirement:readme:end -->
+
 # Insomnium — Tauri migration
 
 API client แบบ local-first กำลังย้ายจาก Electron/React ไป Tauri 2 + Svelte 5 (JavaScript) โดยคง layout และสีหลักของ Insomnium เดิม
@@ -58,15 +91,9 @@ JavaScript tooling ทุกคำสั่งใช้ Bun ไม่มี Node
 
 Source เดิมทั้งหมดอยู่ที่ `_backup/legacy-electron/` และถูก gitignore แล้ว เก็บไว้สำหรับอ้างอิง/rollback อย่าใช้ `git clean -dfX` เพราะจะลบ backup
 
-รายการไฟล์และ SHA-256 เดิมเก็บใน `docs/migration/archive-manifest.json` สำหรับเทียบกับ backup สคริปต์ archive แบบใช้ครั้งเดียวถูกถอดแล้ว เพราะผูกกับพาธ workspace เก่า
+รายการไฟล์และ SHA-256 เดิมเก็บใน [snapshot archive-manifest.json](https://github.com/dvgamerr-app/insomnium-app/blob/fd3a1f6540d7a5530a3a830fb7ee97539c6eeb87/docs/migration/archive-manifest.json) สำหรับเทียบกับ backup สคริปต์ archive แบบใช้ครั้งเดียวถูกถอดแล้ว เพราะผูกกับพาธ workspace เก่า
 
-ฐานข้อมูลผู้ใช้เดิมนอก repo ไม่ถูกย้ายหรือแก้ไข ถ้าจะย้ายข้อมูล ให้ปิดแอปเดิมแล้วเลือก `insomnia.*.db` หลายไฟล์พร้อมกันใน Import หรือแปลงเป็น export ด้วย Bun:
-
-```powershell
-bun scripts/convert-legacy.mjs "C:\path\to\legacy-data" "E:\exports\insomnium-legacy.json"
-```
-
-คำสั่งอ่าน source อย่างเดียว, ไม่เขียนทับ output ที่มีอยู่ และไม่คัดลอก response body/certificate/proto ที่อ้างถึงไฟล์ภายนอก ผลลัพธ์นำเข้าใน UI ได้ ข้อมูลที่ยังไม่รองรับถูกเก็บไว้ แต่ไม่ได้หมายความว่าใช้งานฟีเจอร์นั้นได้แล้ว
+ฐานข้อมูลผู้ใช้เดิมนอก repo ไม่ถูกย้ายหรือแก้ไข ถ้าจะย้ายข้อมูล ให้ปิดแอปเดิมแล้วเลือก `insomnia.*.db` หลายไฟล์พร้อมกันใน Import ของแอป ตรวจรายการใน Review import ก่อนยืนยัน โดยเก็บไฟล์ต้นฉบับไว้สำหรับกู้คืน
 
 Workspace ใหม่อยู่ใน app data directory ของ `app.insomnium.desktop`: `workspace-v1.json` และ `workspace-v1.previous.json` กรณีกู้คืน ให้ปิดแอป สำรองทั้งสองไฟล์ก่อน แล้วคัดลอกไฟล์ previous ที่ตรวจสอบแล้วมาแทน workspace ปัจจุบัน Export จาก UI เป็น resource export ไม่รวม settings/history; สำรอง workspace file และโฟลเดอร์ `cookies/` หากต้องการเก็บทั้งหมด
 
@@ -82,13 +109,13 @@ OAuth 2 ตอนนี้รองรับ Client Credentials, Password แบ
 
 ## ทำต่อข้าม session
 
-อ่านตามลำดับ: [AGENTS.md](AGENTS.md) → [STATUS](docs/migration/STATUS.md) → [PLAN](docs/migration/PLAN.md) → [PARITY](docs/migration/PARITY.md)
+อ่านตามลำดับ: [STATUS](docs/migration/STATUS.md) → [PLAN](docs/migration/PLAN.md) → [PARITY](docs/migration/PARITY.md)
 
 [Design/architecture](docs/migration/DESIGN.md) · [เอกสารและคำสั่งที่ใช้](docs/migration/COMMANDS.md)
 
 ใช้ข้อความนี้ใน session ใหม่:
 
-> ทำ migration E:\insomnium ต่อ อ่าน AGENTS.md และ docs/migration/STATUS.md, PLAN.md, PARITY.md ก่อน ทำ next action และอัปเดตสถานะทุก milestone ใช้ Bun เท่านั้น, Svelte JavaScript, คง UI เดิม, ไม่สร้าง test scripts ใหม่ และค้น official docs ก่อน implementation
+> ทำ migration E:\insomnium ต่อ อ่าน CLAUDE.md และ docs/migration/STATUS.md, PLAN.md, PARITY.md ก่อน ทำ next action และอัปเดตสถานะทุก milestone ใช้ Bun เท่านั้น, Svelte JavaScript, คง UI เดิม, ไม่สร้าง test scripts ใหม่ และค้น official docs ก่อน implementation
 
 MIT — ดู [LICENSE](LICENSE) ซึ่งเก็บลิขสิทธิ์เดิมครบถ้วน
 
